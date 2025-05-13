@@ -1,0 +1,17 @@
+services:
+  db:
+    hostname: db-disputes
+    # TODO: change to latest
+    image: bz_pg
+    restart: on-failure
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASS}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

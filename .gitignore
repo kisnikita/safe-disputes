@@ -1,0 +1,5 @@
+node_modules/
+.turbo
+/apps/backend/.env
+/apps/backend/.idea/
+/apps/web/.idea/

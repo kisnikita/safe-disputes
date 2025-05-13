@@ -1,0 +1,26 @@
+{
+  "name": "safedisputes",
+  "version": "1.0.0",
+  "packageManager": "npm@10.9.2",
+  "main": "index.js",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "turbo": "^2.5.3"
+  },
+  "dependencies": {
+    "@telegram-apps/sdk": "^3.9.2"
+  }
+}

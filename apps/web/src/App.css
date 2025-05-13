@@ -1,0 +1,94 @@
+/* src/App.css */
+
+/* Центрированный контейнер для загрузки и ошибок */
+.center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  /* Ошибочное сообщение */
+  .center.error p {
+    color: red;
+    font-weight: bold;
+  }
+  
+  /* Основной контейнер приложения */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+  }
+  
+  /* Контентная область */
+  .content {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  
+  /* Таб-бар внизу экрана */
+  .tabbar {
+    display: flex;
+    justify-content: space-around;
+    border-top: 1px solid #ccc;
+    padding: 8px 0;
+    background-color: #fafafa;
+  }
+  
+  .tabbar button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  
+  .tabbar button.active {
+    font-weight: bold;
+    color: #007bff;
+  }
+  
+  /* Подвкладки для раздела "Пари" */
+  .subtabs {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .subtabs button {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+  }
+  
+  .subtabs button.active {
+    font-weight: bold;
+    border-bottom: 2px solid #007bff;
+  }
+  
+  /* Содержимое подвкладок */
+  .subcontent {
+    padding: 8px;
+  }
+  
+  /* Раздел настроек */
+  .settings {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .settings label {
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+  
+  .settings input[type="text"],
+  .settings input[type="checkbox"] {
+    margin-left: 8px;
+  }
+  
