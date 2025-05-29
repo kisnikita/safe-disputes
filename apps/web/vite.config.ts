@@ -6,9 +6,9 @@ export default defineConfig({
   server: {
     port: 8081,
     // Разрешаем доступ из ngrok-хоста для Telegram WebApp
-    allowedHosts: ['2664-212-111-88-56.ngrok-free.app'],
+    // allowedHosts: ['2664-212-111-88-56.ngrok-free.app'],
     // Опционально, если нужно разрешить все хосты
-    // allowedHosts: 'all',
+    allowedHosts: true,
     proxy: {
         // Перенаправляем /api/* на localhost:8080
         '/api': {

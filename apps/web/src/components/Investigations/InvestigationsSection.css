@@ -1,0 +1,170 @@
+/* Общие стили кнопки как у .create-button */
+.rating-button {
+  /* убираем position/top/left из .create-button */
+  position: fixed;
+  top: 8px;
+  left: 16px;
+  z-index: 10;
+  padding: 8px 12px;
+  background: #3388ff;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rating-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.rating-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.rating-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* src/components/Investigations/InvestigationsSection.css */
+
+/* Контейнер всей секции — чтобы внутри располагался поток */
+html, body, #root, .app-root, .app, .content {
+  height: 100%;
+  margin: 0;
+}
+
+/* 2) Flex-контейнер для секции расследований */
+.investigations-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+/* 3) Хедер фиксированной высоты */
+.investigations-section .header {
+  flex: 0 0 48px; /* 48px по высоте */
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: #fff;
+  z-index: 2;
+}
+
+/* 4) Панель рейтинга на всё оставшееся пространство */
+.rating-panel {
+  flex: 1;             /* занимает всё, что осталось */
+  overflow-y: auto;    /* прокрутка, если нужно */
+  padding: 16px;
+  background: #f9f9f9;
+}
+
+/* 5) Карточки пользователей (как было) */
+.rating-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rating-panel li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+.rating-panel .rating-value {
+  font-weight: 600;
+  color: #3388ff;
+}
+
+/* скроллбар */
+.rating-panel::-webkit-scrollbar {
+  width: 8px;
+}
+.rating-panel::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+
+.main-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;              /* занимает всё пространство под header */
+}
+
+/* Вкладки занимают свою естественную высоту */
+.main-panel .subtabs {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 16px;
+}
+
+/* Контент (список расследований) растягивается и прокручивается */
+.main-panel .subcontent {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 16px;
+}
+
+/* Сбрасываем позиционирование карточек */
+.investigation-card {
+  position: relative;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  cursor: pointer;
+  margin-bottom: 12px; /* отступ между карточками */
+}
+
+.investigation-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+/* Бейдж результата */
+.result-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 1px solid;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+
+/* Точка цвета внутри бейджа */
+.result-badge .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.dot.green   { background: #2ecc71; }
+.dot.red     { background: #e74c3c; }
+.dot.yellow  { background: #f1c40f; }
+.dot.gray    { background: #95a5a6; }
+
+/* Голос пользователя (если есть) можно стилизовать аналогично claim-label */
+.vote-info {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: #3388ff;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}

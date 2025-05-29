@@ -24,3 +24,7 @@ func New(db *sql.DB, logger log.Logger) (*Repository, error) {
 		logger: logger,
 	}, nil
 }
+
+func (repo *Repository) StartTx() (*sql.Tx, error) {
+	return repo.db.Begin()
+}

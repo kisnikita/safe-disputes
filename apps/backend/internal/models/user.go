@@ -1,23 +1,32 @@
 package models
 
-import "time"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 type User struct {
-	ID                  string    `db:"id" json:"id"`
-	Username            string    `db:"username" json:"username"`
-	CreatedAt           time.Time `db:"created_at" json:"created_at"`
-	RefreshToken        string    `db:"refresh_token" json:"refresh_token"`
-	NotificationEnabled bool      `db:"notification_enabled" json:"notification_enabled"`
-	DisputeReadiness    bool      `db:"dispute_readiness" json:"dispute_readiness"`
+	ID                   uuid.UUID `db:"id" json:"id"`
+	Username             string    `db:"username" json:"username"`
+	ChatID               int64     `db:"chat_id" json:"chatID"`
+	CreatedAt            time.Time `db:"created_at" json:"createdAt"`
+	NotificationEnabled  bool      `db:"notification_enabled" json:"notificationEnabled"`
+	DisputeReadiness     bool      `db:"dispute_readiness" json:"disputeReadiness"`
+	MinimumDisputeAmount int       `db:"minimum_dispute_amount" json:"minimumDisputeAmount"`
+	Rating               int       `db:"rating" json:"rating"`
 }
 
-func NewUser(username string) *User {
-	return &User{
-		ID:                  uuid(),
-		Username:            username,
-		CreatedAt:           time.Now(),
-		RefreshToken:        "",
-		NotificationEnabled: false,
-		DisputeReadiness:    false,
+type UserUpdateOpts struct {
+	Username             string `json:"username"`
+	NotificationEnabled  *bool  `json:"notificationEnabled"`
+	DisputeReadiness     *bool  `json:"disputeReadiness"`
+	MinimumDisputeAmount *int   `json:"minimumDisputeAmount"`
+	Rating               *int   `json:"rating"`
+}
+
+func NewUser(username string) User {
+	return User{
+		ID:       uuid.New(),
+		Username: username,
 	}
 }

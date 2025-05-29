@@ -1,0 +1,14 @@
+/* src/components/Layout/AppRoot.css */
+.ton-button {
+  position: fixed;
+  top: 8px;
+  right: 16px;
+  z-index: 10;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.ton-button.hidden {
+  transform: translateY(-150%);
+  opacity: 0;
+  pointer-events: none;
+}

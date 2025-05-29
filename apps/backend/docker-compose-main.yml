@@ -2,7 +2,7 @@ services:
   db:
     hostname: db-disputes
     # TODO: change to latest
-    image: bz_pg
+    image: postgres
     restart: on-failure
     ports:
       - '5432:5432'

@@ -1,0 +1,24 @@
+.tabbar {
+    display: flex;
+    justify-content: space-around;
+    border-top: 1px solid #ccc;
+    padding: 8px 0;
+
+    margin-bottom: 24px;
+  }
+  
+  .tabbar button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  
+  .tabbar button.active {
+    font-weight: bold;
+    color: #007bff;
+  }
+  .tabbar button:not(.active):hover {
+    background: rgba(0,0,0,0.05);
+  }
+

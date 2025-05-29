@@ -1,0 +1,94 @@
+/* Overlay и карточка */
+.overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 30;
+}
+
+.detail-card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Кнопка закрытия */
+.close-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  border: none; background: transparent;
+  font-size: 1.5rem; cursor: pointer;
+}
+
+/* Заголовок с «к доказательствам» */
+.btn-next {
+  background: #3388ff;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+/* Изображение доказательства */
+.evidence-image {
+  display: block;
+  max-width: 100%;
+  margin: 1rem 0;
+  border-radius: 4px;
+}
+
+/* Навигация между доказательствами */
+.nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.nav-buttons button {
+  background: #3388ff;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.nav-buttons button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Блок голосования */
+.vote-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 1rem;
+}
+
+.vote-buttons button {
+  flex: 1;
+  background: #3388ff;
+  color: #fff;
+  border: none;
+  padding: 8px 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.vote-buttons button:nth-child(1) { background: #2ecc71; } /* Пользователь 1 */
+.vote-buttons button:nth-child(2) { background: #f1c40f; } /* Ничья */
+.vote-buttons button:nth-child(3) { background: #e74c3c; } /* Пользователь 2 */
+
+.vote-buttons button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -1,0 +1,128 @@
+/* src/components/Bets/BetDetailsModal.css */
+.overlay {
+  position: fixed; top:0; left:0; right:0; bottom:0;
+  background: rgba(0,0,0,0.5);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 30;
+}
+
+.detail-card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.close-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  border: none; background: transparent;
+  font-size: 1.5rem; cursor: pointer;
+}
+
+.header-with-back {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  position: relative;
+  padding-top: 2.5rem;
+}
+
+.back-btn {
+  position: absolute;
+  top: 0;
+  left: 0.0rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.detail-image {
+  display: block;
+  max-width: 100%;
+  margin-top: 1rem;
+  border-radius: 4px;
+}
+
+.form-actions, .action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.btn-submit {
+  background: #3388ff;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.remove-photo-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  z-index: 10;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 24px; height: 24px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.image-preview {
+  position: relative;
+  margin: 12px 0;
+  text-align: center;
+}
+
+.success-message {
+  font-size: 18px;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.btn-close-success {
+  display: block;
+  margin: 0 auto;
+  padding: 8px 16px;
+  background: #3388ff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+
+.btn-accept {
+  background: #2ecc71; /* зелёный */
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-reject {
+  background: #e74c3c; /* красный */
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Состояния disabled */
+.btn-accept:disabled,
+.btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

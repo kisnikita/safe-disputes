@@ -1,0 +1,92 @@
+.subtabs {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  margin-top: 40px;
+}
+
+.subtabs button {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  transition: color 0.2s;
+  flex: 1;
+}
+
+.subtabs button.active {
+  font-weight: bold;
+  border-bottom: 2px solid #007bff;
+  color: #3388ff;
+}
+
+.subtabs button:not(.active):hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Содержимое подвкладок */
+.subcontent {
+  padding: 8px;
+}
+
+/* BetsSection.css */
+.empty-message {
+  text-align: center;
+  color: #666;
+  padding: 16px;
+  font-size: 14px;
+}
+
+.bet-card {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  cursor: pointer; /* Показываем, что элемент кликабелен */
+}
+
+.bet-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+.result-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 1px solid;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.result-badge .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.dot.green { background: #2ecc71; }
+.dot.red   { background: #e74c3c; }
+.dot.yellow{ background: #f1c40f; }
+.dot.gray  { background: #95a5a6; }
+
+.claim-label {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: #2ecc71;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.bet-card {
+  position: relative;
+}

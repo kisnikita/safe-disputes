@@ -3,3 +3,4 @@ node_modules/
 /apps/backend/.env
 /apps/backend/.idea/
 /apps/web/.idea/
+.idea/
