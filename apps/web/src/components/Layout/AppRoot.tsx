@@ -25,7 +25,7 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
   const isVisible = !hideTonButton && scrollVisible;
 
   return (
-    <TonConnectUIProvider manifestUrl="https://YOUR_MANIFEST_URL">
+    <TonConnectUIProvider manifestUrl="https://tomato-adjacent-badger-155.mypinata.cloud/ipfs/bafkreidcmhwlwlsjqfuw23jphfvjdu2vyc2zwzmz2gyoxksjdjt4mgz5ru">
       <div className="app-root">
         <div className={`ton-button${isVisible ? '' : ' hidden'}`}>
           <TonConnectButton />

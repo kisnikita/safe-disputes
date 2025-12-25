@@ -35,10 +35,10 @@ export function useBetContract() {
             }, 
             "refund")
         },
-        win: (adress: Address) => {
+        win: (address: Address) => {
             const msg: Winner = {
                 $$type: 'Winner',
-                address: adress,
+                address: address,
             }
             betContract?.send(sender, {
                 value: toNano('0.02')

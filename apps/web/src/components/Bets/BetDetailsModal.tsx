@@ -210,7 +210,7 @@ export const BetDetailsModal: React.FC<Props> = ({
             <h3>{bet.title}</h3>
             <p><strong>Оппонент:</strong> {bet.opponent}</p>
             <p><strong>Ставка:</strong> {bet.amount} {bet.cryptocurrency}</p>
-            <p><strong>Создано (UTC+3):</strong> {formatDateUtcPlus3(bet.createdAt)}</p>
+            <p><strong>Создано:</strong> {formatDateUtcPlus3(bet.createdAt)}</p>
             <p><strong>Описание:</strong></p>
             <p>{bet.description}</p>
             {bet.imageData && (

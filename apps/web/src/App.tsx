@@ -28,7 +28,10 @@ export function App() {
 
       {showForm && (
         <CreateBetForm
-          onClose={() => setShowForm(false)}
+          onClose={() => {
+            setShowForm(false);
+            setModalOpen(false);
+          }}
           onCreated={() => betsSectionRef.current?.refresh()}
           onOpen={() => setModalOpen(true)}
         />
