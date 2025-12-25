@@ -1,6 +1,24 @@
+# OS
+.DS_Store
+
+# IDE / editors
+.idea/
+.vscode/
+.history/
+*.vsix
+Session.vim
+.vim/
+.nvim/
+.emacs/
+.helix/
+
+# Node / build caches
 node_modules/
 .turbo
-/apps/backend/.env
-/apps/backend/.idea/
-/apps/web/.idea/
-.idea/
+
+# Env files
+.env
+
+# blockchain
+blockchain/build/
+blockchain/temp/
