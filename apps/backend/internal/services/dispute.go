@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/kisnikita/safe-disputes/backend/internal/models"
 	"github.com/kisnikita/safe-disputes/backend/internal/repository"
@@ -462,6 +463,7 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	if u2dOp.Vote && !win {
 		res := models.DisputesResultLose
 		opts.ID = u2d.ID
+		opts.Result = &res
 		opts.Status = &status
 		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
