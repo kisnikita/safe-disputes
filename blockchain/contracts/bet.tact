@@ -11,6 +11,8 @@ contract Bet with Deployable {
   amount: Int;
   status: Int;
   id: Int as int32 = 0;
+  firstClaimed: Bool;
+  secondClaimed: Bool;
 
   init(id: Int) {
     self.firstPlayer  = null;
@@ -18,6 +20,8 @@ contract Bet with Deployable {
     self.amount       = 0;
     self.status       = 0;
     self.id           = id;
+    self.firstClaimed = false;
+    self.secondClaimed = false;
   }
 
   /// Первый игрок депонирует ставку
@@ -46,12 +50,49 @@ contract Bet with Deployable {
     // возвращаем всю сумму первому игроку
     message(MessageParameters{
             to: self.firstPlayer!!,
-            mode: SendRemainingValue | SendIgnoreErrors,
+            mode: SendRemainingBalance | SendDestroyIfZero,
             bounce: true,
-            body: "Refund".asComment(),
-            value: myBalance() - context().value - self.MinTonForStorage,
+            value: 0, // because of mode
         });
     self.status = 3;
+  }
+
+  /// Ничья: каждый игрок клеймит свою часть отдельно
+  receive("draw") {
+    require(self.status == 2, "Bet not accepted");
+    require(sender() == self.firstPlayer || sender() == self.secondPlayer, "Not a participant");
+
+    let isFirst = sender() == self.firstPlayer;
+
+    if (isFirst) {
+      require(!self.firstClaimed, "Already claimed");
+    } else {
+      require(!self.secondClaimed, "Already claimed");
+    }
+
+    let val = (myBalance() - context().value - self.MinTonForStorage) / 2;
+    let mode = SendRemainingValue;
+    if (self.firstClaimed || self.secondClaimed) {
+      val = 0; // because of mode
+      mode = SendRemainingBalance | SendDestroyIfZero;
+    }
+    
+    send(SendParameters{
+            to: sender(),
+            bounce: true,
+            value: val,
+            mode: mode
+        });
+
+    if (isFirst) {
+      self.firstClaimed = true;
+    } else {
+      self.secondClaimed = true;
+    }
+
+    if (self.firstClaimed && self.secondClaimed) {
+      self.status = 3;
+    }
   }
 
   /// Обычный метод (не receive) для завершения пари и выплаты выигрыша
@@ -62,8 +103,8 @@ contract Bet with Deployable {
     send(SendParameters{
             to: msg.address,
             bounce: true,
-            value: myBalance() - context().value - self.MinTonForStorage,
-            mode: SendRemainingValue + SendIgnoreErrors
+            value: 0, // because of mode
+            mode: SendRemainingBalance | SendDestroyIfZero
         });
     self.status = 3;
   }
