@@ -90,6 +90,11 @@
   margin: 24px 0;
 }
 
+.error-message {
+  color: #e74c3c;
+  margin: 8px 0 12px;
+}
+
 .btn-close-success {
   display: block;
   margin: 0 auto;

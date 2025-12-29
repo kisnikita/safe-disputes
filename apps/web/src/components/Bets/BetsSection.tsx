@@ -205,8 +205,10 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                       {badge.text}
                     </div>
                   )}
-
-                  {subtab === 'passed' && bet.claim && (
+                  {subtab === 'passed' && bet.claim && bet.result !== "win" && (
+                    <div className="claim-label">Возврат доступен</div>
+                  )}
+                  {subtab === 'passed' && bet.claim && bet.result === "win" && (
                     <div className="claim-label">Награда доступна</div>
                   )}
                 </div>

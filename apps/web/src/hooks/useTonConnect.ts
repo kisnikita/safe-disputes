@@ -4,8 +4,6 @@ import { SenderArguments, Sender, Address } from "@ton/core";
 
 export function useTonConnect(): {
     sender: Sender;
-    connected: boolean;
-    wallet: string | null;
     network: CHAIN | null;
 } {
     const [tonConnectUI] = useTonConnectUI()
@@ -14,7 +12,7 @@ export function useTonConnect(): {
     return {
         sender: {
             send: async (args: SenderArguments) => {
-              tonConnectUI.sendTransaction({
+              await tonConnectUI.sendTransaction({
                 messages: [
                   {
                     address: args.to.toString(),
@@ -27,9 +25,6 @@ export function useTonConnect(): {
             },
             address: wallet?.account?.address ? Address.parse(wallet?.account?.address) : undefined
           }, 
-
-        connected: !!wallet?.account.address,
-        wallet: wallet?.account.address ?? null,
         network: wallet?.account.chain ?? null,
     }
 }

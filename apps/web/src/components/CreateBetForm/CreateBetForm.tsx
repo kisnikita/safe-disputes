@@ -2,6 +2,7 @@
 import React, { useState, useRef, ChangeEvent, FormEvent, useEffect } from 'react';
 import './CreateBetForm.css';
 import { apiFetch } from '../../utils/apiFetch';
+import { useBetContract } from '../../hooks/useBetContract';
 
 interface Props {
   onClose: () => void;
@@ -20,6 +21,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
   useEffect(() => {
     onOpen();
   }, [onOpen]);
+
+  const { deposit } = useBetContract();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -59,6 +62,21 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setSuccess(false);
+
+    try {
+      await deposit(amount.toString());
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (/rejected|declined|cancel/i.test(msg)) {
+        setError('Транзакция отменена пользователем');
+      } else {
+        setError('Не удалось отправить транзакцию');
+      }
+      console.log('failed to deposit %s', msg);
+      setSubmitting(false);
+      return;
+    }
 
     const form = new FormData();
     form.append('title', title);

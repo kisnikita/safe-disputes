@@ -11,39 +11,50 @@ export function useBetContract() {
     
     const betContract = useAsyncInitialize(async () => {
         if (!client) return;
-        const contract = Bet.fromAddress(Address.parse("kQDGV8b1FlBVodFpTenYb0lvxQgF9CzM0l48OmZf7lytiVpp"));
+        const contract = Bet.fromAddress(Address.parse("EQDH-tF74ugbk1zZWk2Xtm6wu4aUL6JzCTRuO2Hul_XIEuNH"));
 
         return client.open(contract) as OpenedContract<Bet>;
     }, [client])
-    
+
     return {
-        deposit: (value: string) => {
-            betContract?.send(sender, {
+        deposit: async (value: string) => {
+            if (!betContract) throw new Error("contract not ready");
+            await betContract.send(sender, {
                 value: toNano(value)
             }, 
-            "deposit")
+            "deposit");
         },
-        accept: (value: string) => {
-            betContract?.send(sender, {
+        accept: async (value: string) => {
+            if (!betContract) throw new Error("contract not ready");
+            await betContract.send(sender, {
                 value: toNano(value)
             }, 
-            "accept")
+            "accept");
         },
-        refund: () => {
-            betContract?.send(sender, {
-                value: toNano('0.02')
+        refund: async () => {
+            if (!betContract) throw new Error("contract not ready");
+            await betContract.send(sender, {
+                value: toNano('0.01')
             }, 
-            "refund")
+            "refund");
         },
-        win: (address: Address) => {
+        win: async () => {
             const msg: Winner = {
                 $$type: 'Winner',
-                address: address,
+                address: sender.address ? sender.address : 
+                (() => { throw new Error("wallet address not found") })(),
             }
-            betContract?.send(sender, {
-                value: toNano('0.02')
-            }, msg)
+            if (!betContract) throw new Error("contract not ready");
+            await betContract.send(sender, {
+                value: toNano('0.01')
+            }, msg);
+        },
+        draw: async () => {
+            if (!betContract) throw new Error("contract not ready");
+            await betContract.send(sender, {
+                value: toNano('0.01')
+            }, 
+            "draw");
         }
-
     }
 }

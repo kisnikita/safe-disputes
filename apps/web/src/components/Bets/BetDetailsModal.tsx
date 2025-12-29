@@ -2,6 +2,7 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent, useRef } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 import './BetDetailsModal.css';
+import { useBetContract } from '../../hooks/useBetContract';
 
 interface Props {
   id: string;
@@ -24,15 +25,15 @@ interface BetDetail {
   imageData?: string;
   imageType?: string;
   result:
-    | 'evidence'
-    | 'sent'
-    | 'answered'
-    | 'inspected'
-    | 'win'
-    | 'lose'
-    | 'draw'
-    | 'rejected'
-    | 'processed';
+  | 'evidence'
+  | 'sent'
+  | 'answered'
+  | 'inspected'
+  | 'win'
+  | 'lose'
+  | 'draw'
+  | 'rejected'
+  | 'processed';
   claim: boolean;
   vote?: boolean; // true = win, false = lose
 }
@@ -49,11 +50,13 @@ export const BetDetailsModal: React.FC<Props> = ({
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [evidenceForm, setEvidenceForm] = useState(false);
   const [evidenceText, setEvidenceText] = useState('');
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { accept, refund, win, draw } = useBetContract();
 
   useEffect(() => {
     (async () => {
@@ -74,6 +77,23 @@ export const BetDetailsModal: React.FC<Props> = ({
   const handleAction = async (action: 'accept' | 'reject') => {
     if (!bet) return;
     setActionLoading(true);
+    setError(null);
+
+    try {
+      if (action === 'accept') {
+        await accept(bet.amount.toString());
+      } 
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (/rejected|declined|cancel/i.test(msg)) {
+        setError('Транзакция отменена пользователем');
+      } else {
+        setError('Не удалось отправить транзакцию');
+      }
+      console.log('failed to accept %s', msg);
+      setActionLoading(false);
+      return;
+    }
     try {
       const res = await apiFetch(`/api/v1/disputes/${id}/${action}`, { method: 'POST' });
       if (!res.ok) throw new Error();
@@ -104,14 +124,36 @@ export const BetDetailsModal: React.FC<Props> = ({
     }
   };
 
-  // Забрать награду
+  // Забрать награду/Вернуть средства
   const handleClaim = async () => {
     if (!bet) return;
     setActionLoading(true);
+    setError(null);
+    try {
+      if (bet.result === 'draw') {
+        await draw();
+      } else if (bet.result === 'win') {
+        await win();
+      } else if (bet.result === 'rejected') {
+        await refund();  
+      } else {
+        throw new Error('Unsupported bet result for claim');
+      }
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (/rejected|declined|cancel/i.test(msg)) {
+        setError('Транзакция отменена пользователем');
+      } else {
+        setError('Не удалось отправить транзакцию');
+      }
+      console.log('failed to claim bet with result %s %s', bet.result, msg);
+      setActionLoading(false);
+      return;
+    }
     try {
       const res = await apiFetch(`/api/v1/disputes/${id}/claim`, { method: 'POST' });
       if (!res.ok) throw new Error();
-      setSuccess('Награда успешно получена!');
+      setSuccess((bet.result === 'win' ? 'Награда успешно получена!' : 'Средства успешно возвращены!'));
     } catch {
       // ignore
     } finally {
@@ -173,10 +215,10 @@ export const BetDetailsModal: React.FC<Props> = ({
         </div>
       </div>
     );
-    
+
   }
 
-   const formatDateUtcPlus3 = (iso: string) => {
+  const formatDateUtcPlus3 = (iso: string) => {
     // Парсим ISO-время (UTC)
     const ms = Date.parse(iso);
     // Переводим в UTC: убираем локальное смещение
@@ -195,13 +237,14 @@ export const BetDetailsModal: React.FC<Props> = ({
     });
   };
 
-  
+
 
   // Основной рендер
   return (
     <div className="overlay">
       <div className="detail-card">
         {loading && <p>Загрузка…</p>}
+        {error && <p className="error-message">{error}</p>}
 
         {/* Просмотр деталей */}
         {!loading && bet && !evidenceForm && (
@@ -281,7 +324,7 @@ export const BetDetailsModal: React.FC<Props> = ({
               </button>
             )}
 
-            {/* Кнопка «Забрать награду» (passed) */}
+            {/* Кнопка «Забрать награду/Вернуть средства» (passed) */}
             {showClaimActions && bet.claim && (
               <div className="action-buttons">
                 <button
@@ -289,7 +332,7 @@ export const BetDetailsModal: React.FC<Props> = ({
                   disabled={actionLoading}
                   onClick={handleClaim}
                 >
-                  {actionLoading ? '…' : 'Забрать награду'}
+                  {actionLoading ? '…' : (bet.result === 'win' ? 'Забрать награду' : 'Вернуть средства')}
                 </button>
               </div>
             )}
