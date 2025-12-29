@@ -5,6 +5,8 @@ import { SenderArguments, Sender, Address } from "@ton/core";
 export function useTonConnect(): {
     sender: Sender;
     network: CHAIN | null;
+    address: string | null;
+    connected: boolean;
 } {
     const [tonConnectUI] = useTonConnectUI()
     const wallet = useTonWallet()
@@ -26,5 +28,7 @@ export function useTonConnect(): {
             address: wallet?.account?.address ? Address.parse(wallet?.account?.address) : undefined
           }, 
         network: wallet?.account.chain ?? null,
+        address: wallet?.account.address ?? null,
+        connected: !!wallet,
     }
 }

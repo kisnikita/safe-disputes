@@ -1,15 +1,14 @@
 // src/components/Layout/CreateBetButton.tsx
 import React, { useState, useEffect } from 'react';
-import { useTonWallet } from '@tonconnect/ui-react';
 import './CreateBetButton.css';
+import { useTonConnect } from '../../hooks/useTonConnect';
 
 interface Props {
   onOpenForm: () => void;
 }
 
 export const CreateBetButton: React.FC<Props> = ({ onOpenForm }) => {
-  const wallet = useTonWallet();
-  const disabled = !wallet;
+  const { address, connected } = useTonConnect();
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -36,9 +35,9 @@ export const CreateBetButton: React.FC<Props> = ({ onOpenForm }) => {
   return (
     <button
       className={`create-button${visible ? '' : ' hidden'}`}
-      onClick={() => !disabled && onOpenForm()}
-      disabled={disabled}
-      title={disabled ? 'Сначала подключите TON-кошелёк' : wallet?.account.address}
+      onClick={() => connected && onOpenForm()}
+      disabled={!connected}
+      title={connected ? address!! : 'Сначала подключите TON-кошелёк'}
     >
       Создать пари
     </button>
