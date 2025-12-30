@@ -71,8 +71,9 @@ func NewDisputeService(repo *repository.Repository, log log.Logger, msgSender Me
 }
 
 func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Dispute, creatorUsername string) error {
-	if dispute.Title == "" || dispute.Description == "" || dispute.Opponent == "" || dispute.Amount <= 0 {
-		return fmt.Errorf("invalid dispute data: title, description, opponent and amount must be provided")
+	if dispute.Title == "" || dispute.Description == "" || dispute.Opponent == "" || 
+		dispute.Amount <= 0 || dispute.ContractAddress == "" {
+		return fmt.Errorf("invalid data for disute creation")
 	}
 
 	opponent, err := s.userFinder.GetUserByUsername(ctx, dispute.Opponent)

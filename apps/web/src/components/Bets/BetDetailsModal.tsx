@@ -20,6 +20,7 @@ interface BetDetail {
   amount: number;
   opponent: string;
   cryptocurrency: string;
+  contractAddress: string;
   createdAt: string;
   updatedAt: string;
   imageData?: string;
@@ -81,8 +82,8 @@ export const BetDetailsModal: React.FC<Props> = ({
 
     try {
       if (action === 'accept') {
-        await accept(bet.amount.toString());
-      } 
+        await accept(bet.contractAddress, bet.amount.toString());
+      }
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel/i.test(msg)) {
@@ -131,11 +132,11 @@ export const BetDetailsModal: React.FC<Props> = ({
     setError(null);
     try {
       if (bet.result === 'draw') {
-        await draw();
+        await draw(bet.contractAddress);
       } else if (bet.result === 'win') {
-        await win();
+        await win(bet.contractAddress);
       } else if (bet.result === 'rejected') {
-        await refund();  
+        await refund(bet.contractAddress);  
       } else {
         throw new Error('Unsupported bet result for claim');
       }

@@ -1,20 +1,24 @@
 import "@stdlib/deploy";
 
-message Winner {
+message(0x555137ff) Winner {
     address: Address;
 }
 
-contract Bet with Deployable {
+message(0x3f1d2f2f) Deposit {
+    player: Address;
+}
+
+contract Bet {
   const MinTonForStorage: Int = ton("0.01"); 
   firstPlayer: Address?;
   secondPlayer: Address?;
   amount: Int;
-  status: Int;
-  id: Int as int32 = 0;
+  status: Int as int8; // 0 - NEW, 1 - DEPOSITED, 2 - ACCEPTED, 3 - FINISHED
+  id: Int as int128 = 0;
   firstClaimed: Bool;
   secondClaimed: Bool;
 
-  init(id: Int) {
+  init(id: Int as int128) {
     self.firstPlayer  = null;
     self.secondPlayer = null;
     self.amount       = 0;
@@ -24,20 +28,21 @@ contract Bet with Deployable {
     self.secondClaimed = false;
   }
 
-  /// Первый игрок депонирует ставку
-  receive("deposit") {
+  receive(msg: Deposit) {
     require(self.status == 0, "Already deposited or finished");
+    require(self.firstPlayer == null, "First player already set");
     require(context().value > 0, "Amount must be > 0");
 
-    self.firstPlayer = sender();
+    self.firstPlayer = msg.player;
     self.amount = context().value;
     self.status = 1;
   }
 
   /// Второй игрок принимает пари
   receive("accept") {
-    require(self.status == 1, "Bet not in NEW status");
-    require(context().value == self.amount, "Wrong amount");
+    require(self.status == 1, "Bet not in DEPOSITED status");
+    require(self.firstPlayer != null, "First player not set");
+    require(sender() != self.firstPlayer!!, "Cannot accept own bet");
 
     self.secondPlayer = sender();
     self.amount       += context().value;
@@ -77,7 +82,7 @@ contract Bet with Deployable {
       mode = SendRemainingBalance | SendDestroyIfZero;
     }
     
-    send(SendParameters{
+    message(MessageParameters{
             to: sender(),
             bounce: true,
             value: val,
@@ -100,7 +105,7 @@ contract Bet with Deployable {
     require(self.status == 2, "Bet not accepted");
     require(msg.address == self.firstPlayer || msg.address == self.secondPlayer, "Invalid winner");
 
-    send(SendParameters{
+    message(MessageParameters{
             to: msg.address,
             bounce: true,
             value: 0, // because of mode

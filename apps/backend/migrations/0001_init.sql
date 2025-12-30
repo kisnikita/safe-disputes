@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS DISPUTES (
     cryptocurrency VARCHAR(50),
     amount NUMERIC,
     image_data   BYTEA   NULL,
-    image_type   TEXT    NULL
+    image_type   TEXT    NULL,
+    contract_address TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS USER2DISPUTE (

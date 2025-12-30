@@ -3,16 +3,17 @@ package repository
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/kisnikita/safe-disputes/backend/internal/models"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/kisnikita/safe-disputes/backend/internal/models"
 )
 
 func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Dispute) error {
 	_, err := repo.db.ExecContext(ctx, `
-	INSERT INTO disputes (id, title, description, created_at, updated_at, cryptocurrency, amount, image_data, image_type) 
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+	INSERT INTO disputes (id, title, description, created_at, updated_at, cryptocurrency, amount, image_data, image_type, contract_address) 
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		dispute.ID,
 		dispute.Title,
 		dispute.Description,
@@ -22,6 +23,7 @@ func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Disput
 		dispute.Amount,
 		dispute.ImageData,
 		dispute.ImageType,
+		dispute.ContractAddress,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert dispute: %w", err)
@@ -140,7 +142,8 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 			d.created_at, d.updated_at, 
 			d.cryptocurrency, d.amount, 
 			d.image_data, d.image_type,
-			u.result, u.claim, u.vote
+			u.result, u.claim, u.vote,
+			d.contract_address
 		FROM disputes d
 		JOIN user2dispute u ON d.id = u.dispute_id
 		WHERE d.id = $1 AND u.user_id = $2`,
@@ -158,6 +161,7 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 		&d.Result,
 		&d.Claim,
 		&d.Vote,
+		&d.ContractAddress,
 	)
 	if err != nil {
 		return models.Dispute{}, fmt.Errorf("failed to get dispute by ID: %w", err)

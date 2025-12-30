@@ -2,6 +2,7 @@
 import React, { useState, useRef, ChangeEvent, FormEvent, useEffect } from 'react';
 import './CreateBetForm.css';
 import { apiFetch } from '../../utils/apiFetch';
+import { useBetMasterContract } from '../../hooks/useBetMasterContract';
 import { useBetContract } from '../../hooks/useBetContract';
 
 interface Props {
@@ -22,7 +23,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     onOpen();
   }, [onOpen]);
 
-  const { deposit } = useBetContract();
+  const { getAddress } = useBetContract();
+  const { createBetWithDeposit } = useBetMasterContract();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -36,6 +38,12 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const generateBetId = (): bigint => {
+    const uuid = crypto?.randomUUID?.();
+    if (!uuid) throw new Error('crypto.randomUUID not available');
+
+    return BigInt(`0x${uuid.replace(/-/g, '')}`);
+  };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -64,14 +72,31 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     setError(null);
     setSuccess(false);
 
+    let betID: bigint;
+    let betAddress: string;
     try {
-      await deposit(amount.toString());
+      betID = generateBetId();
+    } catch {
+      setError('Не удалось сгенерировать ID пари');
+      setSubmitting(false);
+      return;
+    }
+    try {
+      betAddress = (await getAddress(betID)).toString();
+    } catch {
+      setError('Не удалось вычислить адрес контракта пари');
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      await createBetWithDeposit(betID, amount.toString());
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel/i.test(msg)) {
         setError('Транзакция отменена пользователем');
       } else {
-        setError('Не удалось отправить транзакцию');
+        setError('Не удалось развернуть контракт и внести депозит');
       }
       console.log('failed to deposit %s', msg);
       setSubmitting(false);
@@ -83,6 +108,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     form.append('description', description);
     form.append('opponent', opponent);
     form.append('amount', amount.toString());
+    form.append('contractAddress', betAddress);
     if (file) form.append('image', file);
 
     try {
@@ -92,29 +118,23 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
       });
 
       if (!res.ok) {
-        let serverError: string;
+        let serverError = `Ошибка ${res.status}`;
         try {
           const errPayload = await res.json();
-          serverError = typeof errPayload.error === 'string'
-            ? errPayload.error
-            : `Ошибка ${res.status}`;
-        } catch {
-          serverError = `Ошибка ${res.status}`;
-        }
+          if (typeof errPayload.error === 'string') serverError = errPayload.error;
+        } catch { } // ignore JSON parse errors
         throw new Error(serverError);
       }
-
-      // Успех: показываем сообщение, оставляем форму открытой
-      setSuccess(true);
     } catch (err: any) {
-      const key = Object.keys(errorMessages)
-        .find(k => err.message.includes(k))
-        ?? err.message;
-      const userMsg = errorMessages[key] || `Не удалось создать пари: ${key}`;
-      setError(userMsg);
+      const key = Object.keys(errorMessages).find(k => err.message.includes(k)) ?? err.message;
+      setError(errorMessages[key] || `Не удалось создать пари: ${key}`);
+      return;
     } finally {
       setSubmitting(false);
     }
+
+    // Успех: показываем сообщение, оставляем форму открытой
+    setSuccess(true);
   };
 
   return (

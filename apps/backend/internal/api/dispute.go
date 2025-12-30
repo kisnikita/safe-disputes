@@ -3,16 +3,17 @@ package api
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/kisnikita/safe-disputes/backend/internal/models"
 	"github.com/kisnikita/safe-disputes/backend/internal/repository"
 	"github.com/kisnikita/safe-disputes/backend/internal/services"
 	"github.com/kisnikita/safe-disputes/backend/pkg/log"
 	"go.uber.org/zap"
-	"io"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 type DisputeCreator interface {
@@ -65,14 +66,11 @@ func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFun
 			return
 		}
 
-		title := c.PostForm("title") // title is empty
-		description := c.PostForm("description")
-		opponent := c.PostForm("opponent")
-		amountStr := c.PostForm("amount")
-		amount, _ := strconv.ParseInt(amountStr, 10, 32)
-
-		var imageData []byte
-		var imageType string
+		var req models.CreateDisputeReq
+		if err := c.ShouldBind(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
 
 		// читаем файл из multipart
 		if fileHeader, err := c.FormFile("image"); err == nil {
@@ -89,27 +87,28 @@ func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFun
 				c.JSON(500, gin.H{"error": "cannot read uploaded file"})
 				return
 			}
-			imageData = buf
-			imageType = fileHeader.Header.Get("Content-Type") // например "image/jpeg"
+			req.ImageData = buf
+			req.ImageType = fileHeader.Header.Get("Content-Type") // например "image/jpeg"
 		}
 
-		dispute := models.NewDispute(title, description, opponent, int(amount), imageData, imageType)
+		dispute := models.NewDispute(req)
 		err := disputeCreator.CreateDispute(c, dispute, creator)
 		switch {
 		case errors.Is(err, services.ErrUserNotFound):
-			log.Error("opponent not found", zap.String("opponent", opponent), zap.Error(err))
+			log.Error("opponent not found", zap.String("opponent", req.Opponent), zap.Error(err))
 			c.JSON(404, gin.H{"error": "opponent not found"})
 			return
 		case errors.Is(err, services.ErrMinimalAmount):
-			log.Error("amount too less", zap.Int64("amount", amount), zap.Error(err))
+			log.Error("amount too less", zap.Int("amount", dispute.Amount), zap.Error(err))
 			c.JSON(400, gin.H{"error": "amount too less"})
 			return
 		case errors.Is(err, services.ErrUnready):
-			log.Error("opponent not ready", zap.String("opponent", opponent), zap.Error(err))
+			log.Error("opponent not ready", zap.String("opponent", req.Opponent), zap.Error(err))
 			c.JSON(400, gin.H{"error": "opponent not ready"})
 			return
 		case err != nil:
-			log.Error("failed to create dispute", zap.String("title", title), zap.String("opponent", opponent), zap.Error(err))
+			log.Error("failed to create dispute", zap.String("title", req.Title), zap.String("opponent", req.Opponent),
+				zap.Error(err))
 			c.JSON(500, gin.H{"error": "internal server error"})
 			return
 		}
