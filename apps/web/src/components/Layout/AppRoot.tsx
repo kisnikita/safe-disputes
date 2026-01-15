@@ -12,6 +12,14 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
   const [scrollVisible, setScrollVisible] = useState(true);
 
   useEffect(() => {
+    const webApp = (window as any)?.Telegram?.WebApp;
+    if (!webApp) return;
+    webApp.setBackgroundColor?.('#ffffff');
+    webApp.setHeaderColor?.('#ffffff');
+    webApp.setBottomBarColor?.('#ffffff');
+  }, []);
+
+  useEffect(() => {
     const container = document.querySelector<HTMLElement>('.content');
     if (!container) return;
     const HIDE_THRESHOLD = 30;

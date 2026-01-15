@@ -1,24 +1,46 @@
 .tabbar {
-    display: flex;
-    justify-content: space-around;
-    border-top: 1px solid #ccc;
-    padding: 8px 0;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #ccc;
+  padding: 12px 16px 48px;
+  margin-bottom: 0;
+}
 
-    margin-bottom: 24px;
-  }
-  
-  .tabbar button {
-    background: none;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
-  }
-  
-  .tabbar button.active {
-    font-weight: bold;
-    color: #007bff;
-  }
-  .tabbar button:not(.active):hover {
-    background: rgba(0,0,0,0.05);
-  }
+.tabbar button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #111;
+  padding: 12px 0 14px;
+  position: relative;
+  transition: color 0.2s ease, background 0.2s ease;
+  border-radius: 10px;
+  flex: 1;
+  text-align: center;
+}
 
+.tabbar button.active {
+  font-weight: bold;
+  color: #007bff;
+}
+
+.tabbar button.active::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 2px;
+  height: 2px;
+  background: #007bff;
+  border-radius: 2px;
+}
+
+.tabbar button:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.tabbar button:focus-visible {
+  outline: 2px solid #3388ff;
+  outline-offset: 2px;
+}

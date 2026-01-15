@@ -6,6 +6,9 @@
   left: 16px;
   z-index: 10;
   padding: 8px 12px;
+  min-width: calc(11ch + 28px);
+  min-height: 40px;
+  text-align: center;
   background: #3388ff;
   color: #fff;
   border: none;
