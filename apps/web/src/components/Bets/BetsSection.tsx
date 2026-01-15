@@ -227,7 +227,6 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
             id={selectedId}
             onClose={closeDetails}
             onCompleted={() => {
-              closeDetails();
               fetchFirstPage();
             }}
             showActions={subtab === 'new'}

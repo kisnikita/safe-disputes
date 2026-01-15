@@ -1,5 +1,6 @@
 // src/components/Investigations/InvestigationDetailsModal.tsx
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './InvestigationDetailsModal.css';
 
@@ -118,7 +119,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
     setVoteLoading(false);
   };
 
-  return (
+  const modal = (
     <div className="overlay">
       <div className="detail-card">
         <button className="close-btn" onClick={onClose}>×</button>
@@ -166,4 +167,10 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') {
+    return modal;
+  }
+
+  return createPortal(modal, document.body);
 };

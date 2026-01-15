@@ -167,10 +167,14 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
   };
 
   return (
-    <div className={`overlay${isOpen ? ' open' : ''}`}>
+    <div
+      className={`create-bet-overlay${isOpen ? ' open' : ''}`}
+      onClick={requestClose}
+    >
       <form
-        className={`form-card${isOpen ? ' open' : ''}`}
+        className={`form-card create-bet-card${isOpen ? ' open' : ''}`}
         onSubmit={handleSubmit}
+        onClick={e => e.stopPropagation()}
         onTransitionEnd={e => {
           if (!isClosing) return;
           if (e.propertyName !== 'opacity') return;
@@ -183,6 +187,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
           onClose();
         }}
       >
+        <button className="close-btn" type="button" onClick={requestClose}>×</button>
         <h3>Новое пари</h3>
 
         {error && <div className="error-message">{error}</div>}
@@ -269,14 +274,6 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
             )}
 
             <div className="form-actions">
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={requestClose}
-                disabled={submitting || isClosing}
-              >
-                Отмена
-              </button>
               <button
                 type="submit"
                 className="btn-submit"

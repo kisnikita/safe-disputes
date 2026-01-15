@@ -21,11 +21,11 @@ export function App() {
   if (status === 'error')   return <div className="center error"><p>{error}</p></div>;
 
   return (
-    <AppRoot hideTonButton={showForm || modalOpen}>
+    <AppRoot hideTonButton={showForm}>
       {activeTab === 'bets' && (
         <CreateBetButton
           onOpenForm={() => setShowForm(true)}
-          forceHidden={showForm || modalOpen}
+          forceHidden={showForm}
         />
       )}
 

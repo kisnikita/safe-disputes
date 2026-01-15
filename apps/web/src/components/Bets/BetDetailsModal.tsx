@@ -1,5 +1,6 @@
 // src/components/Bets/BetDetailsModal.tsx
 import React, { useState, useEffect, ChangeEvent, FormEvent, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './BetDetailsModal.css';
 import { useBetContract } from '../../hooks/useBetContract';
@@ -47,6 +48,10 @@ export const BetDetailsModal: React.FC<Props> = ({
   showResultActions,
   showClaimActions,
 }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimeoutRef = useRef<number | null>(null);
+  const hasClosedRef = useRef(false);
   const [bet, setBet] = useState<BetDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -58,6 +63,18 @@ export const BetDetailsModal: React.FC<Props> = ({
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { accept, refund, win, draw } = useBetContract();
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setIsOpen(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current !== null) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -198,26 +215,17 @@ export const BetDetailsModal: React.FC<Props> = ({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // UI состояния успеха
-  if (success) {
-    return (
-      <div className="overlay">
-        <div className="detail-card">
-          <p className="success-message">{success}</p>
-          <button
-            className="btn-close-success"
-            onClick={() => {
-              onClose();
-              onCompleted();
-            }}
-          >
-            Закрыть
-          </button>
-        </div>
-      </div>
-    );
-
-  }
+  const requestClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setIsOpen(false);
+    hasClosedRef.current = false;
+    closeTimeoutRef.current = window.setTimeout(() => {
+      if (hasClosedRef.current) return;
+      hasClosedRef.current = true;
+      onClose();
+    }, 100);
+  };
 
   const formatDateUtcPlus3 = (iso: string) => {
     // Парсим ISO-время (UTC)
@@ -238,19 +246,66 @@ export const BetDetailsModal: React.FC<Props> = ({
     });
   };
 
-
-
-  // Основной рендер
-  return (
-    <div className="overlay">
-      <div className="detail-card">
+  // UI состояния успеха
+  const modal = success ? (
+    <div
+      className={`bet-details-overlay${isOpen ? ' open' : ''}`}
+      onClick={requestClose}
+    >
+      <div
+        className={`detail-card bet-details-card${isOpen ? ' open' : ''}`}
+        onClick={e => e.stopPropagation()}
+        onTransitionEnd={e => {
+          if (!isClosing) return;
+          if (e.propertyName !== 'opacity') return;
+          if (e.currentTarget !== e.target) return;
+          if (closeTimeoutRef.current !== null) {
+            clearTimeout(closeTimeoutRef.current);
+          }
+          if (hasClosedRef.current) return;
+          hasClosedRef.current = true;
+          onClose();
+        }}
+      >
+        <p className="success-message">{success}</p>
+        <button
+          className="btn-close-success"
+          onClick={() => {
+            onCompleted();
+            requestClose();
+          }}
+        >
+          Закрыть
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div
+      className={`bet-details-overlay${isOpen ? ' open' : ''}`}
+      onClick={requestClose}
+    >
+      <div
+        className={`detail-card bet-details-card${isOpen ? ' open' : ''}`}
+        onClick={e => e.stopPropagation()}
+        onTransitionEnd={e => {
+          if (!isClosing) return;
+          if (e.propertyName !== 'opacity') return;
+          if (e.currentTarget !== e.target) return;
+          if (closeTimeoutRef.current !== null) {
+            clearTimeout(closeTimeoutRef.current);
+          }
+          if (hasClosedRef.current) return;
+          hasClosedRef.current = true;
+          onClose();
+        }}
+      >
         {loading && <p>Загрузка…</p>}
         {error && <p className="error-message">{error}</p>}
 
         {/* Просмотр деталей */}
         {!loading && bet && !evidenceForm && (
           <>
-            <button className="close-btn" onClick={onClose}>×</button>
+            <button className="close-btn" onClick={requestClose}>×</button>
             <h3>{bet.title}</h3>
             <p><strong>Оппонент:</strong> {bet.opponent}</p>
             <p><strong>Ставка:</strong> {bet.amount} {bet.cryptocurrency}</p>
@@ -317,12 +372,14 @@ export const BetDetailsModal: React.FC<Props> = ({
 
             {/* Кнопка «Внести доказательства» (evidence) */}
             {bet.result === 'evidence' && (
-              <button
-                className="btn-submit"
-                onClick={() => setEvidenceForm(true)}
-              >
-                Внести доказательства
-              </button>
+              <div className="action-buttons">
+                <button
+                  className="btn-submit"
+                  onClick={() => setEvidenceForm(true)}
+                >
+                  Внести доказательства
+                </button>
+              </div>
             )}
 
             {/* Кнопка «Забрать награду/Вернуть средства» (passed) */}
@@ -402,4 +459,11 @@ export const BetDetailsModal: React.FC<Props> = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') {
+    return modal;
+  }
+
+  // Основной рендер
+  return createPortal(modal, document.body);
 };

@@ -38,7 +38,7 @@ export const CreateBetButton: React.FC<Props> = ({ onOpenForm, forceHidden = fal
       className={`create-button${visible && !forceHidden ? '' : ' hidden'}`}
       onClick={() => connected && onOpenForm()}
       disabled={!connected}
-      title={connected ? address!! : 'Сначала подключите TON-кошелёк'}
+      title={connected ? undefined : 'Сначала подключите TON-кошелёк'}
     >
       Создать пари
     </button>

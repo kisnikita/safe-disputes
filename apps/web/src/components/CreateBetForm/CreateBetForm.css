@@ -1,7 +1,7 @@
 /* src/components/CreateBetForm/CreateBetForm.css */
 
 /* Overlay */
-.overlay {
+.create-bet-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.5);
@@ -14,7 +14,7 @@
   opacity: 0;
   transition: opacity 220ms ease;
 }
-.overlay.open {
+.create-bet-overlay.open {
   opacity: 1;
 }
 
@@ -28,16 +28,27 @@
   overflow-y: auto;
   padding: 1.5rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.create-bet-card {
   transform: translateY(12px) scale(0.98);
   opacity: 0;
   transition: transform 240ms ease, opacity 240ms ease;
 }
-.form-card.open {
+.create-bet-card.open {
   transform: translateY(0) scale(1);
   opacity: 1;
 }
 .form-card h3 {
   margin-top: 0;
+}
+.form-card .close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  cursor: pointer;
 }
 
 /* Labels & inputs */
@@ -136,8 +147,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .overlay,
-  .form-card {
+  .create-bet-overlay,
+  .create-bet-card {
     transition: none;
     transform: none;
   }
