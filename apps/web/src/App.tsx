@@ -22,8 +22,11 @@ export function App() {
 
   return (
     <AppRoot hideTonButton={showForm || modalOpen}>
-      {activeTab === 'bets' && !showForm && !modalOpen && (
-        <CreateBetButton onOpenForm={() => setShowForm(true)} />
+      {activeTab === 'bets' && (
+        <CreateBetButton
+          onOpenForm={() => setShowForm(true)}
+          forceHidden={showForm || modalOpen}
+        />
       )}
 
       {showForm && (

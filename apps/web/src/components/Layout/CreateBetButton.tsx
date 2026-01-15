@@ -5,9 +5,10 @@ import { useTonConnect } from '../../hooks/useTonConnect';
 
 interface Props {
   onOpenForm: () => void;
+  forceHidden?: boolean;
 }
 
-export const CreateBetButton: React.FC<Props> = ({ onOpenForm }) => {
+export const CreateBetButton: React.FC<Props> = ({ onOpenForm, forceHidden = false }) => {
   const { address, connected } = useTonConnect();
   const [visible, setVisible] = useState(true);
 
@@ -34,7 +35,7 @@ export const CreateBetButton: React.FC<Props> = ({ onOpenForm }) => {
 
   return (
     <button
-      className={`create-button${visible ? '' : ' hidden'}`}
+      className={`create-button${visible && !forceHidden ? '' : ' hidden'}`}
       onClick={() => connected && onOpenForm()}
       disabled={!connected}
       title={connected ? address!! : 'Сначала подключите TON-кошелёк'}

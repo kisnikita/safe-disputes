@@ -23,6 +23,23 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     onOpen();
   }, [onOpen]);
 
+  const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimeoutRef = useRef<number | null>(null);
+  const hasClosedRef = useRef(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setIsOpen(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current !== null) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const { getAddress } = useBetContract();
   const { createBetWithDeposit } = useBetMasterContract();
 
@@ -137,9 +154,35 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     setSuccess(true);
   };
 
+  const requestClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setIsOpen(false);
+    hasClosedRef.current = false;
+    closeTimeoutRef.current = window.setTimeout(() => {
+      if (hasClosedRef.current) return;
+      hasClosedRef.current = true;
+      onClose();
+    }, 100);
+  };
+
   return (
-    <div className="overlay">
-      <form className="form-card" onSubmit={handleSubmit}>
+    <div className={`overlay${isOpen ? ' open' : ''}`}>
+      <form
+        className={`form-card${isOpen ? ' open' : ''}`}
+        onSubmit={handleSubmit}
+        onTransitionEnd={e => {
+          if (!isClosing) return;
+          if (e.propertyName !== 'opacity') return;
+          if (e.currentTarget !== e.target) return;
+          if (closeTimeoutRef.current !== null) {
+            clearTimeout(closeTimeoutRef.current);
+          }
+          if (hasClosedRef.current) return;
+          hasClosedRef.current = true;
+          onClose();
+        }}
+      >
         <h3>Новое пари</h3>
 
         {error && <div className="error-message">{error}</div>}
@@ -151,8 +194,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
               type="button"
               className="btn-close-success"
               onClick={() => {
-                onClose();
                 onCreated();
+                requestClose();
               }}
             >
               Закрыть
@@ -229,15 +272,15 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
               <button
                 type="button"
                 className="btn-cancel"
-                onClick={onClose}
-                disabled={submitting}
+                onClick={requestClose}
+                disabled={submitting || isClosing}
               >
                 Отмена
               </button>
               <button
                 type="submit"
                 className="btn-submit"
-                disabled={submitting}
+                disabled={submitting || isClosing}
               >
                 {submitting ? 'Отправка…' : 'Вызвать'}
               </button>
