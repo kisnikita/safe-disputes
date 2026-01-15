@@ -20,6 +20,13 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
   }, []);
 
   useEffect(() => {
+    const webApp = (window as any)?.Telegram?.WebApp;
+    if (!webApp?.enableClosingConfirmation) return;
+    webApp.enableClosingConfirmation();
+    return () => webApp.disableClosingConfirmation?.();
+  }, []);
+
+  useEffect(() => {
     const container = document.querySelector<HTMLElement>('.content');
     if (!container) return;
     const HIDE_THRESHOLD = 30;

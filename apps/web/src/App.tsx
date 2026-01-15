@@ -6,12 +6,13 @@ import { CreateBetForm } from './components/CreateBetForm/CreateBetForm';
 import { BetsSection, BetsSectionHandle } from './components/Bets/BetsSection';
 import { InvestigationsSection, InvestigationsSectionHandle } from './components/Investigations/InvestigationsSection';
 import { SettingsSection } from './components/Settings/SettingsSection';
+import { SearchSection } from './components/Search/SearchSection';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
 import './App.css';
 
 export function App() {
   const { status, error } = useTelegramAuth();
-  const [activeTab, setActiveTab] = useState<'bets' | 'investigations' | 'settings'>('bets');
+  const [activeTab, setActiveTab] = useState<'bets' | 'investigations' | 'search' | 'settings'>('bets');
   const [showForm, setShowForm] = useState(false);
   const betsSectionRef = useRef<BetsSectionHandle>(null);
   const investigationsSectionRef = useRef<InvestigationsSectionHandle>(null);
@@ -54,6 +55,7 @@ export function App() {
               onModalChange={open => setModalOpen(open)}
             />
           )}
+          {activeTab === 'search' && <SearchSection />}
           {activeTab === 'settings' && <SettingsSection />}
         </div>
         <TabBar

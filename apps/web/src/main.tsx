@@ -1,4 +1,4 @@
-import "./polyfills";
+import "./utils/tonSDKPatch";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
