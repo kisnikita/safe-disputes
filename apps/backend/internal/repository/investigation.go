@@ -81,7 +81,7 @@ func (repo *Repository) ListInvestigations(
 	query := fmt.Sprintf(`
         SELECT
           i.id, i.dispute_id, i.title,
-          i.status,  i.ends_at,
+          i.status, i.created_at, i.ends_at,
         u.result, u.vote
         FROM investigations i
         JOIN user2investigation u ON i.id = u.investigation_id
@@ -104,6 +104,7 @@ func (repo *Repository) ListInvestigations(
 			&i.DisputeID,
 			&i.Title,
 			&i.Status,
+			&i.CreatedAt,
 			&i.EndsAt,
 			&i.Result,
 			&i.Vote,
