@@ -120,8 +120,8 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
   };
 
   const modal = (
-    <div className="overlay">
-      <div className="detail-card">
+    <div className="overlay" onClick={onClose}>
+      <div className="detail-card" onClick={event => event.stopPropagation()}>
         <button className="close-btn" onClick={onClose}>×</button>
         {loading && <p>Загрузка…</p>}
 

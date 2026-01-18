@@ -1,38 +1,3 @@
-/* Общие стили кнопки как у .create-button */
-.rating-button {
-  /* убираем position/top/left из .create-button */
-  position: fixed;
-  top: 8px;
-  left: 16px;
-  z-index: 10;
-  padding: 8px 12px;
-  min-width: calc(11ch + 28px);
-  min-height: 40px;
-  text-align: center;
-  background: #3388ff;
-  color: #fff;
-  border: none;
-  border-radius: 24px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.rating-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-
-.rating-button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.rating-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* src/components/Investigations/InvestigationsSection.css */
 
 /* Контейнер всей секции — чтобы внутри располагался поток */
@@ -49,15 +14,6 @@ html, body, #root, .app-root, .app, .content {
   position: relative;
 }
 
-/* 3) Хедер фиксированной высоты */
-.investigations-section .header {
-  flex: 0 0 48px; /* 48px по высоте */
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  background: #fff;
-  z-index: 2;
-}
 
 /* 4) Панель рейтинга на всё оставшееся пространство */
 .rating-panel {
@@ -97,41 +53,152 @@ html, body, #root, .app-root, .app, .content {
   border-radius: 4px;
 }
 
-.main-panel {
+/* Вкладки */
+.subtabs {
   display: flex;
-  flex-direction: column;
-  flex: 1;              /* занимает всё пространство под header */
+  justify-content: space-around;
+  margin-bottom: 12px;
+  margin-top: 35px;
+  padding: 6px 0 2px;
+  position: static;
+  transition: margin-top 0.2s ease;
+  will-change: margin-top;
+  position: relative;
 }
 
-/* Вкладки занимают свою естественную высоту */
-.main-panel .subtabs {
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 8px 16px;
+.subtabs::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 0;
+  height: 1px;
+  background: #eee;
+}
+
+.investigations-section.subtabs-docked .subtabs {
+  margin-top: -30px;
+  background: #fff;
+}
+
+.subtabs button {
+  background: none;
+  border: none;
+  padding: 8px 12px 10px;
+  cursor: pointer;
+  color: #111;
+  border-radius: 10px;
+  position: relative;
+  transition: color 0.2s ease, background 0.2s ease;
+  flex: 1;
+}
+
+.subtabs button.active {
+  font-weight: bold;
+  color: #3388ff;
+}
+
+.subtabs-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  height: 2px;
+  background: #007bff;
+  border-radius: 2px;
+  pointer-events: none;
+  transform-origin: center;
+  scale: 0.89;
+}
+
+.subtabs button:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.subtabs button:focus-visible {
+  outline: 2px solid #3388ff;
+  outline-offset: 2px;
 }
 
 /* Контент (список расследований) растягивается и прокручивается */
-.main-panel .subcontent {
+.subcontent {
   flex: 1 1 auto;
+  overflow: hidden;
+  touch-action: pan-y;
+  min-height: 50vh;
+  display: flex;
+  box-sizing: border-box;
+}
+
+.subcontent.swiping-x {
+  touch-action: pan-x;
+  overscroll-behavior-y: contain;
+}
+
+.subcontent.swiping-x .subcontent-panel {
+  overflow-y: hidden;
+}
+
+.subcontent.swiping-x .investigation-card {
+  pointer-events: none;
+}
+
+.subcontent.swiping-x .investigation-card:active,
+.subcontent.scrolling .investigation-card:active,
+.subcontent.swiping-x .investigation-card.pressed,
+.subcontent.scrolling .investigation-card.pressed {
+  transform: none;
+  box-shadow: none;
+}
+
+.subcontent-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+}
+
+.subcontent-panel {
+  flex: 0 0 100%;
+  padding: 0px 8px 60px;
+  box-sizing: border-box;
+  height: 100%;
   overflow-y: auto;
-  padding: 0 16px;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  min-height: calc(100% + 60px);
 }
 
 /* Сбрасываем позиционирование карточек */
 .investigation-card {
-  position: relative;
   padding: 12px;
   border: 1px solid #ddd;
   border-radius: 6px;
   background: #fff;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
   cursor: pointer;
-  margin-bottom: 12px; /* отступ между карточками */
 }
 
-.investigation-card:hover {
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+.investigation-card * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.investigation-card:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.investigation-card.pressed {
+  background: #d5d4d4;
+  transform: translateY(-0px) scale(1.02);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.investigation-card {
+  position: relative;
 }
 
 /* Бейдж результата */

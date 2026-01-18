@@ -26,14 +26,44 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
     return () => webApp.disableClosingConfirmation?.();
   }, []);
 
+   useEffect(() => {
+    const webApp = (window as any)?.Telegram?.WebApp;
+    if (!webApp?.disableVerticalSwipes) return;
+    webApp.disableVerticalSwipes();
+    return () => webApp.enableVerticalSwipes?.();
+  }, []);
+
   useEffect(() => {
-    const container = document.querySelector<HTMLElement>('.content');
-    if (!container) return;
     const HIDE_THRESHOLD = 30;
-    const onScroll = () => setScrollVisible(container.scrollTop < HIDE_THRESHOLD);
-    container.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-    return () => container.removeEventListener('scroll', onScroll);
+    const onSubtabChange = (event: Event) => {
+      const custom = event as CustomEvent<{ scrollTop: number }>;
+      if (typeof custom.detail?.scrollTop === 'number') {
+        setScrollVisible(custom.detail.scrollTop < HIDE_THRESHOLD);
+      }
+    };
+    const onScroll = (event?: Event) => {
+      const target = event?.target as HTMLElement | null;
+      if (target?.classList?.contains('subcontent-panel')) {
+        setScrollVisible(target.scrollTop < HIDE_THRESHOLD);
+        return;
+      }
+      if (target?.classList?.contains('content')) {
+        setScrollVisible(target.scrollTop < HIDE_THRESHOLD);
+        return;
+      }
+    };
+
+    const container = document.querySelector<HTMLElement>('.content');
+    if (container) {
+      setScrollVisible(container.scrollTop < HIDE_THRESHOLD);
+    }
+
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('subtab-scroll-sync', onSubtabChange as EventListener);
+    return () => {
+      document.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('subtab-scroll-sync', onSubtabChange as EventListener);
+    };
   }, []);
 
   // TonConnectButton видим только если оба флага false

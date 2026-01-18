@@ -1,20 +1,15 @@
-// src/components/Layout/CreateBetButton.tsx
-import React, { useState, useEffect } from 'react';
-import './CreateBetButton.css';
-import { useTonConnect } from '../../hooks/useTonConnect';
-
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import './RatingButton.css';
 
 interface Props {
-  onOpenForm: () => void;
-  forceHidden?: boolean;
+  onClick: () => void;
 }
 
-export const CreateBetButton: React.FC<Props> = ({ onOpenForm, forceHidden = false }) => {
-  const { address, connected } = useTonConnect();
+export const RatingButton: React.FC<Props> = ({ onClick }) => {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    // Порог в пикселях, после которого кнопку скрываем
     const HIDE_THRESHOLD = 30;
     const onSubtabChange = (event: Event) => {
       const custom = event as CustomEvent<{ scrollTop: number }>;
@@ -46,14 +41,11 @@ export const CreateBetButton: React.FC<Props> = ({ onOpenForm, forceHidden = fal
     };
   }, []);
 
-  return (
-    <button
-      className={`create-button${visible && !forceHidden ? '' : ' hidden'}`}
-      onClick={() => connected && onOpenForm()}
-      disabled={!connected}
-      title={connected ? undefined : 'Сначала подключите TON-кошелёк'}
-    >
-      Создать пари
+  const button = (
+    <button className={`rating-button${visible ? '' : ' hidden'}`} onClick={onClick}>
+      Рейтинг
     </button>
   );
+
+  return createPortal(button, document.body);
 };
