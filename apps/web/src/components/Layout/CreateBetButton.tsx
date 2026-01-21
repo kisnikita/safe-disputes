@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import './CreateBetButton.css';
 import { useTonConnect } from '../../hooks/useTonConnect';
+import { HIDE_THRESHOLD } from '../../utils/constants';
 
 
 interface Props {
@@ -15,7 +16,6 @@ export const CreateBetButton: React.FC<Props> = ({ onOpenForm, forceHidden = fal
 
   useEffect(() => {
     // Порог в пикселях, после которого кнопку скрываем
-    const HIDE_THRESHOLD = 30;
     const onSubtabChange = (event: Event) => {
       const custom = event as CustomEvent<{ scrollTop: number }>;
       if (typeof custom.detail?.scrollTop === 'number') {

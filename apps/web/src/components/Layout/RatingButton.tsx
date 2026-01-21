@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { HIDE_THRESHOLD } from '../../utils/constants';
 import './RatingButton.css';
 
 interface Props {
@@ -10,7 +11,6 @@ export const RatingButton: React.FC<Props> = ({ onClick }) => {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    const HIDE_THRESHOLD = 30;
     const onSubtabChange = (event: Event) => {
       const custom = event as CustomEvent<{ scrollTop: number }>;
       if (typeof custom.detail?.scrollTop === 'number') {

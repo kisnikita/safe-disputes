@@ -1,6 +1,7 @@
 // src/components/Layout/AppRoot.tsx
 import React, { useState, useEffect } from 'react';
 import { TonConnectUIProvider, TonConnectButton } from '@tonconnect/ui-react';
+import { HIDE_THRESHOLD } from '../../utils/constants';
 import './AppRoot.css';
 
 interface AppRootProps {
@@ -34,7 +35,6 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
   }, []);
 
   useEffect(() => {
-    const HIDE_THRESHOLD = 30;
     const onSubtabChange = (event: Event) => {
       const custom = event as CustomEvent<{ scrollTop: number }>;
       if (typeof custom.detail?.scrollTop === 'number') {

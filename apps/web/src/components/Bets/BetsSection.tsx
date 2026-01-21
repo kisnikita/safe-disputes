@@ -10,6 +10,7 @@ import React, {
 import { apiFetch } from '../../utils/apiFetch';
 import { BetDetailsModal } from './BetDetailsModal';
 import { Loader } from '../Loader/Loader';
+import { HIDE_THRESHOLD } from '../../utils/constants';
 import './BetsSection.css';
 
 interface Bet {
@@ -186,7 +187,6 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   const currentIndex = tabs.indexOf(subtab);
   const width = containerWidth || widthRef.current || 0;
   const trackTranslate = width ? -currentIndex * width + dragOffset : 0;
-  const HIDE_THRESHOLD =30;
   const swipeProgress = width ? -dragOffset / width : 0;
   const rawIndicatorIndex = currentIndex + swipeProgress;
   const indicatorIndex = Math.max(0, Math.min(tabs.length - 1, rawIndicatorIndex));

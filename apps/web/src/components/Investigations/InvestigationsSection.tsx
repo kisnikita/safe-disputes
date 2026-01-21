@@ -12,6 +12,7 @@ import './InvestigationsSection.css';
 import { InvestigationDetailsModal } from './InvestigationDetailsModal';
 import { RatingButton } from '../Layout/RatingButton';
 import { Loader } from '../Loader/Loader';
+import { HIDE_THRESHOLD } from '../../utils/constants';
 
 interface Investigation {
   id: string;
@@ -190,7 +191,6 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const currentIndex = tabs.indexOf(subtab);
     const width = containerWidth || widthRef.current || 0;
     const trackTranslate = width ? -currentIndex * width + dragOffset : 0;
-    const HIDE_THRESHOLD = 30;
     const swipeProgress = width ? -dragOffset / width : 0;
     const rawIndicatorIndex = currentIndex + swipeProgress;
     const indicatorIndex = Math.max(0, Math.min(tabs.length - 1, rawIndicatorIndex));
