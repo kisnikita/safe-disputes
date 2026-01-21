@@ -11,6 +11,7 @@ import { apiFetch } from '../../utils/apiFetch';
 import './InvestigationsSection.css';
 import { InvestigationDetailsModal } from './InvestigationDetailsModal';
 import { RatingButton } from '../Layout/RatingButton';
+import { Loader } from '../Loader/Loader';
 
 interface Investigation {
   id: string;
@@ -658,7 +659,11 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                           );
                         })}
 
-                        {isLoading && <div className="loading">Загрузка…</div>}
+                        {isLoading && (
+                          <div className="loading">
+                            <Loader />
+                          </div>
+                        )}
                         {isEmpty && <div className="empty-message">Тут пока пусто</div>}
                       </div>
                     );

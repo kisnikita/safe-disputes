@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 import './SettingsSection.css';
+import { Loader } from '../Loader/Loader';
 
 interface UserSettings {
   notificationEnabled: boolean;
@@ -57,7 +58,11 @@ export function SettingsSection() {
   };
 
   if (loading) {
-    return <div className="settings-status">Загрузка настроек…</div>;
+    return (
+      <div className="settings-status">
+        <Loader size={56}/>
+      </div>
+    );
   }
 
   const parsedMin = parseFloat(minInput);
@@ -132,7 +137,9 @@ export function SettingsSection() {
         </div>
       </div>
 
-      {saving && <div className="settings-status">Сохранение…</div>}
+      {saving && <div className="settings-status">
+        <Loader size={56}/>
+        </div>}
     </div>
   );
 }

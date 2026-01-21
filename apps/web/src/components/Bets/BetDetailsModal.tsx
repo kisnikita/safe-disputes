@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './BetDetailsModal.css';
 import { useBetContract } from '../../hooks/useBetContract';
+import { Loader } from '../Loader/Loader';
 
 interface Props {
   id: string;
@@ -299,7 +300,11 @@ export const BetDetailsModal: React.FC<Props> = ({
           onClose();
         }}
       >
-        {loading && <p>Загрузка…</p>}
+        {loading && (
+          <div className="loading">
+            <Loader />
+          </div>
+        )}
         {error && <p className="error-message">{error}</p>}
 
         {/* Просмотр деталей */}

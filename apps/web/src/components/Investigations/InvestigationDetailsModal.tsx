@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './InvestigationDetailsModal.css';
+import { Loader } from '../Loader/Loader';
 
 interface Evidence {
   id: string;
@@ -123,7 +124,11 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
     <div className="overlay" onClick={onClose}>
       <div className="detail-card" onClick={event => event.stopPropagation()}>
         <button className="close-btn" onClick={onClose}>×</button>
-        {loading && <p>Загрузка…</p>}
+        {loading && (
+          <div className="loading">
+            <Loader />
+          </div>
+        )}
 
         {!loading && dispute && step === 'details' && (
           <>

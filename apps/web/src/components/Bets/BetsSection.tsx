@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 import { BetDetailsModal } from './BetDetailsModal';
+import { Loader } from '../Loader/Loader';
 import './BetsSection.css';
 
 interface Bet {
@@ -656,8 +657,12 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                       );
                     })}
 
-                    {isLoading && <div className="loading">Загрузка…</div>}
-                    {isEmpty && <div className="empty-message">Тут пока пусто</div>}
+                    {isLoading && (
+                      <div className="loading">
+                        <Loader />
+                      </div>
+                    )}
+                    {isEmpty &&  <div className="empty-message">Тут пока пусто</div>}
                   </div>
                 );
               })}
