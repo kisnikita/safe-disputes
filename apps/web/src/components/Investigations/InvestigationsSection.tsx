@@ -390,7 +390,9 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       pullTriggeredRef.current = false;
       setIsDragging(false);
       widthRef.current = event.currentTarget.getBoundingClientRect().width;
-      event.currentTarget.setPointerCapture(event.pointerId);
+      if (event.pointerType !== 'mouse') {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
       const next = tabs[currentIndex + 1];
       const prev = tabs[currentIndex - 1];
       if (next && itemsByTab[next].length === 0 && !loadingByTab[next]) {
@@ -573,7 +575,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                   style={{
                     width: `${102 / tabs.length}%`,
                     transform: `translateX(${indicatorIndex * 110}%)`,
-                    transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                    transition: isDragging ? 'none' : 'transform 0.3s ease-out',
                   }}
                 />
               </div>
@@ -590,7 +592,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                   className="subcontent-track"
                   style={{
                     transform: `translateX(${trackTranslate}px)`,
-                    transition: transitionEnabled && !isDragging ? 'transform 0.26s ease-out' : 'none',
+                    transition: transitionEnabled && !isDragging ? 'transform 0.3s ease-out' : 'none',
                   }}
                 >
                   {tabs.map((tab, tabIndex) => {

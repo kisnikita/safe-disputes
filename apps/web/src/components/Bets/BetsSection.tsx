@@ -557,7 +557,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
               style={{
                 width: `${101 / tabs.length}%`,
                 transform: `translateX(${indicatorIndex * 110}%)`,
-                transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                transition: isDragging ? 'none' : 'transform 0.3s ease-out',
               }}
             />
           </div>

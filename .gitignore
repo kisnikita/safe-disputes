@@ -22,3 +22,6 @@ node_modules/
 # blockchain
 blockchain/build/
 blockchain/temp/
+
+# task-tracker
+task-tracker.md

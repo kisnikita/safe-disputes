@@ -61,7 +61,7 @@ html, body, #root, .app-root, .app, .content {
   margin-top: 35px;
   padding: 6px 0 2px;
   position: static;
-  transition: margin-top 0.2s ease;
+  transition: margin-top 0.3s ease;
   will-change: margin-top;
   position: relative;
 }
@@ -89,7 +89,9 @@ html, body, #root, .app-root, .app, .content {
   color: #111;
   border-radius: 10px;
   position: relative;
-  transition: color 0.2s ease, background 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: color 0.3s ease, background 0.3s ease;
   flex: 1;
 }
 
@@ -110,8 +112,11 @@ html, body, #root, .app-root, .app, .content {
   scale: 0.89;
 }
 
-.subtabs button:hover:not(.active) {
-  background: rgba(0, 0, 0, 0.06);
+@media (hover: hover) and (pointer: fine) {
+  .subtabs button:hover:not(.active) {
+    transform: translateY(-1px) scale(1.05);
+    transition: transform 0.3s ease;
+  }
 }
 
 .subtabs button:focus-visible {
@@ -186,16 +191,18 @@ html, body, #root, .app-root, .app, .content {
   user-select: none;
 }
 
-.investigation-card:active {
-  transform: none;
-  box-shadow: none;
-}
-
 .investigation-card.pressed {
-  background: #d5d4d4;
-  transform: translateY(-0px) scale(1.02);
+  transform: translateY(-0px) scale(0.95);
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
+
+@media (hover: hover) and (pointer: fine) {
+  .investigation-card:hover:not(.investigation-card.pressed) {
+    transform: translateY(-0px) scale(1.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+}
+
 
 .investigation-card {
   position: relative;

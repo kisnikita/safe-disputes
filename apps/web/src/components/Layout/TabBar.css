@@ -1,9 +1,16 @@
 .tabbar {
-  display: flex;
-  justify-content: space-between;
   border-top: 1px solid #ccc;
   padding: 3px 16px 32px;
   margin-bottom: 0;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tabbar-track {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
 }
 
 .tabbar button {
@@ -14,16 +21,23 @@
   color: #111;
   padding: 12px 0 14px;
   position: relative;
-  transition: color 0.2s ease, background 0.2s ease;
+  transition: color 0.3s ease, background 0.3s ease;
   border-radius: 10px;
   flex: 1;
   text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .tabbar .tab-icon {
   width: 24px;
   height: 24px;
+  transition: transform 0.3s ease, opacity 0.3s ease;
   display: inline-block;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
 
 .tabbar button.active {
@@ -31,22 +45,40 @@
   color: #007bff;
 }
 
-.tabbar button.active::after {
-  content: '';
+.tabbar-indicator {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 2px;
+  left: 0;
+  bottom: 0;
   height: 2px;
   background: #007bff;
   border-radius: 2px;
+  pointer-events: none;
+  width: calc(100% / var(--tab-count));
+  transform: translateX(calc(var(--tab-index) * 100%)) scaleX(0.85);
+  transition: transform 0.3s ease;
 }
 
-.tabbar button:hover:not(.active) {
-  background: rgba(0, 0, 0, 0.06);
+
+
+.tabbar button:active .tab-icon {
+  transform: scale(0.7);
+  opacity: 0.7;
 }
 
 .tabbar button:focus-visible {
   outline: 2px solid #3388ff;
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabbar .tab-icon {
+    transition: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tabbar button:hover:not(.active) {
+    transform: translateY(-1px) scale(1.05);
+    transition: transform 0.3s ease;
+  }
 }
