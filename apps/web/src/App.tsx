@@ -8,6 +8,7 @@ import { InvestigationsSection, InvestigationsSectionHandle } from './components
 import { SettingsSection } from './components/Settings/SettingsSection';
 import { SearchSection } from './components/Search/SearchSection';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
+import { Loader } from './components/Loader/Loader';
 import './App.css';
 
 export function App() {
@@ -18,7 +19,7 @@ export function App() {
   const investigationsSectionRef = useRef<InvestigationsSectionHandle>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  if (status === 'loading') return <div className="center"><p>Проверка...</p></div>;
+  if (status === 'loading') return <div className="center"><Loader /></div>;
   if (status === 'error')   return <div className="center error"><p>{error}</p></div>;
 
   return (
@@ -42,7 +43,11 @@ export function App() {
       )}
 
       <div className="app">
-        <div className="content">
+        <div
+          className={`content${
+            activeTab === 'bets' || activeTab === 'investigations' ? ' no-scroll' : ''
+          }`}
+        >
           {activeTab === 'bets' && (
             <BetsSection
               ref={betsSectionRef}

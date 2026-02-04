@@ -1,4 +1,9 @@
-/* src/components/Layout/AppRoot.css */
+.app-root {
+  min-height: 100%;
+  background:
+    linear-gradient(180deg, #0F172A 0%, #26b7d7 35%, #f8f8f8 100%);
+}
+
 .ton-button {
   position: fixed;
   top: 8px;
@@ -11,4 +16,17 @@
   transform: translateY(-150%);
   opacity: 0;
   pointer-events: none;
+}
+
+.ton-button [data-tc-dropdown-button],
+.ton-button [data-tc-connect-button],
+.ton-button [data-tc-connect-button-loading] {
+  background-color: #5EEAD4 !important;
+}
+
+.ton-button [data-tc-dropdown-button] *,
+.ton-button [data-tc-connect-button] *,
+.ton-button [data-tc-connect-button-loading] * {
+  color: #0F172A !important;
+  fill: #0F172A !important;
 }

@@ -1,12 +1,3 @@
-/* src/components/Investigations/InvestigationsSection.css */
-
-/* Контейнер всей секции — чтобы внутри располагался поток */
-html, body, #root, .app-root, .app, .content {
-  height: 100%;
-  margin: 0;
-}
-
-/* 2) Flex-контейнер для секции расследований */
 .investigations-section {
   display: flex;
   flex-direction: column;
@@ -57,28 +48,16 @@ html, body, #root, .app-root, .app, .content {
 .subtabs {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 12px;
+  margin-bottom: 3px;
   margin-top: 35px;
   padding: 6px 0 2px;
-  position: static;
   transition: margin-top 0.3s ease;
   will-change: margin-top;
   position: relative;
 }
 
-.subtabs::after {
-  content: '';
-  position: absolute;
-  left: 7px;
-  right: 7px;
-  bottom: 0;
-  height: 1px;
-  background: #eee;
-}
-
 .investigations-section.subtabs-docked .subtabs {
   margin-top: -30px;
-  background: #fff;
 }
 
 .subtabs button {
@@ -86,7 +65,7 @@ html, body, #root, .app-root, .app, .content {
   border: none;
   padding: 8px 12px 10px;
   cursor: pointer;
-  color: #111;
+  color: #ffffff;
   border-radius: 10px;
   position: relative;
   user-select: none;
@@ -97,7 +76,7 @@ html, body, #root, .app-root, .app, .content {
 
 .subtabs button.active {
   font-weight: bold;
-  color: #3388ff;
+  color: #5EEAD4;
 }
 
 .subtabs-indicator {
@@ -105,7 +84,7 @@ html, body, #root, .app-root, .app, .content {
   left: 0;
   bottom: 2px;
   height: 2px;
-  background: #007bff;
+  background: #5EEAD4;
   border-radius: 2px;
   pointer-events: none;
   transform-origin: center;
@@ -170,20 +149,24 @@ html, body, #root, .app-root, .app, .content {
   overflow-y: auto;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  min-height: calc(100% + 60px);
+  min-height: calc(100% + 58px);
 }
 
 /* Сбрасываем позиционирование карточек */
 .investigation-card {
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.65), rgba(240, 248, 255, 0.35));
+  backdrop-filter: blur(18px) saturate(200%);
+  -webkit-backdrop-filter: blur(18px) saturate(200%);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
   touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
-  cursor: pointer;
+  cursor: pointer; /* Показываем, что элемент кликабелен */
+  overflow: hidden;
+  color: #111;
 }
 
 .investigation-card * {
@@ -192,14 +175,19 @@ html, body, #root, .app-root, .app, .content {
 }
 
 .investigation-card.pressed {
-  transform: translateY(-0px) scale(0.95);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transform: translateY(0) scale(0.95);
+  box-shadow:
+    0 8px 20px rgba(36, 60, 105, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -6px 14px rgba(120, 160, 220, 0.15);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .investigation-card:hover:not(.investigation-card.pressed) {
-    transform: translateY(-0px) scale(1.02);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transform: translateY(-1px) scale(1.02);
+    box-shadow:
+      inset 0 -8px 18px rgba(120, 160, 220, 0.16);
+    border-color: rgba(255, 255, 255, 0.75);
   }
 }
 
@@ -244,4 +232,17 @@ html, body, #root, .app-root, .app, .content {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.investigation-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.investigation-card::after {
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+  mix-blend-mode: screen;
+  opacity: 0.7;
 }

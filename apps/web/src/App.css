@@ -1,5 +1,3 @@
-/* src/App.css */
-
 /* Центрированный контейнер для загрузки и ошибок */
 .center {
     display: flex;
@@ -24,11 +22,11 @@
   }
   
   /* Контентная область */
-  .content {
-    flex: 1;
-    padding: 16px;
-    overflow-y: auto;
-  }
+.content {
+  flex: 1;
+  padding: 16px 16px 0;
+  overflow-y: auto;
+}
   
 
 html, body, #root {
@@ -48,6 +46,10 @@ html, body, #root {
   flex: 1;
   overflow-y: auto;        /* Включаем вертикальный скролл именно здесь */
   -webkit-overflow-scrolling: touch; /* «Плавный» скролл на iOS */
+}
+
+.content.no-scroll {
+  overflow: hidden;
 }
 
 
@@ -134,7 +136,11 @@ input, textarea {
 .content {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 16px 16px 0;
+}
+
+.content.no-scroll {
+  overflow: hidden;
 }
 .tabbar {
   flex-shrink: 0;

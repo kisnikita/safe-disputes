@@ -50,7 +50,7 @@
   left: 0;
   bottom: 0;
   height: 2px;
-  background: #007bff;
+  background: #5EEAD4;
   border-radius: 2px;
   pointer-events: none;
   width: calc(100% / var(--tab-count));

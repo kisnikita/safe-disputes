@@ -15,9 +15,7 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
   useEffect(() => {
     const webApp = (window as any)?.Telegram?.WebApp;
     if (!webApp) return;
-    webApp.setBackgroundColor?.('#ffffff');
-    webApp.setHeaderColor?.('#ffffff');
-    webApp.setBottomBarColor?.('#ffffff');
+    webApp.setHeaderColor?.('#0F172A');
   }, []);
 
   useEffect(() => {
