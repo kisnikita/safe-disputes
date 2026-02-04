@@ -1,25 +1,25 @@
 /* Центрированный контейнер для загрузки и ошибок */
 .center {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-  }
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
   
   /* Ошибочное сообщение */
-  .center.error p {
-    color: red;
-    font-weight: bold;
-  }
-  
-  /* Основной контейнер приложения */
-  .app {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    font-family: Arial, sans-serif;
-  }
+.center.error p {
+  color: red;
+  font-weight: bold;
+}
+
+/* Основной контейнер приложения */
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+}
   
   /* Контентная область */
 .content {
@@ -59,6 +59,8 @@ html, body, #root {
   justify-content: center;
   align-items: center;
   height: 100%;
+  width: 100%;
+  background: linear-gradient(180deg, #0F172A 0%, #26b7d7 35%, #f8f8f8 100%);
 }
 .center.error p {
   color: red;
@@ -144,4 +146,14 @@ input, textarea {
 }
 .tabbar {
   flex-shrink: 0;
+}
+
+.spinner {
+  color: #5EEAD4;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0 16px;
 }

@@ -1,7 +1,6 @@
 .app-root {
   min-height: 100%;
-  background:
-    linear-gradient(180deg, #0F172A 0%, #26b7d7 35%, #f8f8f8 100%);
+  background: linear-gradient(180deg, #0F172A 0%, #26b7d7 35%, #f8f8f8 100%);
 }
 
 .ton-button {

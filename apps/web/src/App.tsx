@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { AppRoot } from './components/Layout/AppRoot';
 import { TabBar } from './components/Layout/TabBar';
 import { CreateBetButton } from './components/Layout/CreateBetButton';
@@ -8,7 +8,7 @@ import { InvestigationsSection, InvestigationsSectionHandle } from './components
 import { SettingsSection } from './components/Settings/SettingsSection';
 import { SearchSection } from './components/Search/SearchSection';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
-import { Loader } from './components/Loader/Loader';
+import { Spinner } from '@telegram-apps/telegram-ui';
 import './App.css';
 
 export function App() {
@@ -19,55 +19,66 @@ export function App() {
   const investigationsSectionRef = useRef<InvestigationsSectionHandle>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  if (status === 'loading') return <div className="center"><Loader /></div>;
-  if (status === 'error')   return <div className="center error"><p>{error}</p></div>;
-
   return (
-    <AppRoot hideTonButton={showForm}>
-      {activeTab === 'bets' && (
-        <CreateBetButton
-          onOpenForm={() => setShowForm(true)}
-          forceHidden={showForm}
-        />
-      )}
-
-      {showForm && (
-        <CreateBetForm
-          onClose={() => {
-            setShowForm(false);
-            setModalOpen(false);
-          }}
-          onCreated={() => betsSectionRef.current?.refresh()}
-          onOpen={() => setModalOpen(true)}
-        />
-      )}
-
-      <div className="app">
-        <div
-          className={`content${
-            activeTab === 'bets' || activeTab === 'investigations' ? ' no-scroll' : ''
-          }`}
-        >
-          {activeTab === 'bets' && (
-            <BetsSection
-              ref={betsSectionRef}
-              onModalChange={open => setModalOpen(open)}
-            />
-          )}
-          {activeTab === 'investigations' && (
-            <InvestigationsSection
-              ref={investigationsSectionRef}
-              onModalChange={open => setModalOpen(open)}
-            />
-          )}
-          {activeTab === 'search' && <SearchSection />}
-          {activeTab === 'settings' && <SettingsSection />}
+    <AppRoot hideTonButton={showForm || status !== 'ready'}>
+      {status === 'loading' && (
+        <div className="center">
+          <Spinner size="l" className="spinner" />
         </div>
-        <TabBar
-          active={activeTab}
-          onChange={id => setActiveTab(id as any)}
-        />
-      </div>
+      )}
+      {status === 'error' && (
+        <div className="center error">
+          <p>{error}</p>
+        </div>
+      )}
+      {status === 'ready' && (
+        <>
+          {activeTab === 'bets' && (
+            <CreateBetButton
+              onOpenForm={() => setShowForm(true)}
+              forceHidden={showForm}
+            />
+          )}
+
+          {showForm && (
+            <CreateBetForm
+              onClose={() => {
+                setShowForm(false);
+                setModalOpen(false);
+              }}
+              onCreated={() => betsSectionRef.current?.refresh()}
+              onOpen={() => setModalOpen(true)}
+            />
+          )}
+
+          <div className="app">
+            <div
+              className={`content${
+                activeTab === 'bets' || activeTab === 'investigations' ? ' no-scroll' : ''
+              }`}
+            >
+              {activeTab === 'bets' && (
+                <BetsSection
+                  ref={betsSectionRef}
+                  onModalChange={open => setModalOpen(open)}
+                />
+              )}
+              {activeTab === 'investigations' && (
+                <InvestigationsSection
+                  ref={investigationsSectionRef}
+                  onModalChange={open => setModalOpen(open)}
+                />
+              )}
+              {activeTab === 'search' && <SearchSection />}
+              {activeTab === 'settings' && <SettingsSection />}
+            </div>
+            <TabBar
+              active={activeTab}
+              onChange={id => setActiveTab(id as any)}
+            />
+          </div>
+        </>
+      )}
     </AppRoot>
   );
 }

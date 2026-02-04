@@ -1,5 +1,6 @@
 // src/components/Layout/AppRoot.tsx
 import React, { useState, useEffect } from 'react';
+import { AppRoot as TelegramAppRoot } from '@telegram-apps/telegram-ui';
 import { TonConnectUIProvider, TonConnectButton } from '@tonconnect/ui-react';
 import { HIDE_THRESHOLD } from '../../utils/constants';
 import './AppRoot.css';
@@ -68,13 +69,15 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
   const isVisible = !hideTonButton && scrollVisible;
 
   return (
-    <TonConnectUIProvider manifestUrl="https://tomato-adjacent-badger-155.mypinata.cloud/ipfs/bafkreidcmhwlwlsjqfuw23jphfvjdu2vyc2zwzmz2gyoxksjdjt4mgz5ru">
-      <div className="app-root">
-        <div className={`ton-button${isVisible ? '' : ' hidden'}`}>
-          <TonConnectButton />
+    <TonConnectUIProvider manifestUrl="https://tomato-adjacent-badger-155.mypinata.cloud/ipfs/bafkreihvbraicmhxbbsgzkt2ochdjuptqg37cdybjxz7dd2joa2avohwii">
+      <TelegramAppRoot>
+        <div className="app-root">
+          <div className={`ton-button${isVisible ? '' : ' hidden'}`}>
+            <TonConnectButton />
+          </div>
+          {children}
         </div>
-        {children}
-      </div>
+      </TelegramAppRoot>
     </TonConnectUIProvider>
   );
 };

@@ -110,7 +110,7 @@
   overflow-y: auto;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  min-height: calc(100 + 58px);
+  min-height: calc(100% + 58px);
 }
 
 /* BetsSection.css */

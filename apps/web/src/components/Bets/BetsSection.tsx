@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 import { BetDetailsModal } from './BetDetailsModal';
-import { Loader } from '../Loader/Loader';
+import { Spinner } from '@telegram-apps/telegram-ui';
 import { HIDE_THRESHOLD } from '../../utils/constants';
 import './BetsSection.css';
 
@@ -659,7 +659,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
 
                     {isLoading && (
                       <div className="loading">
-                        <Loader />
+                        <Spinner size="m" className="spinner"/>
                       </div>
                     )}
                     {isEmpty &&  <div className="empty-message">Тут пока пусто</div>}

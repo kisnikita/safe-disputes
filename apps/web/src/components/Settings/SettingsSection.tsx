@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 import './SettingsSection.css';
-import { Loader } from '../Loader/Loader';
+import { Spinner } from '@telegram-apps/telegram-ui';
 
 interface UserSettings {
   notificationEnabled: boolean;
@@ -60,7 +60,7 @@ export function SettingsSection() {
   if (loading) {
     return (
       <div className="settings-status">
-        <Loader size={56}/>
+        <Spinner size="l" className="spinner"/>
       </div>
     );
   }
@@ -138,7 +138,7 @@ export function SettingsSection() {
       </div>
 
       {saving && <div className="settings-status">
-        <Loader size={56}/>
+        <Spinner size="l" className="spinner"/>
         </div>}
     </div>
   );

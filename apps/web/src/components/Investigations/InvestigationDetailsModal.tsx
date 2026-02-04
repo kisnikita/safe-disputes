@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './InvestigationDetailsModal.css';
-import { Loader } from '../Loader/Loader';
+import { Spinner } from '@telegram-apps/telegram-ui';
 
 interface Evidence {
   id: string;
@@ -126,7 +126,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
         <button className="close-btn" onClick={onClose}>×</button>
         {loading && (
           <div className="loading">
-            <Loader />
+            <Spinner size="m" className="spinner"/>
           </div>
         )}
 

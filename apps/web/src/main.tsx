@@ -1,4 +1,5 @@
 import "./utils/tonSDKPatch";
+import "@telegram-apps/telegram-ui/dist/styles.css";
 
 import React from "react";
 import ReactDOM from "react-dom/client";

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './BetDetailsModal.css';
 import { useBetContract } from '../../hooks/useBetContract';
-import { Loader } from '../Loader/Loader';
+import { Spinner } from '@telegram-apps/telegram-ui';
 
 interface Props {
   id: string;
@@ -302,7 +302,7 @@ export const BetDetailsModal: React.FC<Props> = ({
       >
         {loading && (
           <div className="loading">
-            <Loader />
+           <Spinner size="m" className="spinner"/>
           </div>
         )}
         {error && <p className="error-message">{error}</p>}

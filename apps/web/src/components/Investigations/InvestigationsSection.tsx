@@ -11,7 +11,7 @@ import { apiFetch } from '../../utils/apiFetch';
 import './InvestigationsSection.css';
 import { InvestigationDetailsModal } from './InvestigationDetailsModal';
 import { RatingButton } from '../Layout/RatingButton';
-import { Loader } from '../Loader/Loader';
+import { Spinner } from '@telegram-apps/telegram-ui';
 import { HIDE_THRESHOLD } from '../../utils/constants';
 
 interface Investigation {
@@ -663,7 +663,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
 
                         {isLoading && (
                           <div className="loading">
-                            <Loader />
+                            <Spinner size="m" className="spinner"/>
                           </div>
                         )}
                         {isEmpty && <div className="empty-message">Тут пока пусто</div>}

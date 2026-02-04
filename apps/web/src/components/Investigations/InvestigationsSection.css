@@ -12,6 +12,10 @@
   overflow-y: auto;    /* прокрутка, если нужно */
   padding: 16px;
   background: #f9f9f9;
+  color: #0f172a;
+}
+.rating-panel h3 {
+  color: #0f172a;
 }
 
 /* 5) Карточки пользователей (как было) */
@@ -29,6 +33,7 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   padding: 12px 16px;
   margin-bottom: 10px;
+  color: #0f172a;
 }
 .rating-panel .rating-value {
   font-weight: 600;
