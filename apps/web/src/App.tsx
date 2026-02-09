@@ -17,7 +17,7 @@ export function App() {
   const [showForm, setShowForm] = useState(false);
   const betsSectionRef = useRef<BetsSectionHandle>(null);
   const investigationsSectionRef = useRef<InvestigationsSectionHandle>(null);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [_, setModalOpen] = useState(false);
 
   return (
     <AppRoot hideTonButton={showForm || status !== 'ready'}>

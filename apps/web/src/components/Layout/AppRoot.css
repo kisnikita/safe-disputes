@@ -1,12 +1,13 @@
 .app-root {
   min-height: 100%;
-  background: linear-gradient(180deg, #0F172A 0%, #26b7d7 35%, #f8f8f8 100%);
+  background: linear-gradient(180deg, #0F172A 15%, #26b7d7 50%, #f8f8f8 100%);
+  position: relative;
 }
 
 .ton-button {
   position: fixed;
-  top: 8px;
-  right: 16px;
+  top: calc(var(--tg-content-safe-area-inset-top, 0) + var(--tg-safe-area-inset-top, 0px));
+  right: calc(16px + var(--tg-content-safe-area-inset-right, var(--tg-safe-area-inset-right, 0px)));
   z-index: 10;
   transition: transform 0.3s ease, opacity 0.3s ease;
 }
@@ -20,12 +21,23 @@
 .ton-button [data-tc-dropdown-button],
 .ton-button [data-tc-connect-button],
 .ton-button [data-tc-connect-button-loading] {
-  background-color: #5EEAD4 !important;
+  background: linear-gradient(215deg, #5eead4a6, rgba(255, 255, 255, 0.0));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 6px 16px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(16px) saturate(200%);
+  -webkit-backdrop-filter: blur(16px) saturate(200%);
+  min-height: 46px !important;
+  padding: 10px 16px !important;
 }
 
 .ton-button [data-tc-dropdown-button] *,
 .ton-button [data-tc-connect-button] *,
 .ton-button [data-tc-connect-button-loading] * {
-  color: #0F172A !important;
-  fill: #0F172A !important;
+  color: #a7ebeb !important;
+  fill: #a7ebeb !important;
+  -webkit-user-select: none;
+  user-select: none;
 }

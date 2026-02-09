@@ -17,6 +17,16 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
     const webApp = (window as any)?.Telegram?.WebApp;
     if (!webApp) return;
     webApp.setHeaderColor?.('#0F172A');
+    webApp.setBackgroundColor?.('#0F172A'); // just for bottom bar color on desktop.
+  }, []);
+
+  useEffect(() => {
+    const webApp = (window as any)?.Telegram?.WebApp;
+    if (!webApp?.requestFullscreen) return;
+    const platform = String(webApp.platform || '').toLowerCase();
+    const isMobile = platform === 'android' || platform === 'ios';
+    if (!isMobile) return;
+    webApp.requestFullscreen();
   }, []);
 
   useEffect(() => {

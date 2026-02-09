@@ -230,7 +230,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
 
     const getBadge = (result: Investigation['result']) => {
       switch (result) {
-        case 'new': return { color: 'blue', text: 'Новое' };
+        case 'new': return { color: 'red', text: 'Новое' };
         case 'sent': return { color: 'green', text: 'Голос отдан' };
         case 'correct': return { color: 'green', text: 'Верно' };
         case 'incorrect': return { color: 'red', text: 'Неверно' };
@@ -574,7 +574,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                   className="subtabs-indicator"
                   style={{
                     width: `${102 / tabs.length}%`,
-                    transform: `translateX(${indicatorIndex * 110}%)`,
+                    transform: `translateX(${indicatorIndex * 90}%)`,
                     transition: isDragging ? 'none' : 'transform 0.3s ease-out',
                   }}
                 />

@@ -3,41 +3,65 @@
   flex-direction: column;
   height: 100%;
   position: relative;
+  margin-top: calc(var(--tg-content-safe-area-inset-top, 0) + var(--tg-safe-area-inset-top, 0px));
+  -webkit-user-select: none;
+  user-select: none;
 }
-
 .subtabs {
   display: flex;
   justify-content: space-around;
   margin-bottom: 4px;
   margin-top: 35px;
-  padding: 6px 0 2px;
   transition: margin-top 0.3s ease;
   will-change: margin-top;
   position: relative;
+  border-radius: 99px;
+  background: rgba(10, 18, 32, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  z-index: 2;
 }
 
 .bets-section.subtabs-docked .subtabs {
-  margin-top: -30px;
+  margin-top: -15px;
+}
+
+.bets-section.subtabs-docked::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--tg-content-safe-area-inset-top, 0) + var(--tg-safe-area-inset-top, 0px) + 15px);
+  background: linear-gradient(180deg, rgba(10, 18, 32, 0.16) 0%, rgba(10, 18, 32, 0.08) 55%, rgba(10, 18, 32, 0) 100%);
+  backdrop-filter: blur(4px) saturate(120%);
+  -webkit-backdrop-filter: blur(4px) saturate(120%);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .subtabs button {
   background: none;
   border: none;
-  padding: 8px 12px 10px;
   cursor: pointer;
-  color: #ffffff;
-  border-radius: 10px;
+  color: #a7ebeb;
+  opacity: 0.5;
   position: relative;
-  transition: color 0.3s ease, background 0.3s ease;
-  flex: 1;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition: color 0.3s ease, background 0.3s ease;
+  flex: 1;
+  z-index: 1;
+  font-size: 13px;
 }
 
 .subtabs button.active {
-  font-weight: bold;
-  color: #5EEAD4;
+  font-weight: 600;
+  opacity: 1;
+  color: #a7ebeb;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.25);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -49,14 +73,28 @@
 
 .subtabs-indicator {
   position: absolute;
-  left: 0;
-  bottom: 2px;
-  height: 2px;
-  background: #5EEAD4;
-  border-radius: 2px;
+  left: 4px;
+  top: 4px;
+  bottom: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 6px 16px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
   pointer-events: none;
-  transform-origin: center;
-  scale: 0.89;
+  transition: transform 0.3s ease-out;
+}
+
+.subtabs-indicator::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50%, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.0) 100%);
+  pointer-events: none;
 }
 
 .subtabs button:focus-visible {
@@ -72,6 +110,9 @@
   overflow: hidden;
   display: flex;
   box-sizing: border-box;
+  --subtabs-spacing: 145px;
+  margin-top: calc(-1 * var(--subtabs-spacing));
+  padding-top: 0;
 }
 
 .subcontent.swiping-x {
@@ -87,14 +128,6 @@
   pointer-events: none;
 }
 
-.subcontent.swiping-x .bet-card:active,
-.subcontent.scrolling .bet-card:active,
-.subcontent.swiping-x .bet-card.pressed,
-.subcontent.scrolling .bet-card.pressed {
-  transform: none;
-  box-shadow: none;
-}
-
 .subcontent-track {
   display: flex;
   width: 100%;
@@ -104,13 +137,25 @@
 
 .subcontent-panel {
   flex: 0 0 100%;
-  padding: 0px 8px 60px;
+  padding: 0px 8px calc(48px + var(--app-tabbar-height, 0px));
   box-sizing: border-box;
   height: 100%;
   overflow-y: auto;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-  min-height: calc(100% + 58px);
+  min-height: calc(100% + var(--app-tabbar-height, 0px));
+  padding-top: var(--subtabs-spacing);
+  scroll-padding-top: var(--subtabs-spacing);
+  padding-bottom: calc(72px + var(--app-tabbar-height, 0px));
+  scrollbar-width: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .bets-section .subcontent-panel {
+    padding-bottom: calc(200px + var(--app-tabbar-height, 0px));
+    min-height: calc(100% + var(--app-tabbar-height, 0px));
+    scroll-padding-bottom: calc(32px + var(--app-tabbar-height, 0px));
+  }
 }
 
 /* BetsSection.css */
@@ -124,17 +169,22 @@
 .bet-card {
   padding: 14px;
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: linear-gradient(45deg, rgba(255, 255, 255, 0.65), rgba(240, 248, 255, 0.35));
-  backdrop-filter: blur(18px) saturate(200%);
-  -webkit-backdrop-filter: blur(18px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.644), rgba(16, 139, 167, 0));
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
   touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
   cursor: pointer; /* Показываем, что элемент кликабелен */
   overflow: hidden;
-  color: #111;
+  color: #0f172a;
+  margin-bottom: 4px;
+  box-shadow:
+    1px 3px 8px rgba(15, 23, 42, 0.14),
+    inset 1px -1px 4px rgba(255, 255, 255, 0.6),
+    inset -1px 1px 4px rgba(255, 255, 255, 0.6);
 }
 
 .bet-card * {
@@ -146,16 +196,11 @@
   transform: translateY(0) scale(0.95);
   box-shadow:
     0 8px 20px rgba(36, 60, 105, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -6px 14px rgba(120, 160, 220, 0.15);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .bet-card:hover:not(.bet-card.pressed) {
     transform: translateY(-1px) scale(1.02);
-    box-shadow:
-      inset 0 -8px 18px rgba(120, 160, 220, 0.16);
-    border-color: rgba(255, 255, 255, 0.75);
   }
 }
 
@@ -163,12 +208,17 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  border: 1px solid;
   border-radius: 12px;
   padding: 2px 8px;
   font-size: 12px;
+  font-style: italic;
   display: flex;
   align-items: center;
+  background: linear-gradient(215deg, #5ea2eaa6, rgba(255, 255, 255, 0.534));
+  color: #0F172A ;
+  box-shadow: 
+    inset 1px -1px 4px rgba(255, 255, 255, 0.6),
+    inset -1px 1px 4px rgba(255, 255, 255, 0.6);
 }
 
 .result-badge .dot {
@@ -187,11 +237,14 @@
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: #2ecc71;
+  background: linear-gradient(215deg, #2ecc71, rgba(0, 0, 0, 0.1));
   color: #fff;
   padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  box-shadow: 
+    inset 1px -1px 4px rgba(255, 255, 255, 0.6),
+    inset -1px 1px 4px rgba(255, 255, 255, 0.6);
 }
 
 .bet-card {
@@ -203,10 +256,4 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-}
-
-.bet-card::after {
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
-  mix-blend-mode: screen;
-  opacity: 0.7;
 }

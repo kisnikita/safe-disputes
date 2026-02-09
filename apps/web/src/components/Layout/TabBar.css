@@ -1,61 +1,118 @@
 .tabbar {
-  border-top: 1px solid #ccc;
-  padding: 3px 16px 32px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 16px calc(var(--tg-content-safe-area-inset-bottom, 0) + var(--tg-safe-area-inset-bottom, 0px));
   margin-bottom: 0;
-  position: relative;
   user-select: none;
   -webkit-user-select: none;
+  z-index: 5;
+  overflow: visible;
 }
+
+.tabbar::after {
+  content: '';
+  position: absolute;
+  height: calc(100%);
+  top: 20px;
+  left: 0;
+  right: 0;
+  background: linear-gradient(0deg, rgba(10, 18, 32, 0.18) 0%, rgba(10, 18, 32, 0.08) 60%, rgba(10, 18, 32, 0) 100%);
+  backdrop-filter: blur(2px) saturate(120%);
+  -webkit-backdrop-filter: blur(2px) saturate(120%);
+  pointer-events: none;
+  z-index: 0;
+}
+
 
 .tabbar-track {
   display: flex;
   justify-content: space-between;
   position: relative;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgba(10, 18, 32, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 10px 26px rgba(10, 18, 32, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px) saturate(200%);
+  -webkit-backdrop-filter: blur(10px) saturate(200%);
+  z-index: 1;
 }
 
 .tabbar button {
   background: none;
   border: none;
-  font-size: 16px;
+  font-size: 13px;
   cursor: pointer;
-  color: #111;
-  padding: 12px 0 14px;
+  color: rgba(255, 255, 255, 0.65);
+  padding: 10px 0 12px;
   position: relative;
-  transition: color 0.3s ease, background 0.3s ease;
-  border-radius: 10px;
+  transition: color 0.3s ease, background 0.3s ease, transform 0.3s ease;
+  border-radius: 999px;
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   text-align: center;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+  z-index: 1;
 }
 
 .tabbar .tab-icon {
   width: 24px;
   height: 24px;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: transform 0.4s ease, opacity 0.4s ease, filter 0.4s ease;
   display: inline-block;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
+  filter: brightness(0.9);
+}
+
+.tabbar .tabbar-label {
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  max-width: 6px;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(-6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .tabbar button.active {
-  font-weight: bold;
-  color: #007bff;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1.35;
 }
 
 .tabbar-indicator {
   position: absolute;
   left: 0;
-  bottom: 0;
-  height: 2px;
-  background: #5EEAD4;
-  border-radius: 2px;
+  top: 5px;
+  height: calc(100% - 12px);
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
   pointer-events: none;
-  width: calc(100% / var(--tab-count));
-  transform: translateX(calc(var(--tab-index) * 100%)) scaleX(0.85);
-  transition: transform 0.3s ease;
+  width: 0;
+  transform: translateX(0) scaleX(1);
+  transition: transform 0.5s ease, width 0.5s ease;
+  box-shadow:
+    0 8px 18px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.tabbar button.active .tabbar-label {
+  max-width: 120px;
+  opacity: 1;
+  transform: translateX(0);
 }
 
 
@@ -63,6 +120,12 @@
 .tabbar button:active .tab-icon {
   transform: scale(0.7);
   opacity: 0.7;
+}
+
+.tabbar button.active .tab-icon {
+  transform: scale(1.05);
+  opacity: 1;
+  filter: brightness(1);
 }
 
 .tabbar button:focus-visible {
@@ -78,7 +141,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .tabbar button:hover:not(.active) {
-    transform: translateY(-1px) scale(1.05);
+    transform: translateY(-1px) scale(1.03);
     transition: transform 0.3s ease;
   }
 }

@@ -555,8 +555,8 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
             <div
               className="subtabs-indicator"
               style={{
-                width: `${101 / tabs.length}%`,
-                transform: `translateX(${indicatorIndex * 110}%)`,
+                width: `${97 / tabs.length}%`,
+                transform: `translateX(${indicatorIndex * 99}%)`,
                 transition: isDragging ? 'none' : 'transform 0.3s ease-out',
               }}
             />
@@ -639,10 +639,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                           <p>Оппонент: {bet.opponent}</p>
 
                           {badge && (
-                            <div
-                              className="result-badge"
-                              style={{ borderColor: badge.color }}
-                            >
+                            <div className="result-badge">
                               <span className={`dot ${badge.color}`} />
                               {badge.text}
                             </div>
