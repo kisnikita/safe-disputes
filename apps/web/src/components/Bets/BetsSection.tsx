@@ -11,6 +11,8 @@ import { apiFetch } from '../../utils/apiFetch';
 import { BetDetailsModal } from './BetDetailsModal';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { HIDE_THRESHOLD } from '../../utils/constants';
+import { SubtabsSearch } from '../Layout/SubtabsSearch';
+import { ScrollTopHitArea, useDefaultScrollTopHit } from '../Layout/ScrollTopHitArea';
 import './BetsSection.css';
 
 interface Bet {
@@ -44,6 +46,23 @@ interface Props {
 
 const tabs = ['current', 'new', 'passed'] as const;
 type Subtab = typeof tabs[number];
+const currentBadgeMap: Partial<Record<Bet['result'], { color: string; text: string }>> = {
+  processed: { color: 'yellow', text: 'В процессе' },
+  answered: { color: 'green', text: 'Результат выбран' },
+  evidence: { color: 'red', text: 'Нужны доказательства' },
+  evidence_answered: { color: 'gray', text: 'Ожидание доказательств оппонента' },
+  inspected: { color: 'orange', text: 'Расследование' },
+};
+const newBadgeMap: Partial<Record<Bet['result'], { color: string; text: string }>> = {
+  new: { color: 'green', text: 'Получено' },
+  sent: { color: 'gray', text: 'Отправлено' },
+};
+const passedBadgeMap: Partial<Record<Bet['result'], { color: string; text: string }>> = {
+  rejected: { color: 'gray', text: 'Отменено' },
+  win: { color: 'green', text: 'Победа' },
+  lose: { color: 'red', text: 'Поражение' },
+  draw: { color: 'yellow', text: 'Ничья' },
+};
 
 export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}, ref) => {
   const [subtab, setSubtab] = useState<Subtab>('current');
@@ -79,6 +98,12 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   const [isScrolling, setIsScrolling] = useState(false);
   const [pressedCardId, setPressedCardId] = useState<string | null>(null);
   const [transitionEnabled, setTransitionEnabled] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [panelCanScrollByTab, setPanelCanScrollByTab] = useState<Record<Subtab, boolean>>({
+    current: true,
+    new: true,
+    passed: true,
+  });
   const scrollTopByTabRef = useRef<Record<Subtab, number>>({
     current: 0,
     new: 0,
@@ -95,6 +120,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   const animatingRef = useRef(false);
   const animationTimeoutRef = useRef<number | null>(null);
   const scrollStateTimeoutRef = useRef<number | null>(null);
+  const subtabsPrefetchedRef = useRef(false);
   const gestureLockRef = useRef<'x' | 'y' | null>(null);
   const pressTimeoutRef = useRef<number | null>(null);
   const pressStartRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -111,6 +137,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   const OPEN_CARD_DELAY_MS = 150;
   const TAP_MOVE_THRESHOLD = 2;
   const TAP_CARD_DELAY_MS = 80;
+  const normalizedQuery = searchTerm.trim().toLowerCase();
 
   const fetchFirstPage = useCallback(async (tab: Subtab) => {
     setFetchedByTab(prev => ({ ...prev, [tab]: true }));
@@ -172,6 +199,17 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   }, [subtab, fetchedByTab, loadingByTab, fetchFirstPage]);
 
   useEffect(() => {
+    if (subtabsPrefetchedRef.current) return;
+    if (!fetchedByTab.current || loadingByTab.current) return;
+    subtabsPrefetchedRef.current = true;
+    tabs.forEach(tab => {
+      if (tab !== 'current' && !fetchedByTab[tab] && !loadingByTab[tab]) {
+        fetchFirstPage(tab);
+      }
+    });
+  }, [fetchedByTab, loadingByTab, fetchFirstPage]);
+
+  useEffect(() => {
     const node = subcontentRef.current;
     if (!node) return;
     const update = () => setContainerWidth(node.getBoundingClientRect().width);
@@ -185,6 +223,38 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     return () => window.removeEventListener('resize', update);
   }, []);
 
+  useEffect(() => {
+    const node = subcontentRef.current;
+    if (!node) return;
+    const updateCanScroll = () => {
+      const panels = node.querySelectorAll<HTMLElement>('.subcontent-panel');
+      setPanelCanScrollByTab({
+        current: (panels[0]?.scrollHeight ?? 0) > (panels[0]?.clientHeight ?? 0) + 1,
+        new: (panels[1]?.scrollHeight ?? 0) > (panels[1]?.clientHeight ?? 0) + 1,
+        passed: (panels[2]?.scrollHeight ?? 0) > (panels[2]?.clientHeight ?? 0) + 1,
+      });
+    };
+    const rafId = requestAnimationFrame(updateCanScroll);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(updateCanScroll);
+      node.querySelectorAll<HTMLElement>('.subcontent-panel').forEach(panel => ro?.observe(panel));
+    }
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro?.disconnect();
+    };
+  }, [
+    containerWidth,
+    betsByTab.current.length,
+    betsByTab.new.length,
+    betsByTab.passed.length,
+    normalizedQuery,
+    loadingByTab.current,
+    loadingByTab.new,
+    loadingByTab.passed,
+  ]);
+
   const currentIndex = tabs.indexOf(subtab);
   const width = containerWidth || widthRef.current || 0;
   const trackTranslate = width ? -currentIndex * width + dragOffset : 0;
@@ -192,26 +262,58 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   const rawIndicatorIndex = currentIndex + swipeProgress;
   const indicatorIndex = Math.max(0, Math.min(tabs.length - 1, rawIndicatorIndex));
   const visualActiveIndex = Math.round(indicatorIndex);
+  const getTargetScrollTopForSwitch = useCallback((fromTab: Subtab, toTab: Subtab) => {
+    const fromScrollTop = scrollTopByTabRef.current[fromTab] ?? 0;
+    const fromWasDocked = fromScrollTop >= HIDE_THRESHOLD;
+    const savedTargetScrollTop = scrollTopByTabRef.current[toTab] ?? 0;
+    return fromWasDocked ? Math.max(HIDE_THRESHOLD, savedTargetScrollTop) : 0;
+  }, []);
+  const syncPanelForTab = useCallback((toTab: Subtab, fromTab: Subtab) => {
+    const node = subcontentRef.current;
+    if (!node) return;
+    const targetScrollTop = getTargetScrollTopForSwitch(fromTab, toTab);
+    const tabIndex = tabs.indexOf(toTab);
+    const panel = node.querySelectorAll<HTMLElement>('.subcontent-panel')[tabIndex];
+    if (panel && Math.abs(panel.scrollTop - targetScrollTop) > 1) {
+      panel.scrollTop = targetScrollTop;
+    }
+  }, [getTargetScrollTopForSwitch]);
+  const resetAllTabsScrollState = useCallback(() => {
+    tabs.forEach(tab => {
+      scrollTopByTabRef.current[tab] = 0;
+    });
+    const node = subcontentRef.current;
+    if (!node) return;
+    node.querySelectorAll<HTMLElement>('.subcontent-panel').forEach(panel => {
+      if (panel.scrollTop !== 0) {
+        panel.scrollTop = 0;
+      }
+    });
+  }, []);
+  const resetInactiveTabsScrollState = useCallback((activeTab: Subtab) => {
+    tabs.forEach(tab => {
+      if (tab !== activeTab) {
+        scrollTopByTabRef.current[tab] = 0;
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const node = subcontentRef.current;
     if (!node) return;
     const panel = node.querySelectorAll<HTMLElement>('.subcontent-panel')[currentIndex];
     const prevTab = prevSubtabRef.current;
-    const prevScrollTop = scrollTopByTabRef.current[prevTab] ?? 0;
-    const wasDocked = prevScrollTop >= HIDE_THRESHOLD;
-    const savedScrollTop = scrollTopByTabRef.current[subtab] ?? 0;
-    const targetScrollTop = wasDocked ? Math.max(HIDE_THRESHOLD, savedScrollTop) : 0;
+    const targetScrollTop = getTargetScrollTopForSwitch(prevTab, subtab);
     if (panel) {
-      requestAnimationFrame(() => {
+      if (Math.abs(panel.scrollTop - targetScrollTop) > 1) {
         panel.scrollTop = targetScrollTop;
-        scrollTopByTabRef.current[subtab] = targetScrollTop;
-      });
+      }
+      scrollTopByTabRef.current[subtab] = targetScrollTop;
     }
     setSubtabsDocked(targetScrollTop >= HIDE_THRESHOLD);
     window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: targetScrollTop } }));
     prevSubtabRef.current = subtab;
-  }, [subtab, currentIndex]);
+  }, [subtab, currentIndex, getTargetScrollTopForSwitch]);
 
   const lastRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -225,59 +327,25 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     [loadingByTab, hasMoreByTab, loadMore, subtab]
   );
 
-  // бейджи для вкладки «Текущие»
-  const getCurrentBadge = (result: Bet['result']) => {
-    switch (result) {
-      case 'processed':
-        return { color: 'yellow', text: 'В процессе' };
-      case 'answered':
-        return { color: 'green', text: 'Результат выбран' };
-      case 'evidence':
-        return { color: 'red', text: 'Нужны доказательства' };
-      case 'sent':
-        return { color: 'gray', text: 'Ожидание ответа' };
-      case 'answered':
-        return { color: 'green', text: 'Результат выбран' };
-      case 'inspected':
-        return { color: 'yellow', text: 'Расследование' };
-      case 'processed':
-        return { color: 'yellow', text: 'В процессе' };
-      case 'evidence_answered':
-        return { color: 'gray', text: 'Ожидание доказательств оппонента' };
-      case 'inspected':
-        return { color: 'yellow', text: 'Расследование' };
-      default:
-        return null;
-    }
-  };
+  const betFilterOptionsByTab = (() => {
+    const collect = (source: Partial<Record<Bet['result'], { color: string; text: string }>>) => {
+      const seen = new Set<string>();
+      return Object.values(source)
+        .filter((badge): badge is { color: string; text: string } => badge !== null)
+        .filter(badge => {
+          if (seen.has(badge.text)) return false;
+          seen.add(badge.text);
+          return true;
+        })
+        .map(badge => ({ label: badge.text, color: badge.color }));
+    };
 
-  // бейджи для вкладки «Новые»
-  const getNewBadge = (result: Bet['result']) => {
-    switch (result) {
-      case 'new':
-        return { color: 'green', text: 'Получено' };
-      case 'sent':
-        return { color: 'gray', text: 'Отправлено' };
-      default:
-        return null;
-    }
-  };
-
-  // бейджи для вкладки «Прошедшие»
-  const getPassedBadge = (result: Bet['result']) => {
-    switch (result) {
-      case 'rejected':
-        return { color: 'gray', text: 'Отменено' };
-      case 'win':
-        return { color: 'green', text: 'Победа' };
-      case 'lose':
-        return { color: 'red', text: 'Поражение' };
-      case 'draw':
-        return { color: 'yellow', text: 'Ничья' };
-      default:
-        return null;
-    }
-  };
+    return {
+      current: collect(currentBadgeMap),
+      new: collect(newBadgeMap),
+      passed: collect(passedBadgeMap),
+    };
+  })();
 
   const openDetails = (id: string) => {
     if (isDragging) return;
@@ -384,6 +452,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
 
   const handleSubtabClick = (nextTab: Subtab) => {
     if (nextTab === subtab) return;
+    syncPanelForTab(nextTab, subtab);
     if (animatingRef.current) {
       if (animationTimeoutRef.current !== null) {
         window.clearTimeout(animationTimeoutRef.current);
@@ -436,6 +505,12 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     }
     const next = tabs[currentIndex + 1];
     const prev = tabs[currentIndex - 1];
+    if (next) {
+      syncPanelForTab(next, subtab);
+    }
+    if (prev) {
+      syncPanelForTab(prev, subtab);
+    }
     if (next && betsByTab[next].length === 0 && !loadingByTab[next]) {
       fetchFirstPage(next);
     }
@@ -463,8 +538,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
       const canScroll = panel ? panel.scrollHeight > panel.clientHeight + 1 : true;
       if (!canScroll) {
         pullTriggeredRef.current = true;
-        if (panel) panel.scrollTop = 0;
-        scrollTopByTabRef.current[subtab] = 0;
+        resetAllTabsScrollState();
         setSubtabsDocked(false);
         requestAnimationFrame(() => {
           window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));
@@ -530,6 +604,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
 
     setTransitionEnabled(true);
     animatingRef.current = true;
+    syncPanelForTab(tabs[nextIndex], subtab);
     setSubtab(tabs[nextIndex]);
     setDragOffset(0);
     animationTimeoutRef.current = window.setTimeout(() => {
@@ -542,8 +617,17 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   const handlePanelScroll = (index: number, event: React.UIEvent<HTMLDivElement>) => {
     if (index !== currentIndex) return;
     const scrollTop = event.currentTarget.scrollTop;
+    const prevScrollTop = scrollTopByTabRef.current[subtab] ?? 0;
+    const wasDocked = prevScrollTop >= HIDE_THRESHOLD;
+    const isDockedNow = scrollTop >= HIDE_THRESHOLD;
     scrollTopByTabRef.current[subtab] = scrollTop;
-    setSubtabsDocked(scrollTop >= HIDE_THRESHOLD);
+    if (wasDocked && !isDockedNow) {
+      resetAllTabsScrollState();
+      setSubtabsDocked(false);
+      window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));
+    } else {
+      setSubtabsDocked(isDockedNow);
+    }
     setIsScrolling(true);
     if (scrollStateTimeoutRef.current !== null) {
       window.clearTimeout(scrollStateTimeoutRef.current);
@@ -554,9 +638,16 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     }, 120);
   };
 
+  const scrollActivePanelToTop = useDefaultScrollTopHit(subcontentRef, currentIndex, () => {
+    resetInactiveTabsScrollState(subtab);
+    scrollTopByTabRef.current[subtab] = 0;
+    setSubtabsDocked(false);
+  });
+
     return (
       <>
         <div className={`bets-section${subtabsDocked ? ' subtabs-docked' : ''}`}>
+          <ScrollTopHitArea enabled={subtabsDocked} onHit={scrollActivePanelToTop} />
           <div className="subtabs">
             {tabs.map((buttonTab, tabIndex) => (
               <button
@@ -580,6 +671,15 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
               }}
             />
           </div>
+          <SubtabsSearch
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Поиск пари"
+            hidden={subtabsDocked}
+            blurOnSwipe={isDragging}
+            filterOptions={betFilterOptionsByTab[subtab]}
+            resetKey={subtab}
+          />
 
           <div
             className={`subcontent${isDragging ? ' swiping-x' : ''}${isScrolling ? ' scrolling' : ''}`}
@@ -598,24 +698,34 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
             >
               {tabs.map((tab, tabIndex) => {
                 const list = betsByTab[tab];
+                const filteredList = normalizedQuery
+                  ? list.filter(bet =>`${bet.title} ${bet.opponent}`.toLowerCase().includes(normalizedQuery))
+                  : list;
                 const isActive = tab === subtab;
+                const panelTopOffset = subtabsDocked && !panelCanScrollByTab[tab] ? HIDE_THRESHOLD : 0;
                 const isLoading = loadingByTab[tab];
-                const isEmpty = !isLoading && list.length === 0;
+                const isEmpty = !isLoading && filteredList.length === 0;
+                const emptyMessage = normalizedQuery ? 'Ничего не найдено' : 'Тут пока пусто';
                 return (
                   <div
                     key={tab}
                     className="subcontent-panel"
+                    style={{
+                      paddingTop: `calc(var(--subtabs-spacing) - ${panelTopOffset}px)`,
+                      scrollPaddingTop: `calc(var(--subtabs-spacing) - ${panelTopOffset}px)`,
+                      overflow: isDragging || !panelCanScrollByTab[tab] ? 'hidden' : 'auto',
+                    }}
                     onScroll={event => handlePanelScroll(tabIndex, event)}
                   >
-                    {list.map((bet, idx) => {
-                      const isLast = idx === list.length - 1;
+                    {filteredList.map((bet, idx) => {
+                      const isLast = idx === filteredList.length - 1;
                       const badge =
                         tab === 'current'
-                          ? getCurrentBadge(bet.result)
+                          ? currentBadgeMap[bet.result] ?? null
                           : tab === 'new'
-                          ? getNewBadge(bet.result)
+                          ? newBadgeMap[bet.result] ?? null
                           : tab === 'passed'
-                          ? getPassedBadge(bet.result)
+                          ? passedBadgeMap[bet.result] ?? null
                           : null;
 
                       return (
@@ -680,7 +790,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                         <Spinner size="m" className="spinner"/>
                       </div>
                     )}
-                    {isEmpty &&  <div className="empty-message">Тут пока пусто</div>}
+                    {isEmpty &&  <div className="empty-message">{emptyMessage}</div>}
                   </div>
                 );
               })}

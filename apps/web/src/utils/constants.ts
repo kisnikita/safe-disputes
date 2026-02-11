@@ -1,1 +1,1 @@
-export const HIDE_THRESHOLD = 30;
+export const HIDE_THRESHOLD = 50;

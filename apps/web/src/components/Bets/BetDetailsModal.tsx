@@ -326,7 +326,7 @@ export const BetDetailsModal: React.FC<Props> = ({
             )}
 
             {/* Кнопки для вкладки «Новые» */}
-            {showActions && (
+            {showActions && bet.result === 'new' && (
               <div className="action-buttons">
                 <button
                   className="btn-reject"

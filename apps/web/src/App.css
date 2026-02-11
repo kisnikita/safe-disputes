@@ -1,9 +1,11 @@
 /* Центрированный контейнер для загрузки и ошибок */
 .center {
-  position: absolute;
+  position: fixed;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 20;
 }
   
   /* Ошибочное сообщение */
@@ -17,7 +19,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: var(--app-height);
   font-family: Arial, sans-serif;
 }
   
@@ -30,16 +32,12 @@
   
 
 html, body, #root {
-  height: 100%;
+  height: var(--app-height);
   margin: 0;
   padding: 0;
-  overflow: hidden;        /* Отключаем лишний скролл на корне */
-}
-
-.app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior-y: none;
 }
 
 .content {
@@ -113,12 +111,6 @@ input, textarea {
   .form-card { padding: 1rem; width: 95%; }
   .tab-btn { padding: 0.6rem 0; font-size: 0.95rem; }
   .create-button { padding: 0.6rem 0.8rem; font-size: 0.95rem; }
-}
-
-.app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
 }
 
 .tabbar {

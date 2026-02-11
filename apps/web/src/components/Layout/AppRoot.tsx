@@ -10,6 +10,24 @@ interface AppRootProps {
   hideTonButton?: boolean;     // новый проп
 }
 
+const syncAppHeight = () => {
+  const root = document.documentElement;
+  const webApp = (window as any)?.Telegram?.WebApp;
+  const stableHeight = Number(webApp?.viewportStableHeight);
+  if (Number.isFinite(stableHeight) && stableHeight > 0) {
+    root.style.setProperty('--app-height', `${stableHeight}px`);
+    return;
+  }
+  const candidates = [document.documentElement.clientHeight, window.innerHeight];
+  if (window.visualViewport) {
+    candidates.push(Math.round(window.visualViewport.height));
+  }
+  const valid = candidates.filter(value => Number.isFinite(value) && value > 0);
+  if (valid.length > 0) {
+    root.style.setProperty('--app-height', `${Math.min(...valid)}px`);
+  }
+};
+
 export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = false }) => {
   const [scrollVisible, setScrollVisible] = useState(true);
 
@@ -26,7 +44,18 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
     const platform = String(webApp.platform || '').toLowerCase();
     const isMobile = platform === 'android' || platform === 'ios';
     if (!isMobile) return;
+
     webApp.requestFullscreen();
+    syncAppHeight();
+    const rafId = requestAnimationFrame(syncAppHeight);
+    const timeoutA = window.setTimeout(syncAppHeight, 120);
+    const timeoutB = window.setTimeout(syncAppHeight, 320);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.clearTimeout(timeoutA);
+      window.clearTimeout(timeoutB);
+    };
   }, []);
 
   useEffect(() => {
@@ -36,7 +65,7 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
     return () => webApp.disableClosingConfirmation?.();
   }, []);
 
-   useEffect(() => {
+  useEffect(() => {
     const webApp = (window as any)?.Telegram?.WebApp;
     if (!webApp?.disableVerticalSwipes) return;
     webApp.disableVerticalSwipes();
@@ -73,6 +102,10 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
       document.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('subtab-scroll-sync', onSubtabChange as EventListener);
     };
+  }, []);
+
+  useEffect(() => {
+    syncAppHeight();
   }, []);
 
   // TonConnectButton видим только если оба флага false

@@ -13,6 +13,8 @@ import { InvestigationDetailsModal } from './InvestigationDetailsModal';
 import { RatingButton } from '../Layout/RatingButton';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { HIDE_THRESHOLD } from '../../utils/constants';
+import { SubtabsSearch } from '../Layout/SubtabsSearch';
+import { ScrollTopHitArea, useDefaultScrollTopHit } from '../Layout/ScrollTopHitArea';
 
 interface Investigation {
   id: string;
@@ -39,6 +41,28 @@ interface Props {
 
 const tabs = ['current', 'passed'] as const;
 type Subtab = typeof tabs[number];
+const currentInvestigationBadgeMap: Partial<Record<Investigation['result'], { color: string; text: string }>> = {
+  new: { color: 'red', text: 'Новое' },
+  sent: { color: 'green', text: 'Голос отдан' },
+};
+const passedInvestigationBadgeMap: Partial<Record<Investigation['result'], { color: string; text: string }>> = {
+  correct: { color: 'green', text: 'Верно' },
+  incorrect: { color: 'red', text: 'Неверно' },
+};
+const investigationFilterOptionsByTab: Record<Subtab, Array<{ label: string; color: string }>> = {
+  current: Object.values(currentInvestigationBadgeMap).map(badge => ({
+    label: badge?.text ?? '',
+    color: badge?.color ?? 'gray',
+  })),
+  passed: Object.values(passedInvestigationBadgeMap).map(badge => ({
+    label: badge?.text ?? '',
+    color: badge?.color ?? 'gray',
+  })),
+};
+const investigationSortOptionsByTab: Record<Subtab, string[]> = {
+  current: ['Завершающиеся', 'Крупные'],
+  passed: ['Последние', 'Крупные'],
+};
 
 export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Props>(
   ({ onModalChange }, ref) => {
@@ -72,6 +96,11 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const [isScrolling, setIsScrolling] = useState(false);
     const [pressedCardId, setPressedCardId] = useState<string | null>(null);
     const [transitionEnabled, setTransitionEnabled] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [panelCanScrollByTab, setPanelCanScrollByTab] = useState<Record<Subtab, boolean>>({
+      current: true,
+      passed: true,
+    });
     const scrollTopByTabRef = useRef<Record<Subtab, number>>({
       current: 0,
       passed: 0,
@@ -103,6 +132,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const OPEN_CARD_DELAY_MS = 150;
     const TAP_MOVE_THRESHOLD = 2;
     const TAP_CARD_DELAY_MS = 80;
+    const normalizedQuery = searchTerm.trim().toLowerCase();
 
     const fetchInvestigations = useCallback(async (tab: Subtab) => {
       setFetchedByTab(prev => ({ ...prev, [tab]: true }));
@@ -188,6 +218,35 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       return () => window.removeEventListener('resize', update);
     }, []);
 
+    useEffect(() => {
+      const node = subcontentRef.current;
+      if (!node) return;
+      const updateCanScroll = () => {
+        const panels = node.querySelectorAll<HTMLElement>('.subcontent-panel');
+        setPanelCanScrollByTab({
+          current: (panels[0]?.scrollHeight ?? 0) > (panels[0]?.clientHeight ?? 0) + 1,
+          passed: (panels[1]?.scrollHeight ?? 0) > (panels[1]?.clientHeight ?? 0) + 1,
+        });
+      };
+      const rafId = requestAnimationFrame(updateCanScroll);
+      let ro: ResizeObserver | null = null;
+      if (typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(updateCanScroll);
+        node.querySelectorAll<HTMLElement>('.subcontent-panel').forEach(panel => ro?.observe(panel));
+      }
+      return () => {
+        cancelAnimationFrame(rafId);
+        ro?.disconnect();
+      };
+    }, [
+      containerWidth,
+      itemsByTab.current.length,
+      itemsByTab.passed.length,
+      normalizedQuery,
+      loadingByTab.current,
+      loadingByTab.passed,
+    ]);
+
     const currentIndex = tabs.indexOf(subtab);
     const width = containerWidth || widthRef.current || 0;
     const trackTranslate = width ? -currentIndex * width + dragOffset : 0;
@@ -195,26 +254,58 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const rawIndicatorIndex = currentIndex + swipeProgress;
     const indicatorIndex = Math.max(0, Math.min(tabs.length - 1, rawIndicatorIndex));
     const visualActiveIndex = Math.round(indicatorIndex);
+    const getTargetScrollTopForSwitch = useCallback((fromTab: Subtab, toTab: Subtab) => {
+      const fromScrollTop = scrollTopByTabRef.current[fromTab] ?? 0;
+      const fromWasDocked = fromScrollTop >= HIDE_THRESHOLD;
+      const savedTargetScrollTop = scrollTopByTabRef.current[toTab] ?? 0;
+      return fromWasDocked ? Math.max(HIDE_THRESHOLD, savedTargetScrollTop) : 0;
+    }, []);
+    const syncPanelForTab = useCallback((toTab: Subtab, fromTab: Subtab) => {
+      const node = subcontentRef.current;
+      if (!node) return;
+      const targetScrollTop = getTargetScrollTopForSwitch(fromTab, toTab);
+      const tabIndex = tabs.indexOf(toTab);
+      const panel = node.querySelectorAll<HTMLElement>('.subcontent-panel')[tabIndex];
+      if (panel && Math.abs(panel.scrollTop - targetScrollTop) > 1) {
+        panel.scrollTop = targetScrollTop;
+      }
+    }, [getTargetScrollTopForSwitch]);
+    const resetAllTabsScrollState = useCallback(() => {
+      tabs.forEach(tab => {
+        scrollTopByTabRef.current[tab] = 0;
+      });
+      const node = subcontentRef.current;
+      if (!node) return;
+      node.querySelectorAll<HTMLElement>('.subcontent-panel').forEach(panel => {
+        if (panel.scrollTop !== 0) {
+          panel.scrollTop = 0;
+        }
+      });
+    }, []);
+    const resetInactiveTabsScrollState = useCallback((activeTab: Subtab) => {
+      tabs.forEach(tab => {
+        if (tab !== activeTab) {
+          scrollTopByTabRef.current[tab] = 0;
+        }
+      });
+    }, []);
 
     useEffect(() => {
       const node = subcontentRef.current;
       if (!node) return;
       const panel = node.querySelectorAll<HTMLElement>('.subcontent-panel')[currentIndex];
       const prevTab = prevSubtabRef.current;
-      const prevScrollTop = scrollTopByTabRef.current[prevTab] ?? 0;
-      const wasDocked = prevScrollTop >= HIDE_THRESHOLD;
-      const savedScrollTop = scrollTopByTabRef.current[subtab] ?? 0;
-      const targetScrollTop = wasDocked ? Math.max(HIDE_THRESHOLD, savedScrollTop) : 0;
+      const targetScrollTop = getTargetScrollTopForSwitch(prevTab, subtab);
       if (panel) {
-        requestAnimationFrame(() => {
+        if (Math.abs(panel.scrollTop - targetScrollTop) > 1) {
           panel.scrollTop = targetScrollTop;
-          scrollTopByTabRef.current[subtab] = targetScrollTop;
-        });
+        }
+        scrollTopByTabRef.current[subtab] = targetScrollTop;
       }
       setSubtabsDocked(targetScrollTop >= HIDE_THRESHOLD);
       window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: targetScrollTop } }));
       prevSubtabRef.current = subtab;
-    }, [subtab, currentIndex]);
+    }, [subtab, currentIndex, getTargetScrollTopForSwitch]);
 
     const lastRef = useCallback(
       (node: HTMLDivElement | null) => {
@@ -227,16 +318,6 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       },
       [loadingByTab, hasMoreByTab, loadMore, subtab]
     );
-
-    const getBadge = (result: Investigation['result']) => {
-      switch (result) {
-        case 'new': return { color: 'red', text: 'Новое' };
-        case 'sent': return { color: 'green', text: 'Голос отдан' };
-        case 'correct': return { color: 'green', text: 'Верно' };
-        case 'incorrect': return { color: 'red', text: 'Неверно' };
-        default: return null;
-      }
-    };
 
     const openDetails = (id: string) => {
       if (isDragging) return;
@@ -343,6 +424,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
 
     const handleSubtabClick = (nextTab: Subtab) => {
       if (nextTab === subtab) return;
+      syncPanelForTab(nextTab, subtab);
       if (animatingRef.current) {
         if (animationTimeoutRef.current !== null) {
           window.clearTimeout(animationTimeoutRef.current);
@@ -395,6 +477,12 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       }
       const next = tabs[currentIndex + 1];
       const prev = tabs[currentIndex - 1];
+      if (next) {
+        syncPanelForTab(next, subtab);
+      }
+      if (prev) {
+        syncPanelForTab(prev, subtab);
+      }
       if (next && itemsByTab[next].length === 0 && !loadingByTab[next]) {
         fetchInvestigations(next);
       }
@@ -422,8 +510,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
         const canScroll = panel ? panel.scrollHeight > panel.clientHeight + 1 : true;
         if (!canScroll) {
           pullTriggeredRef.current = true;
-          if (panel) panel.scrollTop = 0;
-          scrollTopByTabRef.current[subtab] = 0;
+          resetAllTabsScrollState();
           setSubtabsDocked(false);
           requestAnimationFrame(() => {
             window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));
@@ -486,6 +573,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
 
       setTransitionEnabled(true);
       animatingRef.current = true;
+      syncPanelForTab(tabs[nextIndex], subtab);
       setSubtab(tabs[nextIndex]);
       setDragOffset(0);
       animationTimeoutRef.current = window.setTimeout(() => {
@@ -498,8 +586,17 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const handlePanelScroll = (index: number, event: React.UIEvent<HTMLDivElement>) => {
       if (index !== currentIndex) return;
       const scrollTop = event.currentTarget.scrollTop;
+      const prevScrollTop = scrollTopByTabRef.current[subtab] ?? 0;
+      const wasDocked = prevScrollTop >= HIDE_THRESHOLD;
+      const isDockedNow = scrollTop >= HIDE_THRESHOLD;
       scrollTopByTabRef.current[subtab] = scrollTop;
-      setSubtabsDocked(scrollTop >= HIDE_THRESHOLD);
+      if (wasDocked && !isDockedNow) {
+        resetAllTabsScrollState();
+        setSubtabsDocked(false);
+        window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));
+      } else {
+        setSubtabsDocked(isDockedNow);
+      }
       setIsScrolling(true);
       if (scrollStateTimeoutRef.current !== null) {
         window.clearTimeout(scrollStateTimeoutRef.current);
@@ -509,6 +606,12 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
         scrollStateTimeoutRef.current = null;
       }, 120);
     };
+
+    const scrollActivePanelToTop = useDefaultScrollTopHit(subcontentRef, currentIndex, () => {
+      resetInactiveTabsScrollState(subtab);
+      scrollTopByTabRef.current[subtab] = 0;
+      setSubtabsDocked(false);
+    });
 
   const getTimeRemaining = (endsAt: string) => {
   // Парсим время окончания как UTC-момент
@@ -534,6 +637,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     return (
       <>
         <div className={`investigations-section${subtabsDocked ? ' subtabs-docked' : ''}`}>
+          <ScrollTopHitArea enabled={subtabsDocked && !showRating} onHit={scrollActivePanelToTop} />
           <div className="header">
             <RatingButton
               onClick={() => {
@@ -579,6 +683,16 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                   }}
                 />
               </div>
+              <SubtabsSearch
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Поиск расследований"
+                hidden={subtabsDocked}
+                blurOnSwipe={isDragging}
+                filterOptions={investigationFilterOptionsByTab[subtab]}
+                sortOptions={investigationSortOptionsByTab[subtab]}
+                resetKey={subtab}
+              />
 
               <div
                 className={`subcontent${isDragging ? ' swiping-x' : ''}${isScrolling ? ' scrolling' : ''}`}
@@ -597,18 +711,30 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                 >
                   {tabs.map((tab, tabIndex) => {
                     const list = itemsByTab[tab];
+                    const filteredList = normalizedQuery
+                      ? list.filter(inv =>`${inv.title}`.toLowerCase().includes(normalizedQuery))
+                      : list;
                     const isActive = tab === subtab;
+                    const panelTopOffset = subtabsDocked && !panelCanScrollByTab[tab] ? HIDE_THRESHOLD : 0;
                     const isLoading = loadingByTab[tab];
-                    const isEmpty = !isLoading && list.length === 0;
+                    const isEmpty = !isLoading && filteredList.length === 0;
+                    const emptyMessage = normalizedQuery ? 'Ничего не найдено' : 'Тут пока пусто';
                     return (
                       <div
                         key={tab}
                         className="subcontent-panel"
+                        style={{
+                          paddingTop: `calc(var(--subtabs-spacing) - ${panelTopOffset}px)`,
+                          scrollPaddingTop: `calc(var(--subtabs-spacing) - ${panelTopOffset}px)`,
+                          overflow: isDragging || !panelCanScrollByTab[tab] ? 'hidden' : '',
+                        }}
                         onScroll={event => handlePanelScroll(tabIndex, event)}
                       >
-                        {list.map((inv, idx) => {
-                          const isLast = idx === list.length - 1;
-                          const badge = getBadge(inv.result);
+                        {filteredList.map((inv, idx) => {
+                          const isLast = idx === filteredList.length - 1;
+                          const badge = tab === 'current' ? 
+                          currentInvestigationBadgeMap[inv.result] ?? null : 
+                          passedInvestigationBadgeMap[inv.result] ?? null;
 
                           return (
                             <div
@@ -666,7 +792,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                             <Spinner size="m" className="spinner"/>
                           </div>
                         )}
-                        {isEmpty && <div className="empty-message">Тут пока пусто</div>}
+                        {isEmpty && <div className="empty-message">{emptyMessage}</div>}
                       </div>
                     );
                   })}

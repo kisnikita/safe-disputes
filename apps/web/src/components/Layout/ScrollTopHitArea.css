@@ -1,0 +1,18 @@
+.scroll-top-hit-area {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin-top: -200px;
+  height: calc(var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, 0px) + 195px);
+  background: transparent;
+  border: none;
+  padding: 0;
+  pointer-events: none;
+  touch-action: manipulation;
+  z-index: 3;
+}
+
+.scroll-top-hit-area.is-enabled {
+  pointer-events: auto;
+}
