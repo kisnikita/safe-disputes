@@ -104,7 +104,7 @@ func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Disput
 	if err != nil {
 		return fmt.Errorf("failed to get creator user: %w", err)
 	}
-	u2dCreator := models.NewUser2Dispute(creator.ID, dispute.ID, models.DisputesStatusCurrent, models.DisputesResultSent)
+	u2dCreator := models.NewUser2Dispute(creator.ID, dispute.ID, models.DisputesStatusNew, models.DisputesResultSent)
 	err = s.u2dCreator.InsertUser2Dispute(ctx, u2dCreator)
 	if err != nil {
 		return fmt.Errorf("failed to create user2dispute for creator: %w", err)

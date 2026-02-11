@@ -5,8 +5,8 @@ import "github.com/google/uuid"
 type Status string
 
 const (
-	DisputesStatusNew     Status = "new"
 	DisputesStatusCurrent Status = "current"
+	DisputesStatusNew     Status = "new"
 	DisputesStatusPassed  Status = "passed"
 )
 

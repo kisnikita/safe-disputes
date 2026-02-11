@@ -20,16 +20,17 @@ interface Bet {
   opponent: string;
   status: string;
   result:
-    | 'evidence'
+    | 'new'
     | 'sent'
+    | 'processed'
     | 'answered'
+    | 'evidence'
+    | 'evidence_answered'
     | 'inspected'
+    | 'rejected'
     | 'win'
     | 'lose'
     | 'draw'
-    | 'rejected'
-    | 'processed'
-    | 'evidence_answered';
   claim: boolean;
 }
 
@@ -227,6 +228,10 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   // бейджи для вкладки «Текущие»
   const getCurrentBadge = (result: Bet['result']) => {
     switch (result) {
+      case 'processed':
+        return { color: 'yellow', text: 'В процессе' };
+      case 'answered':
+        return { color: 'green', text: 'Результат выбран' };
       case 'evidence':
         return { color: 'red', text: 'Нужны доказательства' };
       case 'sent':
@@ -239,6 +244,20 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
         return { color: 'yellow', text: 'В процессе' };
       case 'evidence_answered':
         return { color: 'gray', text: 'Ожидание доказательств оппонента' };
+      case 'inspected':
+        return { color: 'yellow', text: 'Расследование' };
+      default:
+        return null;
+    }
+  };
+
+  // бейджи для вкладки «Новые»
+  const getNewBadge = (result: Bet['result']) => {
+    switch (result) {
+      case 'new':
+        return { color: 'green', text: 'Получено' };
+      case 'sent':
+        return { color: 'gray', text: 'Отправлено' };
       default:
         return null;
     }
@@ -247,14 +266,14 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   // бейджи для вкладки «Прошедшие»
   const getPassedBadge = (result: Bet['result']) => {
     switch (result) {
+      case 'rejected':
+        return { color: 'gray', text: 'Отменено' };
       case 'win':
         return { color: 'green', text: 'Победа' };
       case 'lose':
         return { color: 'red', text: 'Поражение' };
       case 'draw':
         return { color: 'yellow', text: 'Ничья' };
-      case 'rejected':
-        return { color: 'gray', text: 'Отменено' };
       default:
         return null;
     }
@@ -593,6 +612,8 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                       const badge =
                         tab === 'current'
                           ? getCurrentBadge(bet.result)
+                          : tab === 'new'
+                          ? getNewBadge(bet.result)
                           : tab === 'passed'
                           ? getPassedBadge(bet.result)
                           : null;
