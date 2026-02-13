@@ -1,13 +1,13 @@
-/* src/components/Settings/SettingsSection.css */
-
 .settings-panel {
   width: 100%;
   max-width: 480px;
-  margin-top: 50px;
+  margin-top: 150px;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .settings-row {

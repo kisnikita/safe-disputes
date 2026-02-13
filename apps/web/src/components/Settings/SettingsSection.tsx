@@ -1,5 +1,4 @@
-// src/components/Settings/SettingsSection.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 import './SettingsSection.css';
 import { Spinner } from '@telegram-apps/telegram-ui';
