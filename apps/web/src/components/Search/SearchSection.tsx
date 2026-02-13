@@ -1,10 +1,12 @@
-import React from 'react';
+import { EmptyState } from '../EmptyState/EmptyState';
 import './SearchSection.css';
 
 export function SearchSection() {
   return (
-    <div className="search-placeholder">
-      <p>Скоро будет добавлено</p>
-    </div>
+    <EmptyState
+      className="search-placeholder"
+      message="Скоро будет добавлено"
+      variant="comingSoon"
+    />
   );
 }

@@ -14,6 +14,8 @@ import { HIDE_THRESHOLD } from '../../utils/constants';
 import { SubtabsSearch } from '../Layout/SubtabsSearch';
 import { ScrollTopHitArea, useDefaultScrollTopHit } from '../Layout/ScrollTopHitArea';
 import './BetsSection.css';
+import { EmptyState } from '../EmptyState/EmptyState';
+import { useTonConnect } from '../../hooks/useTonConnect';
 
 interface Bet {
   id: string;
@@ -65,6 +67,7 @@ const passedBadgeMap: Partial<Record<Bet['result'], { color: string; text: strin
 };
 
 export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}, ref) => {
+  const { connected } = useTonConnect();
   const [subtab, setSubtab] = useState<Subtab>('current');
   const [betsByTab, setBetsByTab] = useState<Record<Subtab, Bet[]>>({
     current: [],
@@ -705,7 +708,36 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                 const panelTopOffset = subtabsDocked && !panelCanScrollByTab[tab] ? HIDE_THRESHOLD : 0;
                 const isLoading = loadingByTab[tab];
                 const isEmpty = !isLoading && filteredList.length === 0;
-                const emptyMessage = normalizedQuery ? 'Ничего не найдено' : 'Тут пока пусто';
+                const isSearchEmpty = Boolean(normalizedQuery);
+                const showNewTabHint = tab === 'new' && !isSearchEmpty;
+                const showCurrentHint = tab === 'current' && !isSearchEmpty;
+                const showPassedMessageOnly = tab === 'passed' && !isSearchEmpty;
+                const hintIconDirection =
+                  isSearchEmpty && tab === 'new'
+                    ? 'both'
+                    : tab === 'current'
+                    ? 'right'
+                    : tab === 'passed'
+                    ? 'left'
+                    : 'up';
+                const emptyMessage = isSearchEmpty
+                  ? 'Ничего не найдено'
+                  : showCurrentHint
+                  ? 'Примите пари, чтобы оно появилось здесь'
+                  : showPassedMessageOnly
+                  ? 'Здесь будут ваши завершённые и отменённые пари'
+                  : connected
+                  ? 'Создайте пари, чтобы оно появилось здесь'
+                  : 'Подключите кошелек, чтобы создавать и принимать пари';
+                const emptyHint = showNewTabHint
+                  ? subtabsDocked
+                    ? 'Прокрутите вверх, чтобы увидеть кнопки действий'
+                    : 'Кнопки действий доступны в верхней части экрана'
+                  : isSearchEmpty
+                  ? 'Проверьте результат в других вкладках'
+                  : showCurrentHint
+                  ? 'Принять пари можно на вкладке Новые'
+                  : undefined;
                 return (
                   <div
                     key={tab}
@@ -790,7 +822,15 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                         <Spinner size="m" className="spinner"/>
                       </div>
                     )}
-                    {isEmpty &&  <div className="empty-message">{emptyMessage}</div>}
+                    {isEmpty && (
+                      <EmptyState
+                        message={emptyMessage}
+                        variant={normalizedQuery ? 'notFound' : 'empty'}
+                        hint={emptyHint}
+                        hintIconDirection={hintIconDirection}
+                        onHintClick={showNewTabHint && subtabsDocked ? scrollActivePanelToTop : undefined}
+                      />
+                    )}
                   </div>
                 );
               })}

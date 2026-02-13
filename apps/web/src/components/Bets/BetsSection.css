@@ -159,14 +159,6 @@
   }
 }
 
-/* BetsSection.css */
-.empty-message {
-  text-align: center;
-  color: #666;
-  padding: 16px;
-  font-size: 14px;
-}
-
 .bet-card {
   padding: 14px;
   border-radius: 18px;

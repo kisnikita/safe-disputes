@@ -15,6 +15,8 @@ import { Spinner } from '@telegram-apps/telegram-ui';
 import { HIDE_THRESHOLD } from '../../utils/constants';
 import { SubtabsSearch } from '../Layout/SubtabsSearch';
 import { ScrollTopHitArea, useDefaultScrollTopHit } from '../Layout/ScrollTopHitArea';
+import { EmptyState } from '../EmptyState/EmptyState';
+import { useTonConnect } from '../../hooks/useTonConnect';
 
 interface Investigation {
   id: string;
@@ -86,6 +88,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const [showRating, setShowRating] = useState(false);
     const [topUsers, setTopUsers] = useState<TopUser[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const { connected } = useTonConnect();
     const cursorRef = useRef<Record<Subtab, string | null>>({
       current: null,
       passed: null,
@@ -718,7 +721,19 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                     const panelTopOffset = subtabsDocked && !panelCanScrollByTab[tab] ? HIDE_THRESHOLD : 0;
                     const isLoading = loadingByTab[tab];
                     const isEmpty = !isLoading && filteredList.length === 0;
-                    const emptyMessage = normalizedQuery ? 'Ничего не найдено' : 'Тут пока пусто';
+                    const isSearchEmpty = Boolean(normalizedQuery);
+                    const emptyMessage = isSearchEmpty
+                      ? 'Ничего не найдено'
+                      : tab === 'current'
+                      ? 'Расследований пока нет'
+                      : 'Здесь будут завершённые расследования, в которых вы принимали участие';
+                    const emptyHint = isSearchEmpty
+                      ? 'Проверьте результат в других вкладках'
+                      : tab === 'current'
+                      ? 'Увеличивайте рейтинг, чтобы повысить вероятность получения расследований'
+                      : 'Принять участие можно на вкладке Текущие';
+                    const hintIconDirection =
+                      tab === 'current' && !isSearchEmpty ? 'none' : tab === 'current' ? 'right' : 'left';
                     return (
                       <div
                         key={tab}
@@ -792,7 +807,14 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                             <Spinner size="m" className="spinner"/>
                           </div>
                         )}
-                        {isEmpty && <div className="empty-message">{emptyMessage}</div>}
+                        {isEmpty && (
+                          <EmptyState
+                            message={emptyMessage}
+                            variant={normalizedQuery ? 'notFound' : 'empty'}
+                            hint={emptyHint}
+                            hintIconDirection={hintIconDirection}
+                          />
+                        )}
                       </div>
                     );
                   })}
