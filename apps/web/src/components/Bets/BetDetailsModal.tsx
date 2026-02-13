@@ -27,16 +27,18 @@ interface BetDetail {
   updatedAt: string;
   imageData?: string;
   imageType?: string;
-  result:
-  | 'evidence'
-  | 'sent'
-  | 'answered'
-  | 'inspected'
-  | 'win'
-  | 'lose'
-  | 'draw'
-  | 'rejected'
-  | 'processed';
+  result: 
+    | 'new'
+    | 'sent'
+    | 'processed'
+    | 'answered'
+    | 'evidence'
+    | 'evidence_answered'
+    | 'inspected'
+    | 'rejected'
+    | 'win'
+    | 'lose'
+    | 'draw'
   claim: boolean;
   vote?: boolean; // true = win, false = lose
 }
