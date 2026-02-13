@@ -14,6 +14,7 @@
 .subtabs-search-input-wrap {
   flex: 1 1 calc(100% - 64px);
   min-width: 0;
+  position: relative;
   transition: flex-basis 0.22s ease;
 }
 
@@ -23,7 +24,7 @@
 
 .subtabs-search input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 10px 38px 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(10, 18, 32, 0.22);
@@ -39,6 +40,41 @@
 
 .subtabs-search input:focus-visible {
   border-color: rgba(51, 255, 245, 0.8);
+}
+
+.subtabs-search-input-clear {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%) scale(0.92);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(167, 235, 235, 0.92);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease, background 0.3s ease;
+}
+
+.subtabs-search-input-clear.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+
+.subtabs-search-input-clear svg {
+  width: 12px;
+  height: 12px;
+}
+
+.subtabs-search-input-clear:active {
+  transform: translateY(-50%) scale(0.7);
 }
 
 .subtabs-search-cancel {
@@ -124,6 +160,15 @@
 }
 
 .subtabs-search-control.has-selected svg {
+  opacity: 1;
+  filter: drop-shadow(0 1px 1px rgba(21, 246, 66, 0.8));
+}
+
+.subtabs-search-control.has-custom-sort {
+  color: rgba(21, 246, 66, 0.92);
+}
+
+.subtabs-search-control.has-custom-sort svg {
   opacity: 1;
   filter: drop-shadow(0 1px 1px rgba(21, 246, 66, 0.8));
 }

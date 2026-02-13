@@ -31,6 +31,7 @@ export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [selectedSort, setSelectedSort] = useState<string>(sortOptions[0] ?? 'Последние');
   const hasSelectedFilters = selectedFilters.length > 0;
+  const hasCustomSort = selectedSort !== (sortOptions[0] ?? 'Последние');
   const normalizedFilterOptions = filterOptions.map(option =>
     typeof option === 'string' ? { label: option } : option
   );
@@ -61,13 +62,10 @@ export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
 
   useEffect(() => {
     if (resetKey === undefined || resetKey === null) return;
-    onChange('');
-    inputRef.current?.blur();
-    setIsFocused(false);
     setSelectedFilters([]);
     setSelectedSort(sortOptions[0] ?? 'Последние');
     setActiveMenu(null);
-  }, [resetKey, onChange, sortOptions]);
+  }, [resetKey]);
 
   const handleCancel = () => {
     onChange('');
@@ -100,6 +98,26 @@ export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
           onChange={event => onChange(event.target.value)}
           placeholder={placeholder}
         />
+        <button
+          type="button"
+          className={`subtabs-search-input-clear${value.length > 0 ? ' visible' : ''}`}
+          onMouseDown={event => event.preventDefault()}
+          onClick={() => {
+            onChange('');
+            inputRef.current?.focus();
+          }}
+          aria-label="Очистить поиск"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M7 7l10 10M17 7L7 17"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
       </div>
       <button
         type="button"
@@ -129,7 +147,7 @@ export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
         </button>
         <button
           type="button"
-          className={`subtabs-search-control subtabs-search-sort${activeMenu === 'sort' ? ' active' : ''}`}
+          className={`subtabs-search-control subtabs-search-sort${activeMenu === 'sort' ? ' active' : ''}${hasCustomSort ? ' has-custom-sort' : ''}`}
           onMouseDown={event => event.preventDefault()}
           onClick={() => setActiveMenu(prev => (prev === 'sort' ? null : 'sort'))}
         >
