@@ -74,7 +74,12 @@ export function App() {
             </div>
             <TabBar
               active={activeTab}
-              onChange={id => setActiveTab(id as any)}
+              onChange={id => {
+                setActiveTab(id as any);
+                if (id === 'search' || id === 'settings') {
+                  window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));
+                }
+              }}
             />
           </div>
         </>
