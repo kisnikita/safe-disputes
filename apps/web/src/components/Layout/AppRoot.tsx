@@ -3,44 +3,36 @@ import React, { useState, useEffect } from 'react';
 import { AppRoot as TelegramAppRoot } from '@telegram-apps/telegram-ui';
 import { TonConnectUIProvider, TonConnectButton } from '@tonconnect/ui-react';
 import { HIDE_THRESHOLD } from '../../utils/constants';
+import { useScrollVisibility } from '../../hooks/useScrollVisibility';
 import './AppRoot.css';
 
 interface AppRootProps {
   children: React.ReactNode;
-  hideTonButton?: boolean;     // новый проп
+  hideTonButton?: boolean;
 }
 
-const syncAppHeight = () => {
-  const root = document.documentElement;
-  const webApp = (window as any)?.Telegram?.WebApp;
-  const stableHeight = Number(webApp?.viewportStableHeight);
-  if (Number.isFinite(stableHeight) && stableHeight > 0) {
-    root.style.setProperty('--app-height', `${stableHeight}px`);
-    return;
-  }
-  const candidates = [document.documentElement.clientHeight, window.innerHeight];
-  if (window.visualViewport) {
-    candidates.push(Math.round(window.visualViewport.height));
-  }
-  const valid = candidates.filter(value => Number.isFinite(value) && value > 0);
-  if (valid.length > 0) {
-    root.style.setProperty('--app-height', `${Math.min(...valid)}px`);
-  }
-};
+const getWebApp = () => (typeof window === 'undefined' ? undefined : (window as any)?.Telegram?.WebApp);
 
 export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = false }) => {
-  const [scrollVisible, setScrollVisible] = useState(true);
+  const scrollVisible = useScrollVisibility(HIDE_THRESHOLD);
   const [showRotateHint, setShowRotateHint] = useState(false);
 
+  // static configuration
   useEffect(() => {
-    const webApp = (window as any)?.Telegram?.WebApp;
-    if (!webApp) return;
-    webApp.setHeaderColor?.('#0F172A');
-    webApp.setBackgroundColor?.('#0F172A'); // just for bottom bar color on desktop.
+    const webApp = getWebApp();
+    webApp?.setHeaderColor?.('#0F172A');
+    webApp?.setBackgroundColor?.('#0F172A'); // just for bottom bar color on desktop.
+    if (webApp?.enableClosingConfirmation) webApp.enableClosingConfirmation();
+    if (webApp?.disableVerticalSwipes) webApp.disableVerticalSwipes();
+    return () => {
+      webApp.disableClosingConfirmation?.();
+      webApp.enableVerticalSwipes?.();
+    };
   }, []);
 
+  // dynamic configuration
   useEffect(() => {
-    const webApp = (window as any)?.Telegram?.WebApp;
+    const webApp = getWebApp();
     if (!webApp?.requestFullscreen) return;
     const platform = String(webApp.platform || '').toLowerCase();
     const isMobile = platform === 'android' || platform === 'ios';
@@ -48,11 +40,23 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
     let rafId = 0;
     let syncHeightTimeout = 0;
     let activateTimeout = 0;
+    let isOrientationListening = false;
 
-    const isLandscape = () => {
-      const width = window.visualViewport?.width ?? window.innerWidth;
-      const height = window.visualViewport?.height ?? window.innerHeight;
-      return width > height;
+    const syncAppHeight = () => {
+      const root = document.documentElement;
+      const stableHeight = Number(webApp?.viewportStableHeight);
+      if (Number.isFinite(stableHeight) && stableHeight > 0) {
+        root.style.setProperty('--app-height', `${stableHeight}px`);
+        return;
+      }
+      const candidates = [document.documentElement.clientHeight, window.innerHeight];
+      if (window.visualViewport) {
+        candidates.push(Math.round(window.visualViewport.height));
+      }
+      const valid = candidates.filter(value => Number.isFinite(value) && value > 0);
+      if (valid.length > 0) {
+        root.style.setProperty('--app-height', `${Math.min(...valid)}px`);
+      }
     };
     const syncAfterRotate = () => {
       if (rafId) cancelAnimationFrame(rafId);
@@ -61,32 +65,37 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
       rafId = requestAnimationFrame(syncAppHeight);
       syncHeightTimeout = window.setTimeout(syncAppHeight, 120);
     };
+
+    const isLandscape = () => {
+      const width = window.visualViewport?.width ?? window.innerWidth;
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      return width > height;
+    };
     const updateOrientationState = () => {
       syncAfterRotate();
       const landscape = isLandscape();
       setShowRotateHint(landscape);
-      if (landscape) {
-        webApp.unlockOrientation?.();
+      if (!landscape) {
+        webApp.lockOrientation?.();
+        window.removeEventListener('orientationchange', updateOrientationState);
+        isOrientationListening = false;
         return;
       }
-      webApp.lockOrientation?.();
-    };
-    const runStartupFlow = () => {
-      webApp.requestFullscreen();
-      updateOrientationState();
+      webApp.unlockOrientation?.();
+      if (!isOrientationListening) {
+        window.addEventListener('orientationchange', updateOrientationState);
+        isOrientationListening = true;
+      }
     };
     const onActivated = () => {
       if (activateTimeout) window.clearTimeout(activateTimeout);
-      activateTimeout = window.setTimeout(runStartupFlow, 120);
-    };
-    const onDeactivated = () => {
-      webApp.unlockOrientation?.();
+      activateTimeout = window.setTimeout(updateOrientationState, 120);
     };
 
-    runStartupFlow();
-    window.addEventListener('orientationchange', updateOrientationState);
+    // start flow
+    webApp.requestFullscreen();
+    updateOrientationState();
     webApp.onEvent?.('activated', onActivated);
-    webApp.onEvent?.('deactivated', onDeactivated);
 
     return () => {
       cancelAnimationFrame(rafId);
@@ -94,64 +103,11 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
       window.clearTimeout(activateTimeout);
       window.removeEventListener('orientationchange', updateOrientationState);
       webApp.offEvent?.('activated', onActivated);
-      webApp.offEvent?.('deactivated', onDeactivated);
       webApp.unlockOrientation?.();
     };
   }, []);
 
-  useEffect(() => {
-    const webApp = (window as any)?.Telegram?.WebApp;
-    if (!webApp?.enableClosingConfirmation) return;
-    webApp.enableClosingConfirmation();
-    return () => webApp.disableClosingConfirmation?.();
-  }, []);
-
-  useEffect(() => {
-    const webApp = (window as any)?.Telegram?.WebApp;
-    if (!webApp?.disableVerticalSwipes) return;
-    webApp.disableVerticalSwipes();
-    return () => webApp.enableVerticalSwipes?.();
-  }, []);
-
-  useEffect(() => {
-    const onSubtabChange = (event: Event) => {
-      const custom = event as CustomEvent<{ scrollTop: number }>;
-      if (typeof custom.detail?.scrollTop === 'number') {
-        setScrollVisible(custom.detail.scrollTop < HIDE_THRESHOLD);
-      }
-    };
-    const onScroll = (event?: Event) => {
-      const target = event?.target as HTMLElement | null;
-      if (target?.classList?.contains('subcontent-panel')) {
-        setScrollVisible(target.scrollTop < HIDE_THRESHOLD);
-        return;
-      }
-      if (target?.classList?.contains('content')) {
-        setScrollVisible(target.scrollTop < HIDE_THRESHOLD);
-        return;
-      }
-    };
-
-    const container = document.querySelector<HTMLElement>('.content');
-    if (container) {
-      setScrollVisible(container.scrollTop < HIDE_THRESHOLD);
-    }
-
-    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
-    window.addEventListener('subtab-scroll-sync', onSubtabChange as EventListener);
-    return () => {
-      document.removeEventListener('scroll', onScroll, true);
-      window.removeEventListener('subtab-scroll-sync', onSubtabChange as EventListener);
-    };
-  }, []);
-
-  useEffect(() => {
-    syncAppHeight();
-  }, []);
-
-  // TonConnectButton видим только если оба флага false
   const isVisible = !hideTonButton && scrollVisible && !showRotateHint;
-
   return (
     <TonConnectUIProvider manifestUrl="https://tomato-adjacent-badger-155.mypinata.cloud/ipfs/bafkreihvbraicmhxbbsgzkt2ochdjuptqg37cdybjxz7dd2joa2avohwii">
       <TelegramAppRoot>
