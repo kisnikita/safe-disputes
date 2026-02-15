@@ -17,6 +17,23 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
   const scrollVisible = useScrollVisibility(HIDE_THRESHOLD);
   const [showRotateHint, setShowRotateHint] = useState(false);
 
+  const syncAppHeight = () => {
+      const root = document.documentElement;
+      const stableHeight = Number(getWebApp()?.viewportStableHeight);
+      if (Number.isFinite(stableHeight) && stableHeight > 0) {
+        root.style.setProperty('--app-height', `${stableHeight}px`);
+        return;
+      }
+      const candidates = [document.documentElement.clientHeight, window.innerHeight];
+      if (window.visualViewport) {
+        candidates.push(Math.round(window.visualViewport.height));
+      }
+      const valid = candidates.filter(value => Number.isFinite(value) && value > 0);
+      if (valid.length > 0) {
+        root.style.setProperty('--app-height', `${Math.min(...valid)}px`);
+      }
+    };
+
   // static configuration
   useEffect(() => {
     const webApp = getWebApp();
@@ -24,6 +41,7 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
     webApp?.setBackgroundColor?.('#0F172A'); // just for bottom bar color on desktop.
     if (webApp?.enableClosingConfirmation) webApp.enableClosingConfirmation();
     if (webApp?.disableVerticalSwipes) webApp.disableVerticalSwipes();
+    syncAppHeight(); // for desktop
     return () => {
       webApp.disableClosingConfirmation?.();
       webApp.enableVerticalSwipes?.();
@@ -42,22 +60,6 @@ export const AppRoot: React.FC<AppRootProps> = ({ children, hideTonButton = fals
     let activateTimeout = 0;
     let isOrientationListening = false;
 
-    const syncAppHeight = () => {
-      const root = document.documentElement;
-      const stableHeight = Number(webApp?.viewportStableHeight);
-      if (Number.isFinite(stableHeight) && stableHeight > 0) {
-        root.style.setProperty('--app-height', `${stableHeight}px`);
-        return;
-      }
-      const candidates = [document.documentElement.clientHeight, window.innerHeight];
-      if (window.visualViewport) {
-        candidates.push(Math.round(window.visualViewport.height));
-      }
-      const valid = candidates.filter(value => Number.isFinite(value) && value > 0);
-      if (valid.length > 0) {
-        root.style.setProperty('--app-height', `${Math.min(...valid)}px`);
-      }
-    };
     const syncAfterRotate = () => {
       if (rafId) cancelAnimationFrame(rafId);
       if (syncHeightTimeout) window.clearTimeout(syncHeightTimeout);
