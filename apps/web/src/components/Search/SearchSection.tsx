@@ -5,7 +5,7 @@ export function SearchSection() {
   return (
     <EmptyState
       className="search-placeholder"
-      message="Скоро будет добавлено"
+      message="Скоро вы сможете искать других пользователей и их пари"
       variant="comingSoon"
     />
   );
