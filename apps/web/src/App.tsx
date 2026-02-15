@@ -76,7 +76,16 @@ export function App() {
               active={activeTab}
               onChange={id => {
                 const nextTab = id as typeof activeTab;
-                if (nextTab === activeTab) return;
+                if (nextTab === activeTab) {
+                  if (nextTab === 'bets') {
+                    betsSectionRef.current?.scrollToTop();
+                    return;
+                  }
+                  if (nextTab === 'investigations') {
+                    investigationsSectionRef.current?.scrollToTop();
+                  }
+                  return;
+                }
                 setActiveTab(nextTab);
                 if (nextTab === 'search' || nextTab === 'settings') {
                     window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));

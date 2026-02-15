@@ -40,6 +40,7 @@ interface Bet {
 
 export interface BetsSectionHandle {
   refresh: () => void;
+  scrollToTop: () => void;
 }
 
 interface Props {
@@ -192,8 +193,6 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   useEffect(() => {
     fetchFirstPage('current');
   }, [fetchFirstPage]);
-
-  useImperativeHandle(ref, () => ({ refresh: () => fetchFirstPage(subtab) }));
 
   useEffect(() => {
     if (!fetchedByTab[subtab] && !loadingByTab[subtab]) {
@@ -646,6 +645,11 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     scrollTopByTabRef.current[subtab] = 0;
     setSubtabsDocked(false);
   });
+
+  useImperativeHandle(ref, () => ({
+    refresh: () => fetchFirstPage(subtab),
+    scrollToTop: scrollActivePanelToTop,
+  }), [fetchFirstPage, scrollActivePanelToTop, subtab]);
 
     return (
       <>

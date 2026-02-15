@@ -35,6 +35,7 @@ interface TopUser {
 
 export interface InvestigationsSectionHandle {
   refresh: () => void;
+  scrollToTop: () => void;
 }
 
 interface Props {
@@ -198,8 +199,6 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     useEffect(() => {
       fetchInvestigations('current');
     }, [fetchInvestigations]);
-
-    useImperativeHandle(ref, () => ({ refresh: () => fetchInvestigations(subtab) }));
 
     useEffect(() => {
       if (!fetchedByTab[subtab] && !loadingByTab[subtab]) {
@@ -615,6 +614,11 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       scrollTopByTabRef.current[subtab] = 0;
       setSubtabsDocked(false);
     });
+
+    useImperativeHandle(ref, () => ({
+      refresh: () => fetchInvestigations(subtab),
+      scrollToTop: scrollActivePanelToTop,
+    }), [fetchInvestigations, scrollActivePanelToTop, subtab]);
 
   const getTimeRemaining = (endsAt: string) => {
   // Парсим время окончания как UTC-момент
