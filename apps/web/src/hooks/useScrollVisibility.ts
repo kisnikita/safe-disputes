@@ -1,30 +1,39 @@
 import { useEffect, useState } from 'react';
 
+// Persist the last known docked state across mount/unmount of buttons.
+let wasDockedGlobal = false;
+
 export function useScrollVisibility(threshold: number): boolean {
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(() => !wasDockedGlobal);
 
   useEffect(() => {
+    const setByScrollTop = (scrollTop: number) => {
+      const nextVisible = scrollTop < threshold;
+      wasDockedGlobal = !nextVisible;
+      setVisible(nextVisible);
+    };
+
     const onSubtabChange = (event: Event) => {
       const custom = event as CustomEvent<{ scrollTop: number }>;
       if (typeof custom.detail?.scrollTop === 'number') {
-        setVisible(custom.detail.scrollTop < threshold);
+        setByScrollTop(custom.detail.scrollTop);
       }
     };
 
     const onScroll = (event?: Event) => {
       const target = event?.target as HTMLElement | null;
       if (target?.classList?.contains('subcontent-panel')) {
-        setVisible(target.scrollTop < threshold);
+        setByScrollTop(target.scrollTop);
         return;
       }
       if (target?.classList?.contains('content')) {
-        setVisible(target.scrollTop < threshold);
+        setByScrollTop(target.scrollTop);
       }
     };
 
     const container = document.querySelector<HTMLElement>('.content');
     if (container) {
-      setVisible(container.scrollTop < threshold);
+      setByScrollTop(container.scrollTop);
     }
 
     document.addEventListener('scroll', onScroll, { passive: true, capture: true });
