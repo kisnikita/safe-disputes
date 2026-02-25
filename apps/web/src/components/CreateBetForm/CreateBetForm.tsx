@@ -59,7 +59,13 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     const uuid = crypto?.randomUUID?.();
     if (!uuid) throw new Error('crypto.randomUUID not available');
 
-    return BigInt(`0x${uuid.replace(/-/g, '')}`);
+    // Contract expects int128, so keep the value in [1, 2^127 - 1]
+    // to avoid intermittent overflow when UUID's highest bit is set.
+    const value = BigInt(`0x${uuid.replace(/-/g, '')}`) & ((1n << 127n) - 1n);
+    if (value === 0n) {
+      return 1n;
+    }
+    return value;
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -100,7 +106,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     }
     try {
       betAddress = (await getAddress(betID)).toString();
-    } catch {
+    } catch (err) {
       setError('Не удалось вычислить адрес контракта пари');
       setSubmitting(false);
       return;
@@ -110,8 +116,10 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
       await createBetWithDeposit(betID, amount.toString());
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
-      if (/rejected|declined|cancel/i.test(msg)) {
+      if (/rejected|declined|cancel|not sent/i.test(msg)) {
         setError('Транзакция отменена пользователем');
+      } else if (/No enough funds/i.test(msg)) { 
+        setError('Недостаточно средств для внесения депозита');
       } else {
         setError('Не удалось развернуть контракт и внести депозит');
       }

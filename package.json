@@ -24,7 +24,6 @@
     "turbo": "^2.5.3"
   },
   "dependencies": {
-    "@orbs-network/ton-access": "^2.3.3",
     "@telegram-apps/sdk": "^3.9.2",
     "@telegram-apps/telegram-ui": "^2.1.8",
     "@tonconnect/ui-react": "^2.1.0",
