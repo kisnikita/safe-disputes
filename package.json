@@ -20,15 +20,11 @@
     "blockchain"
   ],
   "devDependencies": {
-    "@tact-lang/compiler": "^1.6.10",
     "turbo": "^2.5.3"
   },
-  "dependencies": {
-    "@telegram-apps/sdk": "^3.9.2",
-    "@telegram-apps/telegram-ui": "^2.1.8",
-    "@tonconnect/ui-react": "^2.1.0",
-    "ton-crypto": "^3.2.0",
-    "@ton/core": "~0",
-    "@ton/ton": "^15.2.1"
+  "overrides": {
+    "@ton/core": "0.60.1",
+    "typescript": "5.8.3",
+    "ts-node": "10.9.2"
   }
 }
