@@ -3,7 +3,6 @@ import { toNano } from '@ton/core';
 import { BetMaster, CreateBet } from '../wrappers/BetMaster';
 import { Bet } from '../wrappers/Bet';
 import '@ton/test-utils';
-import { queryId } from '@telegram-apps/sdk/dist/dts/scopes/components/init-data/init-data';
 
 describe('BetMaster', () => {
     let blockchain: Blockchain;
@@ -55,9 +54,6 @@ describe('BetMaster', () => {
             success: true,
         });  
 
-        const stored = await master.getBetAddress(betId);
-        expect(stored?.toString()).toBe(bet.address.toString());
-
         const status = await bet.getStatus();
         const amount = await bet.getAmount();
         expect(status).toBe(1n);
@@ -66,6 +62,8 @@ describe('BetMaster', () => {
 
     it('should reject duplicate bet id', async () => {
         const betId = 555n;
+        const bet = blockchain.openContract(await Bet.fromInit(betId));
+
         await master.send(
             deployer.getSender(),
             {
@@ -89,14 +87,16 @@ describe('BetMaster', () => {
         );
 
         expect(second.transactions).toHaveTransaction({
-            from: deployer.address,
-            to: master.address,
+            from: master.address,
+            to: bet.address,
             success: false,
         });
     });
 
     it('should not deploy bet with insufficient value', async () => {
         const betId = 777n;
+        const bet = blockchain.openContract(await Bet.fromInit(betId));
+
         const res = await master.send(
             deployer.getSender(),
             {
@@ -113,13 +113,16 @@ describe('BetMaster', () => {
             to: master.address,
             success: false,
         });
-
-        const stored = await master.getBetAddress(betId);
-        expect(stored).toBeNull();
+        expect(res.transactions).not.toHaveTransaction({
+            to: bet.address,
+            deploy: true,
+            success: true,
+        });
     });
 
-    it('should return null for unknown betID', async () => {
-        const stored = await master.getBetAddress(999n);
-        expect(stored).toBeNull();
+    it('should not deploy unknown betID by default', async () => {
+        const bet = blockchain.openContract(await Bet.fromInit(999n));
+        const contract = await blockchain.getContract(bet.address);
+        expect(contract.accountState?.type).not.toBe('active');
     });
 });

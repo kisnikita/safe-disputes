@@ -76,7 +76,7 @@ describe('Bet', () => {
         });
     });
 
-    it('should reject accept with wrong amount', async () => {
+    it('should accept with any amount and increase total pot', async () => {
         await depositFromMaster('1');
 
         const acceptResult = await bet.send(
@@ -90,8 +90,10 @@ describe('Bet', () => {
         expect(acceptResult.transactions).toHaveTransaction({
             from: secondPlayer.address,
             to: bet.address,
-            success: false,
+            success: true,
         });
+        expect(await bet.getStatus()).toBe(2n);
+        expect(await bet.getAmount()).toBe(toNano('3'));
     });
 
     it('should refund after deposit', async () => {
