@@ -256,7 +256,7 @@ export const BetDetailsModal: React.FC<Props> = ({
       onClick={requestClose}
     >
       <div
-        className={`detail-card bet-details-card${isOpen ? ' open' : ''}`}
+        className={`bet-details-detail-card bet-details-card${isOpen ? ' open' : ''}`}
         onClick={e => e.stopPropagation()}
         onTransitionEnd={e => {
           if (!isClosing) return;
@@ -270,9 +270,9 @@ export const BetDetailsModal: React.FC<Props> = ({
           onClose();
         }}
       >
-        <p className="success-message">{success}</p>
+        <p className="bet-details-success-message">{success}</p>
         <button
-          className="btn-close-success"
+          className="bet-details-close-success-btn"
           onClick={() => {
             onCompleted();
             requestClose();
@@ -288,7 +288,7 @@ export const BetDetailsModal: React.FC<Props> = ({
       onClick={requestClose}
     >
       <div
-        className={`detail-card bet-details-card${isOpen ? ' open' : ''}`}
+        className={`bet-details-detail-card bet-details-card${isOpen ? ' open' : ''}`}
         onClick={e => e.stopPropagation()}
         onTransitionEnd={e => {
           if (!isClosing) return;
@@ -307,38 +307,38 @@ export const BetDetailsModal: React.FC<Props> = ({
            <Spinner size="m" className="spinner"/>
           </div>
         )}
-        {error && <p className="error-message">{error}</p>}
+        {error && <p className="bet-details-error-message">{error}</p>}
 
         {/* Просмотр деталей */}
         {!loading && bet && !evidenceForm && (
           <>
-            <button className="close-btn" onClick={requestClose}>×</button>
+            <button className="bet-details-close-btn" onClick={requestClose}>×</button>
             <h3>{bet.title}</h3>
             <p><strong>Оппонент:</strong> {bet.opponent}</p>
             <p><strong>Ставка:</strong> {bet.amount} {bet.cryptocurrency}</p>
             <p><strong>Создано:</strong> {formatDateUtcPlus3(bet.createdAt)}</p>
-            <p><strong>Описание:</strong></p>
-            <p>{bet.description}</p>
+            <p className="bet-details-description-label"><strong>Описание:</strong></p>
+            <p className="bet-details-description-text">{bet.description}</p>
             {bet.imageData && (
               <img
                 src={`data:${bet.imageType};base64,${bet.imageData}`}
                 alt="Фото пари"
-                className="detail-image"
+                className="bet-details-image"
               />
             )}
 
             {/* Кнопки для вкладки «Новые» */}
             {showActions && bet.result === 'new' && (
-              <div className="action-buttons">
+              <div className="bet-details-action-buttons">
                 <button
-                  className="btn-reject"
+                  className="bet-details-reject-btn"
                   disabled={actionLoading}
                   onClick={() => handleAction('reject')}
                 >
                   {actionLoading ? '…' : 'Отклонить'}
                 </button>
                 <button
-                  className="btn-accept"
+                  className="bet-details-accept-btn"
                   disabled={actionLoading}
                   onClick={() => handleAction('accept')}
                 >
@@ -349,16 +349,16 @@ export const BetDetailsModal: React.FC<Props> = ({
 
             {/* Голосование за результат (processed) */}
             {showResultActions && bet.result === 'processed' && (
-              <div className="action-buttons">
+              <div className="bet-details-action-buttons">
                 <button
-                  className="btn-reject"
+                  className="bet-details-reject-btn"
                   disabled={actionLoading}
                   onClick={() => handleResultVote('lose')}
                 >
                   {actionLoading ? '…' : 'Поражение'}
                 </button>
                 <button
-                  className="btn-accept"
+                  className="bet-details-accept-btn"
                   disabled={actionLoading}
                   onClick={() => handleResultVote('win')}
                 >
@@ -369,7 +369,7 @@ export const BetDetailsModal: React.FC<Props> = ({
 
             {/* Индикация вашего выбора (answered) */}
             {bet.result === 'answered' && bet.vote !== undefined && (
-              <p className="vote-info">
+              <p className="bet-details-vote-info">
                 Вы выбрали результат{' '}
                 {bet.vote
                   ? <span style={{ color: 'green' }}>Победа</span>
@@ -379,9 +379,9 @@ export const BetDetailsModal: React.FC<Props> = ({
 
             {/* Кнопка «Внести доказательства» (evidence) */}
             {bet.result === 'evidence' && (
-              <div className="action-buttons">
+              <div className="bet-details-action-buttons">
                 <button
-                  className="btn-submit"
+                  className="bet-details-submit-btn"
                   onClick={() => setEvidenceForm(true)}
                 >
                   Внести доказательства
@@ -391,9 +391,9 @@ export const BetDetailsModal: React.FC<Props> = ({
 
             {/* Кнопка «Забрать награду/Вернуть средства» (passed) */}
             {showClaimActions && bet.claim && (
-              <div className="action-buttons">
+              <div className="bet-details-action-buttons">
                 <button
-                  className="btn-accept"
+                  className="bet-details-accept-btn"
                   disabled={actionLoading}
                   onClick={handleClaim}
                 >
@@ -407,10 +407,10 @@ export const BetDetailsModal: React.FC<Props> = ({
         {/* Форма доказательств */}
         {!loading && bet && evidenceForm && (
           <>
-            <div className="header-with-back">
+            <div className="bet-details-header-with-back">
               <button
                 type="button"
-                className="back-btn"
+                className="bet-details-back-btn"
                 onClick={() => setEvidenceForm(false)}
               >
                 ←
@@ -439,10 +439,10 @@ export const BetDetailsModal: React.FC<Props> = ({
               </label>
 
               {preview && (
-                <div className="image-preview">
+                <div className="bet-details-image-preview">
                   <button
                     type="button"
-                    className="remove-photo-btn"
+                    className="bet-details-remove-photo-btn"
                     onClick={removeEvidencePhoto}
                   >
                     ×
@@ -451,10 +451,10 @@ export const BetDetailsModal: React.FC<Props> = ({
                 </div>
               )}
 
-              <div className="form-actions">
+              <div className="bet-details-form-actions">
                 <button
                   type="submit"
-                  className="btn-submit"
+                  className="bet-details-submit-btn"
                   disabled={actionLoading}
                 >
                   {actionLoading ? 'Отправка…' : 'Отправить'}

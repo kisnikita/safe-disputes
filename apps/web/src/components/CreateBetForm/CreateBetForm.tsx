@@ -4,6 +4,7 @@ import './CreateBetForm.css';
 import { apiFetch } from '../../utils/apiFetch';
 import { useBetMasterContract } from '../../hooks/useBetMasterContract';
 import { useBetContract } from '../../hooks/useBetContract';
+import { FileInput } from '@telegram-apps/telegram-ui';
 
 interface Props {
   onClose: () => void;
@@ -52,8 +53,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileInputResetKey, setFileInputResetKey] = useState(0);
 
   const generateBetId = (): bigint => {
     const uuid = crypto?.randomUUID?.();
@@ -84,9 +84,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
       URL.revokeObjectURL(preview);
       setPreview(null);
     }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setFileInputResetKey(prev => prev + 1);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -195,17 +193,17 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
           onClose();
         }}
       >
-        <button className="close-btn" type="button" onClick={requestClose}>×</button>
+        <button className="create-bet-close-btn" type="button" onClick={requestClose}>×</button>
         <h3>Новое пари</h3>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="create-bet-error-message">{error}</div>}
 
         {success ? (
-          <div className="success-message">
+          <div className="create-bet-success-message">
             🎉 Пари успешно создано!
             <button
               type="button"
-              className="btn-close-success"
+              className="create-bet-close-success-btn"
               onClick={() => {
                 onCreated();
                 requestClose();
@@ -218,60 +216,143 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
           <>
             <label>
               Название:
-              <input
-                type="text"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                required
-              />
+              <div className="create-bet-input-wrap">
+                <input
+                  className="create-bet-input"
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="О чём пари?"
+                  required
+                />
+                <button
+                  type="button"
+                  className={`create-bet-input-clear${title.length > 0 ? ' visible' : ''}`}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => setTitle('')}
+                  aria-label="Очистить название"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
             </label>
 
             <label>
               Описание:
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                required
-              />
+              <div className="create-bet-input-wrap create-bet-textarea-wrap">
+                <textarea
+                  className="create-bet-input create-bet-textarea"
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="Добавьте детали и условия"
+                  required
+                />
+                <button
+                  type="button"
+                  className={`create-bet-input-clear${description.length > 0 ? ' visible' : ''}`}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => setDescription('')}
+                  aria-label="Очистить описание"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
             </label>
 
             <label>
               Оппонент (username):
-              <input
-                type="text"
-                value={opponent}
-                onChange={e => setOpponent(e.target.value)}
-                placeholder="username"
-                required
-              />
+              <div className="create-bet-input-wrap">
+                <input
+                  className="create-bet-input"
+                  type="text"
+                  value={opponent}
+                  onChange={e => setOpponent(e.target.value)}
+                  placeholder="username"
+                  required
+                />
+                <button
+                  type="button"
+                  className={`create-bet-input-clear${opponent.length > 0 ? ' visible' : ''}`}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => setOpponent('')}
+                  aria-label="Очистить оппонента"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
             </label>
 
             <label>
               Ставка (TON):
-              <input
-                type="number"
-                step="0.01"
-                value={amount || ''}
-                onChange={e => setAmount(parseFloat(e.target.value))}
-                required
-              />
+              <div className="create-bet-input-wrap">
+                <input
+                  className="create-bet-input"
+                  type="number"
+                  step="0.01"
+                  value={amount || ''}
+                  onChange={e => setAmount(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                  required
+                />
+                <button
+                  type="button"
+                  className={`create-bet-input-clear${amount ? ' visible' : ''}`}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => setAmount(0)}
+                  aria-label="Очистить ставку"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
             </label>
 
             <label>
               Фото (необязательно):
-              <input
-                ref={fileInputRef}
-                type="file"
+              <FileInput
+                key={fileInputResetKey}
+                className="create-bet-file-input"
                 accept="image/*"
+                label="Добавить фото"
                 onChange={handleFileChange}
               />
             </label>
 
             {preview && (
-              <div className="image-preview">
+              <div className="create-bet-image-preview">
                 <button
                   type="button"
-                  className="remove-photo-btn"
+                  className="create-bet-remove-photo-btn"
                   onClick={removePhoto}
                   title="Удалить фото"
                 >
@@ -281,10 +362,10 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
               </div>
             )}
 
-            <div className="form-actions">
+            <div className="create-bet-form-actions">
               <button
                 type="submit"
-                className="btn-submit"
+                className="create-bet-submit-btn"
                 disabled={submitting || isClosing}
               >
                 {submitting ? 'Отправка…' : 'Вызвать'}

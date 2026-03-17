@@ -121,9 +121,9 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
   };
 
   const modal = (
-    <div className="overlay" onClick={onClose}>
-      <div className="detail-card" onClick={event => event.stopPropagation()}>
-        <button className="close-btn" onClick={onClose}>×</button>
+    <div className="investigation-details-overlay" onClick={onClose}>
+      <div className="investigation-details-card" onClick={event => event.stopPropagation()}>
+        <button className="investigation-details-close-btn" onClick={onClose}>×</button>
         {loading && (
           <div className="loading">
             <Spinner size="m" className="spinner"/>
@@ -133,23 +133,23 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
         {!loading && dispute && step === 'details' && (
           <>
             <h3>{dispute.title}</h3>
-            <p>{dispute.description}</p>
-            <button className="btn-next" onClick={handleNext}>К доказательствам</button>
+            <p className="investigation-details-description">{dispute.description}</p>
+            <button className="investigation-details-next-btn" onClick={handleNext}>К доказательствам</button>
           </>
         )}
 
         {!loading && step === 'evidence' && evidences.length > 0 && (
           <>
             <h4>Доказательства пользователя {evidences[currentIndex].userNumber}</h4>
-            <p>{evidences[currentIndex].description}</p>
+            <p className="investigation-details-description">{evidences[currentIndex].description}</p>
             {evidences[currentIndex].imageData && (
               <img
                 src={`data:${evidences[currentIndex].imageType};base64,${evidences[currentIndex].imageData}`}
                 alt="Evidence"
-                className="evidence-image"
+                className="investigation-details-evidence-image"
               />
             )}
-            <div className="nav-buttons">
+            <div className="investigation-details-nav-buttons">
               <button disabled={currentIndex === 0} onClick={handleBack}>Назад</button>
               <button onClick={handleNext}>Далее</button>
             </div>
@@ -158,11 +158,11 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
 
         {!loading && step === 'vote' && (
           <>
-            <div className="header-with-back">
-              <button className="back-btn" onClick={handleBack}>←</button>
+            <div className="investigation-details-header-with-back">
+              <button className="investigation-details-back-btn" onClick={handleBack}>←</button>
               <h4>Окончательное голосование</h4>
             </div>
-            <div className="vote-buttons">
+            <div className="investigation-details-vote-buttons">
               <button onClick={() => handleVote('p1')} disabled={voteLoading}>Пользователь 1</button>
               <button onClick={() => handleVote('draw')} disabled={voteLoading}>Ничья</button>
               <button onClick={() => handleVote('p2')} disabled={voteLoading}>Пользователь 2</button>

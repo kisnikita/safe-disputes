@@ -1,94 +1,164 @@
-/* Overlay и карточка */
-.overlay {
+.investigation-details-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex; justify-content: center; align-items: center;
+  inset: 0;
+  background: rgba(9, 17, 31, 0.58);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
   z-index: 30;
+  padding: 12px;
 }
 
-.detail-card {
-  background: #fff;
-  padding: 1.5rem;
-  border-radius: 8px;
-  max-width: 500px;
-  width: 90%;
+.investigation-details-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
   max-height: 90vh;
   overflow-y: auto;
-  position: relative;
+  padding: 18px;
+  border-radius: 20px;
+  color: #a7ebeb;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(215deg, rgba(94, 234, 212, 0.15), rgba(15, 23, 42, 0.82));
+  box-shadow:
+    0 14px 30px rgba(15, 23, 42, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -10px 16px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
 }
 
-/* Кнопка закрытия */
-.close-btn {
+.investigation-details-card h3,
+.investigation-details-card h4 {
+  margin: 0 0 14px;
+  padding-right: 28px;
+  color: #e6ffff;
+}
+
+.investigation-details-card p {
+  margin: 0 0 10px;
+  color: #e6ffff;
+  line-height: 1.45;
+}
+
+.investigation-details-description {
+  white-space: pre-wrap;
+}
+
+.investigation-details-close-btn {
   position: absolute;
-  top: 8px; right: 8px;
-  border: none; background: transparent;
-  font-size: 1.5rem; cursor: pointer;
-}
-
-/* Заголовок с «к доказательствам» */
-.btn-next {
-  background: #3388ff;
-  color: #fff;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #a7ebeb;
+  font-size: 20px;
+  line-height: 1;
   cursor: pointer;
-  margin-top: 1rem;
 }
 
-/* Изображение доказательства */
-.evidence-image {
+.investigation-details-next-btn,
+.investigation-details-nav-buttons button,
+.investigation-details-vote-buttons button,
+.investigation-details-back-btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  color: #a7ebeb;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.investigation-details-next-btn {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background: linear-gradient(215deg, #5eead4a6, rgba(255, 255, 255, 0));
+  box-shadow:
+    0 6px 16px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.12);
+}
+
+.investigation-details-evidence-image {
   display: block;
-  max-width: 100%;
-  margin: 1rem 0;
-  border-radius: 4px;
+  width: 100%;
+  margin: 10px 0;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-/* Навигация между доказательствами */
-.nav-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 1rem;
-}
-
-.nav-buttons button {
-  background: #3388ff;
-  color: #fff;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.nav-buttons button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Блок голосования */
-.vote-buttons {
+.investigation-details-nav-buttons {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 1rem;
+  margin-top: 12px;
 }
 
-.vote-buttons button {
-  flex: 1;
-  background: #3388ff;
-  color: #fff;
-  border: none;
-  padding: 8px 0;
-  border-radius: 4px;
-  cursor: pointer;
+.investigation-details-nav-buttons button {
+  padding: 8px 16px;
+  background: linear-gradient(215deg, #5eead4a6, rgba(255, 255, 255, 0));
 }
 
-.vote-buttons button:nth-child(1) { background: #2ecc71; } /* Пользователь 1 */
-.vote-buttons button:nth-child(2) { background: #f1c40f; } /* Ничья */
-.vote-buttons button:nth-child(3) { background: #e74c3c; } /* Пользователь 2 */
-
-.vote-buttons button:disabled {
+.investigation-details-nav-buttons button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.investigation-details-header-with-back {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  position: relative;
+  padding-top: 2.2rem;
+}
+
+.investigation-details-back-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 18px;
+}
+
+.investigation-details-vote-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.investigation-details-vote-buttons button {
+  flex: 1;
+  padding: 8px 0;
+}
+
+.investigation-details-vote-buttons button:nth-child(1) {
+  background: linear-gradient(215deg, rgba(46, 204, 113, 0.62), rgba(255, 255, 255, 0));
+}
+
+.investigation-details-vote-buttons button:nth-child(2) {
+  background: linear-gradient(215deg, rgba(241, 196, 15, 0.62), rgba(255, 255, 255, 0));
+}
+
+.investigation-details-vote-buttons button:nth-child(3) {
+  background: linear-gradient(215deg, rgba(231, 76, 60, 0.62), rgba(255, 255, 255, 0));
+}
+
+.investigation-details-vote-buttons button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.investigation-details-next-btn:active:not(:disabled),
+.investigation-details-nav-buttons button:active:not(:disabled),
+.investigation-details-vote-buttons button:active:not(:disabled),
+.investigation-details-back-btn:active:not(:disabled),
+.investigation-details-close-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
