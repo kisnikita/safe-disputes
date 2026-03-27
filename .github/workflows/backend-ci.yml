@@ -1,0 +1,56 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.2"
+          cache-dependency-path: apps/backend/go.sum
+
+      - name: Install tools
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          go install github.com/pressly/goose/v3/cmd/goose@v3.20.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Run migrations
+        run: goose -dir apps/backend/migrations postgres "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
+
+      - name: Check ORM models consistency
+        working-directory: apps/backend
+        run: sqlc diff -f sqlc.yaml
+
+      - name: Run backend tests
+        working-directory: apps/backend
+        run: go test ./...
+
+      - name: Roll back migrations
+        run: goose -dir apps/backend/migrations postgres "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" reset
