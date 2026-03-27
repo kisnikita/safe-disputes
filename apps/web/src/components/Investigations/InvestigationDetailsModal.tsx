@@ -15,7 +15,7 @@ interface Evidence {
 
 interface InvestigationRecord {
   id: string;
-  dispute_id: string;
+  disputeID: string;
   title: string;
   description: string;
   createdAt: string;
@@ -61,7 +61,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
         if (!invRes.ok) throw new Error();
         const { data: invData } = await invRes.json() as { data: InvestigationRecord };
         setInvestigation(invData);
-        const disRes = await apiFetch(`/api/v1/disputes/${invData.dispute_id}/evidence`);
+        const disRes = await apiFetch(`/api/v1/disputes/${invData.disputeID}/evidence`);
         if (!disRes.ok) throw new Error();
         const { data: disData } = await disRes.json() as { data: DisputeDetail };
         setDispute(disData);
@@ -78,7 +78,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(`/api/v1/evidence?dispute_id=${investigation.dispute_id}`);
+        const res = await apiFetch(`/api/v1/evidence?disputeID=${investigation.disputeID}`);
         if (!res.ok) throw new Error();
         const { data } = await res.json() as { data: Evidence[] };
         setEvidences(data.map((ev, idx) => ({ ...ev, userNumber: idx + 1 })));

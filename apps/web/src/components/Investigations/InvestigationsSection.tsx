@@ -20,10 +20,10 @@ import { useTonConnect } from '../../hooks/useTonConnect';
 
 interface Investigation {
   id: string;
-  dispute_id: string;
+  disputeID: string;
   title: string;
   status: 'current' | 'passed';
-  ends_at: string; // ISO date string
+  endsAt: string; // ISO date string
   result: 'new' | 'sent' | 'correct' | 'incorrect';
   vote?: string;
 }
@@ -757,7 +757,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
 
                           return (
                             <div
-                              key={inv.dispute_id}
+                              key={inv.disputeID}
                               ref={isActive && isLast ? lastRef : null}
                               className={`investigation-card${pressedCardId === inv.id ? ' pressed' : ''}`}
                               onClick={() => {
@@ -793,7 +793,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                               }}
                             >
                               <h4>{inv.title}</h4>
-                              <p>Окончание через: {getTimeRemaining(inv.ends_at)}</p>
+                              <p>Окончание через: {getTimeRemaining(inv.endsAt)}</p>
                               {inv.vote && <p>Ваш голос: {inv.vote == 'p1' ? 'Пользователь 1' : "Пользователь 2"}</p>}
 
                               {badge && (

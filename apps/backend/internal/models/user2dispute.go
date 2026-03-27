@@ -28,8 +28,8 @@ const (
 
 type User2Dispute_old struct {
 	ID        uuid.UUID `db:"id" json:"id"`
-	UserID    uuid.UUID `db:"user_id" json:"user_id"`
-	DisputeID uuid.UUID `db:"dispute_id" json:"dispute_id"`
+	UserID    uuid.UUID `db:"user_id" json:"userID"`
+	DisputeID uuid.UUID `db:"dispute_id" json:"disputeID"`
 	Status    Status    `db:"status" json:"status"` // "new", "waiting", "pending", "rejected", "finish"
 
 	Result Result `db:"result" json:"result"` // "sent", "processed", "answered", "evidence", "inspected" ||

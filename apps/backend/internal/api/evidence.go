@@ -100,7 +100,7 @@ func GetEvidencesByDispute(repo *repository.Repository, log log.Logger, sender s
 
 func getEvidencesByDispute(log log.Logger, getter EvidenceGetter) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		disputeID := c.Query("dispute_id")
+		disputeID := c.Query("disputeID")
 		if disputeID == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "dispute ID is required"})
 			return
