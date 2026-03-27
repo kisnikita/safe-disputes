@@ -6,6 +6,8 @@ import (
 )
 
 func (s Server) RegisterRoutes(repo *repository.Repository) {
+	s.router.Static("/swagger", "./swagger")
+
 	apiRouter := s.router.Group("/api/v1", api.Middleware())
 
 	auth := apiRouter.Group("/auth")
