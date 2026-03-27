@@ -1,0 +1,57 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "./migrations"
+    schema: "./migrations"
+    gen:
+      go:
+        package: "models"
+        out: "./internal/models"
+        sql_package: "pgx/v5"
+        emit_pointers_for_null_types: true
+        emit_db_tags: true
+        emit_json_tags: true
+        json_tags_case_style: "camel"
+        json_tags_id_uppercase: true
+        output_db_file_name: "db_mock.go"
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+
+          - db_type: "pg_catalog.timestamp"
+            go_type: "time.Time"
+
+          - db_type: "pg_catalog.numeric"
+            go_type: "int"
+
+          - db_type: "pg_catalog.int4"
+            go_type: "int"
+
+          - column: "users.chat_id"
+            go_type: "int64"
+
+          - column: "investigations.status"
+            go_type: 
+              type: "InvestigationStatus"
+
+          - column: "user2investigation.result"
+            go_type: 
+              type: "InvestigationResult"
+
+          - column: "user2dispute.result"
+            go_type: 
+              type: "Result"
+              
+          - column: "user2dispute.status"
+            go_type: 
+              type: "Status"        
+        rename:
+          dispute: DisputeDB
+          investigation: InvestigationDB
+          user2dispute: User2Dispute
+          user2investigation: User2Investigation
+
+
+        

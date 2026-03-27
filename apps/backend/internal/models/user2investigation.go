@@ -11,7 +11,7 @@ const (
 	InvestigationResultInCorrect InvestigationResult = "incorrect"
 )
 
-type User2Investigation struct {
+type User2Investigation_old struct {
 	ID              uuid.UUID           `db:"id" json:"id"`
 	InvestigationID uuid.UUID           `db:"investigation_id" json:"investigation_id"`
 	UserID          uuid.UUID           `db:"user_id" json:"user_id"`

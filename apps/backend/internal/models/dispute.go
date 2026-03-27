@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type Dispute struct {
+type Dispute_old struct {
 	ID              uuid.UUID `db:"id" json:"id"`
 	Title           string    `db:"title" json:"title"`
 	Description     string    `db:"description" json:"description"`
@@ -20,8 +20,16 @@ type Dispute struct {
 	Cryptocurrency  string    `db:"cryptocurrency" json:"cryptocurrency"`
 	Amount          int       `db:"amount" json:"amount"`
 	ImageData       []byte    `db:"image_data" json:"imageData"`
-	ImageType       string    `db:"image_type" json:"imageType"`
+	ImageType       *string   `db:"image_type" json:"imageType"`
 	ContractAddress string    `db:"contract_address" json:"contractAddress"`
+}
+
+type Dispute struct {
+	DisputeDB
+	Opponent        string `db:"opponent" json:"opponent"`
+	Result          Result `db:"result" json:"result"`
+	Vote            bool   `db:"vote" json:"vote"`
+	Claim           bool   `db:"claim" json:"claim"`
 }
 
 type DisputeListOpts struct {
@@ -44,17 +52,22 @@ type CreateDisputeReq struct {
 
 func NewDispute(opts CreateDisputeReq) Dispute {
 	amount, _ := strconv.ParseInt(opts.Amount, 10, 32)
-	return Dispute{
-		ID:              uuid.New(),
-		Title:           opts.Title,
-		Description:     opts.Description,
+	d := Dispute{
+		DisputeDB: DisputeDB {
+			ID:              uuid.New(),
+			Title:           opts.Title,
+			Description:     opts.Description,
+			CreatedAt:       time.Now(),
+			UpdatedAt:       time.Now(),
+			Cryptocurrency:  "TON",
+			Amount:          int(amount),
+			ImageData:       opts.ImageData,
+			ContractAddress: opts.ContractAddress,
+		},
 		Opponent:        opts.Opponent,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-		Cryptocurrency:  "TON",
-		Amount:          int(amount),
-		ImageData:       opts.ImageData,
-		ImageType:       opts.ImageType,
-		ContractAddress: opts.ContractAddress,
 	}
+	if opts.ImageType != "" {
+		d.ImageType = &opts.ImageType
+	}
+	return d
 }

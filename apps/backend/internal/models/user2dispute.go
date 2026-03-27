@@ -26,7 +26,7 @@ const (
 	DisputesResultDraw             Result = "draw"
 )
 
-type User2Dispute struct {
+type User2Dispute_old struct {
 	ID        uuid.UUID `db:"id" json:"id"`
 	UserID    uuid.UUID `db:"user_id" json:"user_id"`
 	DisputeID uuid.UUID `db:"dispute_id" json:"dispute_id"`

@@ -12,7 +12,7 @@ const (
 	InvestigationStatusPassed  InvestigationStatus = "passed"
 )
 
-type Investigation struct {
+type Investigation_old struct {
 	ID        uuid.UUID           `db:"id" json:"id"`
 	DisputeID uuid.UUID           `db:"dispute_id" json:"dispute_id"`
 	Total     int                 `db:"total" json:"total"`
@@ -25,6 +25,12 @@ type Investigation struct {
 	Title     string              `db:"title" json:"title"`
 	Result    InvestigationResult `db:"result" json:"result"`
 	Vote      string              `db:"vote" json:"vote"`
+}
+
+type Investigation struct {
+	InvestigationDB
+	Result InvestigationResult `db:"result" json:"result"`
+	Vote   string              `db:"vote" json:"vote"`
 }
 
 type InvestigationListOpts struct {

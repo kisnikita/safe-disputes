@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type User struct {
+type User_old struct {
 	ID                   uuid.UUID `db:"id" json:"id"`
 	Username             string    `db:"username" json:"username"`
 	ChatID               int64     `db:"chat_id" json:"chatID"`
