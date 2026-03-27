@@ -1,7 +1,7 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    queries: "./migrations"
+    queries: "./sqlc_query_mock"
     schema: "./migrations"
     gen:
       go:
