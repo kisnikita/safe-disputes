@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { retrieveRawInitData } from '@telegram-apps/sdk';
+import { retrieveRawInitData } from '@tma.js/sdk-react';
 
 export function useTelegramAuth() {
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');

@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@telegram-apps/sdk": "^3.9.2",
+    "@tma.js/sdk-react": "^3.0.19",
     "@telegram-apps/telegram-ui": "^2.1.8",
     "@tonconnect/ui-react": "^2.1.0",
     "@ton/core": "^0.60.1",
