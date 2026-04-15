@@ -6,10 +6,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type MessageSender interface {
-	SendMessage(chatID int64, text string) error
-}
-
 type MessageService struct {
 	logger log.Logger
 	Bot    *tgbotapi.BotAPI

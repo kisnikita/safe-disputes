@@ -20,7 +20,8 @@ func (s Server) RegisterRoutes(repo *repository.Repository) {
 
 	disputes := apiRouter.Group("/disputes")
 	disputes.GET("", api.ListDisputes(repo, s.logger, s.msgService))
-	disputes.POST("", api.CreateDispute(repo, s.logger, s.msgService))
+	disputes.POST("/precheck", api.PrecheckDispute(repo, s.logger, s.msgService))
+	disputes.POST("", api.CreateDispute(repo, s.logger, s.msgService, s.txMonitor))
 	disputes.GET("/:id", api.GetDispute(repo, s.logger, s.msgService))
 	disputes.GET("/:id/evidence", api.GetDisputeForEvidence(repo, s.logger, s.msgService))
 	disputes.POST("/:id/accept", api.AcceptDispute(repo, s.logger, s.msgService))

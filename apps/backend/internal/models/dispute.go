@@ -26,10 +26,10 @@ type Dispute_old struct {
 
 type Dispute struct {
 	DisputeDB
-	Opponent        string `db:"opponent" json:"opponent"`
-	Result          Result `db:"result" json:"result"`
-	Vote            bool   `db:"vote" json:"vote"`
-	Claim           bool   `db:"claim" json:"claim"`
+	Opponent string `db:"opponent" json:"opponent"`
+	Result   Result `db:"result" json:"result"`
+	Vote     bool   `db:"vote" json:"vote"`
+	Claim    bool   `db:"claim" json:"claim"`
 }
 
 type DisputeListOpts struct {
@@ -46,6 +46,7 @@ type CreateDisputeReq struct {
 	Opponent        string `form:"opponent" binding:"required"`
 	Amount          string `form:"amount" binding:"required"`
 	ContractAddress string `form:"contractAddress" binding:"required"`
+	Boc             string `form:"boc" binding:"required"`
 	ImageData       []byte
 	ImageType       string
 }
@@ -53,7 +54,7 @@ type CreateDisputeReq struct {
 func NewDispute(opts CreateDisputeReq) Dispute {
 	amount, _ := strconv.ParseInt(opts.Amount, 10, 32)
 	d := Dispute{
-		DisputeDB: DisputeDB {
+		DisputeDB: DisputeDB{
 			ID:              uuid.New(),
 			Title:           opts.Title,
 			Description:     opts.Description,
@@ -64,7 +65,7 @@ func NewDispute(opts CreateDisputeReq) Dispute {
 			ImageData:       opts.ImageData,
 			ContractAddress: opts.ContractAddress,
 		},
-		Opponent:        opts.Opponent,
+		Opponent: opts.Opponent,
 	}
 	if opts.ImageType != "" {
 		d.ImageType = &opts.ImageType

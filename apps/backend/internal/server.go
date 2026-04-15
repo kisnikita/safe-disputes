@@ -2,11 +2,12 @@ package internal
 
 import (
 	"errors"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/kisnikita/safe-disputes/backend/internal/services"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/kisnikita/safe-disputes/backend/internal/integrations/ton"
+	"github.com/kisnikita/safe-disputes/backend/internal/services"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -20,9 +21,10 @@ type Server struct {
 	router     *gin.Engine
 	srv        *http.Server
 	msgService services.MessageService
+	txMonitor  ton.TonAPIMonitor
 }
 
-func NewServer(logger log.Logger, bot *tgbotapi.BotAPI) *Server {
+func NewServer(logger log.Logger, msgService services.MessageService, txMonitor ton.TonAPIMonitor) *Server {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -40,7 +42,8 @@ func NewServer(logger log.Logger, bot *tgbotapi.BotAPI) *Server {
 			Addr:    os.Getenv("PORT"),
 			Handler: r,
 		},
-		msgService: services.NewMessageService(logger, bot),
+		msgService: msgService,
+		txMonitor:  txMonitor,
 	}
 }
 

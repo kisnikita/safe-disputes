@@ -16,8 +16,12 @@ import (
 	"go.uber.org/zap"
 )
 
+type DisputePrechecker interface {
+	PrecheckCreateDispute(ctx context.Context, opponent string, amount int, creatorUsername string) error
+}
+
 type DisputeCreator interface {
-	CreateDispute(ctx context.Context, dispute models.Dispute, creatorUsername string) error
+	CreateDispute(ctx context.Context, dispute models.Dispute, creatorUsername, boc string) error
 }
 
 type DisputeLister interface {
@@ -45,15 +49,83 @@ type DisputeVoter interface {
 	VoteDispute(ctx context.Context, disputeID string, claimerUsername string, win bool) error
 }
 
-func CreateDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
+func PrecheckDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
 	disputeSrv, err := services.NewDisputeService(repo, log, sender)
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	return precheckDispute(log, disputeSrv)
+}
+
+func precheckDispute(log log.Logger, prechecker DisputePrechecker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		u, exist := c.Get("username")
+		if !exist {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		creator, ok := u.(string)
+		if !ok {
+			c.JSON(400, gin.H{"error": "invalid username"})
+			return
+		}
+
+		var req struct {
+			Opponent string `json:"opponent" binding:"required"`
+			Amount   int    `json:"amount" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			log.Error("invalid request body", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+		if req.Amount <= 0 {
+			log.Error("amount must be positive", zap.Int("amount", req.Amount))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+
+		err := prechecker.PrecheckCreateDispute(c, req.Opponent, req.Amount, creator)
+		switch {
+		case errors.Is(err, services.ErrUserNotFound):
+			log.Error("opponent not found", zap.String("opponent", req.Opponent), zap.Error(err))
+			c.JSON(http.StatusNotFound, gin.H{"error": "opponent not found"})
+			return
+		case errors.Is(err, services.ErrSelfOpponent):
+			log.Error("creator and opponent must be different", zap.String("creator", creator), zap.String("opponent", req.Opponent), zap.Error(err))
+			c.JSON(http.StatusConflict, gin.H{"error": "creator and opponent must be different"})
+			return
+		case errors.Is(err, services.ErrMinimalAmount):
+			log.Error("amount too less", zap.Int("amount", req.Amount), zap.Error(err))
+			c.JSON(http.StatusConflict, gin.H{"error": "amount too less"})
+			return
+		case errors.Is(err, services.ErrUnready):
+			log.Error("opponent not ready", zap.String("opponent", req.Opponent), zap.Error(err))
+			c.JSON(http.StatusConflict, gin.H{"error": "opponent not ready"})
+			return
+		case err != nil:
+			log.Error("failed to precheck dispute", zap.String("opponent", req.Opponent), zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+
+		c.Status(http.StatusNoContent)
+	}
+}
+
+func CreateDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender,
+	txMonitor services.TransactionMonitor,
+) gin.HandlerFunc {
+	disputeSrv, err := services.NewDisputeService(repo, log, sender)
+	if err != nil {
+		log.Fatal("failed to create dispute service", zap.Error(err))
+	}
+	disputeSrv = disputeSrv.WithTransactionMonitor(txMonitor)
 	return createDispute(log, disputeSrv)
 }
 
 func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFunc {
+	log = log.With(zap.String("handler", "CreateDispute"))
 	return func(c *gin.Context) {
 		u, exist := c.Get("username")
 		if !exist {
@@ -68,9 +140,11 @@ func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFun
 
 		var req models.CreateDisputeReq
 		if err := c.ShouldBind(&req); err != nil {
+			log.Error("invalid request body", zap.Error(err))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 			return
 		}
+		log.Info("CreateDispute params", zap.Any("params", req))
 
 		// читаем файл из multipart
 		if fileHeader, err := c.FormFile("image"); err == nil {
@@ -92,19 +166,23 @@ func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFun
 		}
 
 		dispute := models.NewDispute(req)
-		err := disputeCreator.CreateDispute(c, dispute, creator)
+		err := disputeCreator.CreateDispute(c, dispute, creator, req.Boc)
 		switch {
-		case errors.Is(err, services.ErrUserNotFound):
-			log.Error("opponent not found", zap.String("opponent", req.Opponent), zap.Error(err))
-			c.JSON(404, gin.H{"error": "opponent not found"})
+		case errors.Is(err, services.ErrInvalidBOC):
+			log.Error("invalid transaction boc", zap.String("creator", creator), zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid transaction boc"})
 			return
-		case errors.Is(err, services.ErrMinimalAmount):
-			log.Error("amount too less", zap.Int("amount", dispute.Amount), zap.Error(err))
-			c.JSON(400, gin.H{"error": "amount too less"})
+		case errors.Is(err, services.ErrTxNotFinalized):
+			log.Error("transaction not finalized in time", zap.String("creator", creator), zap.Error(err))
+			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "transaction not finalized in time"})
 			return
-		case errors.Is(err, services.ErrUnready):
-			log.Error("opponent not ready", zap.String("opponent", req.Opponent), zap.Error(err))
-			c.JSON(400, gin.H{"error": "opponent not ready"})
+		case errors.Is(err, services.ErrTxFailed):
+			log.Error("transaction failed", zap.String("creator", creator), zap.Error(err))
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		case errors.Is(err, services.ErrTxMonitorUnavailable):
+			log.Error("transaction monitor unavailable", zap.String("creator", creator), zap.Error(err))
+			c.JSON(http.StatusBadGateway, gin.H{"error": "transaction monitor unavailable"})
 			return
 		case err != nil:
 			log.Error("failed to create dispute", zap.String("title", req.Title), zap.String("opponent", req.Opponent),

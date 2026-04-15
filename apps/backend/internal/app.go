@@ -3,12 +3,16 @@ package internal
 import (
 	"context"
 	"database/sql"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/joho/godotenv"
-	"github.com/kisnikita/safe-disputes/backend/internal/models"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/joho/godotenv"
+	"github.com/kisnikita/safe-disputes/backend/internal/integrations/ton"
+	"github.com/kisnikita/safe-disputes/backend/internal/models"
+	"github.com/kisnikita/safe-disputes/backend/internal/services"
 
 	"go.uber.org/zap"
 
@@ -40,14 +44,39 @@ func StartApp() {
 	if err != nil {
 		logger.Fatal("failed to create Telegram bot", zap.Error(err))
 	}
+
+	txMonitor, err := ton.NewTonAPIMonitor(logger, ton.MonitorConfig{
+		Token:        os.Getenv("TONAPI_TOKEN"),
+		Network:      os.Getenv("TON_NETWORK"),
+		Timeout:      durationFromEnvMS("TON_TX_MONITOR_TIMEOUT_MS", 120*time.Second),
+		PollInterval: durationFromEnvMS("TON_TX_MONITOR_POLL_INTERVAL_MS", 1500*time.Millisecond),
+	})
+	if err != nil {
+		logger.Fatal("failed to create TON monitor", zap.Error(err))
+	}
+
 	userData := checkChat(logger, bot)
 	go updateChatID(logger, repo, userData)
 
-	server := NewServer(logger, bot)
+	server := NewServer(logger, services.NewMessageService(logger, bot), txMonitor)
 	server.RegisterRoutes(repo)
 	go server.StartServer()
 
 	gracefulShutdown(db, server, logger)
+}
+
+func durationFromEnvMS(key string, fallback time.Duration) time.Duration {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback
+	}
+
+	ms, err := strconv.Atoi(raw)
+	if err != nil || ms <= 0 {
+		return fallback
+	}
+
+	return time.Duration(ms) * time.Millisecond
 }
 
 func gracefulShutdown(db *sql.DB, server *Server, logger log.Logger) {

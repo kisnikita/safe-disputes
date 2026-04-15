@@ -14,8 +14,13 @@ interface Props {
 
 const errorMessages: Record<string, string> = {
   'opponent not found': 'Пользователь с таким username не зарегистрирован в приложении',
+  'creator and opponent must be different': 'Нельзя создать пари с самим собой',
   'amount too less': 'Ваш оппонент не готов на такую ставку, попробуйте её увеличить',
   'opponent not ready': 'Ваш оппонент сейчас не готов участвовать в пари',
+  'invalid transaction boc': 'Не удалось обработать подписанную транзакцию',
+  'transaction monitor unavailable': 'Сервис проверки блокчейна временно недоступен',
+  'transaction not finalized in time': 'Транзакция пока не подтверждена, попробуйте ещё раз',
+  'transaction failed': 'Транзакция завершилась с ошибкой',
   'internal server error': 'На сервере произошла непредвиденная ошибка, попробуйте чуть позже',
 };
 
@@ -55,6 +60,17 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
   const [error, setError] = useState<string | null>(null);
   const [fileInputResetKey, setFileInputResetKey] = useState(0);
 
+  const extractApiError = async (res: Response): Promise<string> => {
+    let serverError = `Ошибка ${res.status}`;
+    try {
+      const errPayload = await res.json();
+      if (typeof errPayload.error === 'string') serverError = errPayload.error;
+    } catch {
+      // ignore JSON parse errors
+    }
+    return serverError;
+  };
+
   const generateBetId = (): bigint => {
     const uuid = crypto?.randomUUID?.();
     if (!uuid) throw new Error('crypto.randomUUID not available');
@@ -93,6 +109,28 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     setError(null);
     setSuccess(false);
 
+    try {
+      const precheckRes = await apiFetch('/api/v1/disputes/precheck', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          opponent,
+          amount,
+        }),
+      });
+
+      if (!precheckRes.ok) {
+        throw new Error(await extractApiError(precheckRes));
+      }
+    } catch (err: any) {
+      const key = Object.keys(errorMessages).find(k => err.message.includes(k)) ?? err.message;
+      setError(errorMessages[key] || `Не удалось проверить оппонента: ${key}`);
+      setSubmitting(false);
+      return;
+    }
+
     let betID: bigint;
     let betAddress: string;
     try {
@@ -110,8 +148,9 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
       return;
     }
 
+    let signedBoc: string;
     try {
-      await createBetWithDeposit(betID, amount.toString());
+      signedBoc = await createBetWithDeposit(betID, amount.toString());
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel|not sent/i.test(msg)) {
@@ -132,6 +171,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     form.append('opponent', opponent);
     form.append('amount', amount.toString());
     form.append('contractAddress', betAddress);
+    form.append('boc', signedBoc);
     if (file) form.append('image', file);
 
     try {
@@ -141,12 +181,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
       });
 
       if (!res.ok) {
-        let serverError = `Ошибка ${res.status}`;
-        try {
-          const errPayload = await res.json();
-          if (typeof errPayload.error === 'string') serverError = errPayload.error;
-        } catch { } // ignore JSON parse errors
-        throw new Error(serverError);
+        throw new Error(await extractApiError(res));
       }
     } catch (err: any) {
       const key = Object.keys(errorMessages).find(k => err.message.includes(k)) ?? err.message;

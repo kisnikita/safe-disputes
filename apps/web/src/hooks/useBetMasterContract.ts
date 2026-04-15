@@ -1,12 +1,12 @@
 import { BetMaster, CreateBet } from "../../../../blockchain/wrappers/BetMaster";
-import { Address, OpenedContract, toNano } from "@ton/core";
+import { Address, OpenedContract, Sender, toNano } from "@ton/core";
 import { useAsyncInitialize } from "./useAsyncInitialize";
 import { useTonClient } from "./useTonClient";
 import { useTonConnect } from "./useTonConnect";
 
 export function useBetMasterContract() {
     const { client } = useTonClient();
-    const { sender } = useTonConnect();
+    const { sender, sendSignedTransaction } = useTonConnect();
 
     const masterContract = useAsyncInitialize(async () => {
         if (!client) return;
@@ -25,7 +25,21 @@ export function useBetMasterContract() {
                 id: betID,
             };
             const totalValue = toNano(depositValue);
-            await masterContract.send(sender, { value: totalValue }, msg);
+
+            let boc = "";
+            const senderWithBocCapture: Sender = {
+                address: sender.address,
+                send: async (args) => {
+                    boc = await sendSignedTransaction(args);
+                },
+            };
+
+            await masterContract.send(senderWithBocCapture, { value: totalValue }, msg);
+            if (!boc) {
+                throw new Error("wallet did not return signed boc");
+            }
+
+            return boc;
         },
     };
 }

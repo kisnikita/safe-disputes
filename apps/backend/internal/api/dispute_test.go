@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,13 +21,31 @@ type fakeDisputeCreator struct {
 	err        error
 	called     bool
 	creator    string
+	boc        string
 	disputeArg models.Dispute
 }
 
-func (f *fakeDisputeCreator) CreateDispute(_ context.Context, dispute models.Dispute, creatorUsername string) error {
+func (f *fakeDisputeCreator) CreateDispute(_ context.Context, dispute models.Dispute, creatorUsername, boc string) error {
 	f.called = true
 	f.creator = creatorUsername
+	f.boc = boc
 	f.disputeArg = dispute
+	return f.err
+}
+
+type fakeDisputePrechecker struct {
+	err      error
+	called   bool
+	opponent string
+	amount   int
+	creator  string
+}
+
+func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponent string, amount int, creatorUsername string) error {
+	f.called = true
+	f.opponent = opponent
+	f.amount = amount
+	f.creator = creatorUsername
 	return f.err
 }
 
@@ -88,33 +107,7 @@ func (f *fakeDisputeVoter) VoteDispute(_ context.Context, disputeID string, user
 }
 
 func TestCreateDispute(t *testing.T) {
-	t.Run("maps user not found to 404", func(t *testing.T) {
-		creator := &fakeDisputeCreator{err: services.ErrUserNotFound}
-		r := gin.New()
-		r.Use(func(c *gin.Context) {
-			c.Set("username", "alice")
-			c.Next()
-		})
-		r.POST("/disputes", createDispute(noopLogger{}, creator))
-
-		form := url.Values{}
-		form.Set("title", "test")
-		form.Set("description", "desc")
-		form.Set("opponent", "bob")
-		form.Set("amount", "100")
-		form.Set("contractAddress", "addr")
-
-		req := httptest.NewRequest(http.MethodPost, "/disputes", strings.NewReader(form.Encode()))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		rr := httptest.NewRecorder()
-		r.ServeHTTP(rr, req)
-
-		if rr.Code != http.StatusNotFound {
-			t.Fatalf("expected %d, got %d", http.StatusNotFound, rr.Code)
-		}
-	})
-
-	t.Run("creates dispute and passes creator", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		creator := &fakeDisputeCreator{}
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
@@ -129,6 +122,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("opponent", "bob")
 		form.Set("amount", "100")
 		form.Set("contractAddress", "addr")
+		form.Set("boc", "te6cckEBAQEAAgAAAA==")
 
 		req := httptest.NewRequest(http.MethodPost, "/disputes", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -146,6 +140,104 @@ func TestCreateDispute(t *testing.T) {
 		}
 		if creator.disputeArg.Amount != 100 {
 			t.Fatalf("expected amount 100, got %d", creator.disputeArg.Amount)
+		}
+		if creator.boc == "" {
+			t.Fatal("expected boc to be passed")
+		}
+	})
+
+	t.Run("maps tx failure to conflict", func(t *testing.T) {
+		creator := &fakeDisputeCreator{err: fmt.Errorf("%w: details", services.ErrTxFailed)}
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			c.Set("username", "alice")
+			c.Next()
+		})
+		r.POST("/disputes", createDispute(noopLogger{}, creator))
+
+		form := url.Values{}
+		form.Set("title", "test")
+		form.Set("description", "desc")
+		form.Set("opponent", "bob")
+		form.Set("amount", "100")
+		form.Set("contractAddress", "addr")
+		form.Set("boc", "te6cckEBAQEAAgAAAA==")
+
+		req := httptest.NewRequest(http.MethodPost, "/disputes", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict {
+			t.Fatalf("expected %d, got %d", http.StatusConflict, rr.Code)
+		}
+	})
+}
+
+func TestPrecheckDispute(t *testing.T) {
+	t.Run("maps user not found to 404", func(t *testing.T) {
+		prechecker := &fakeDisputePrechecker{err: services.ErrUserNotFound}
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			c.Set("username", "alice")
+			c.Next()
+		})
+		r.POST("/disputes/precheck", precheckDispute(noopLogger{}, prechecker))
+
+		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"bob","amount":100}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected %d, got %d", http.StatusNotFound, rr.Code)
+		}
+	})
+
+	t.Run("returns no content and passes args", func(t *testing.T) {
+		prechecker := &fakeDisputePrechecker{}
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			c.Set("username", "alice")
+			c.Next()
+		})
+		r.POST("/disputes/precheck", precheckDispute(noopLogger{}, prechecker))
+
+		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"bob","amount":100}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("expected %d, got %d", http.StatusNoContent, rr.Code)
+		}
+		if !prechecker.called {
+			t.Fatal("expected PrecheckCreateDispute to be called")
+		}
+		if prechecker.creator != "alice" {
+			t.Fatalf("expected creator alice, got %q", prechecker.creator)
+		}
+		if prechecker.opponent != "bob" || prechecker.amount != 100 {
+			t.Fatalf("unexpected args: opponent=%q amount=%d", prechecker.opponent, prechecker.amount)
+		}
+	})
+
+	t.Run("maps self opponent to conflict", func(t *testing.T) {
+		prechecker := &fakeDisputePrechecker{err: services.ErrSelfOpponent}
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			c.Set("username", "alice")
+			c.Next()
+		})
+		r.POST("/disputes/precheck", precheckDispute(noopLogger{}, prechecker))
+
+		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"alice","amount":100}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict {
+			t.Fatalf("expected %d, got %d", http.StatusConflict, rr.Code)
 		}
 	})
 }

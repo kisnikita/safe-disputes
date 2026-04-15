@@ -23,6 +23,18 @@ type fakeDisputeRepo struct {
 	updatedU2D         []models.U2DUpdateOpts
 }
 
+type fakeTxMonitor struct {
+	err   error
+	calls int
+	boc   string
+}
+
+func (f *fakeTxMonitor) WaitForSuccess(_ context.Context, boc string) error {
+	f.calls++
+	f.boc = boc
+	return f.err
+}
+
 func (f *fakeDisputeRepo) GetDisputeByID(context.Context, uuid.UUID, uuid.UUID) (models.Dispute, error) {
 	return f.dispute, nil
 }
@@ -93,12 +105,14 @@ func TestDisputeServiceCreateDispute(t *testing.T) {
 		},
 	}
 	sender := &fakeMessageSender{}
+	txMonitor := &fakeTxMonitor{}
 	svc := DisputeService{
 		logger:         noopLogger{},
 		disputeCreator: repo,
 		u2dCreator:     repo,
 		userFinder:     repo,
 		msgSender:      sender,
+		txMonitor:      txMonitor,
 	}
 
 	err := svc.CreateDispute(context.Background(), models.Dispute{
@@ -109,10 +123,13 @@ func TestDisputeServiceCreateDispute(t *testing.T) {
 			Amount:          100,
 			ContractAddress: "addr",
 		},
-		Opponent:        "bob",
-	}, "alice")
+		Opponent: "bob",
+	}, "alice", "boc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if txMonitor.calls != 1 || txMonitor.boc != "boc" {
+		t.Fatalf("expected tx monitor call with boc, got calls=%d boc=%q", txMonitor.calls, txMonitor.boc)
 	}
 	if repo.insertDisputeCalls != 1 {
 		t.Fatalf("expected 1 dispute insert, got %d", repo.insertDisputeCalls)
@@ -125,13 +142,21 @@ func TestDisputeServiceCreateDispute(t *testing.T) {
 	}
 }
 
-func TestDisputeServiceCreateDisputeAmountValidation(t *testing.T) {
+func TestDisputeServiceCreateDisputeIgnoresOpponentSettings(t *testing.T) {
 	repo := &fakeDisputeRepo{
 		usersByUsername: map[string]models.User{
-			"bob": {ID: uuid.New(), Username: "bob", DisputeReadiness: true, MinimumDisputeAmount: 500},
+			"alice": {ID: uuid.New(), Username: "alice"},
+			"bob":   {ID: uuid.New(), Username: "bob", DisputeReadiness: false, MinimumDisputeAmount: 500},
 		},
 	}
-	svc := DisputeService{logger: noopLogger{}, disputeCreator: repo, userFinder: repo, u2dCreator: repo, msgSender: &fakeMessageSender{}}
+	svc := DisputeService{
+		logger:         noopLogger{},
+		disputeCreator: repo,
+		userFinder:     repo,
+		u2dCreator:     repo,
+		msgSender:      &fakeMessageSender{},
+		txMonitor:      &fakeTxMonitor{},
+	}
 
 	err := svc.CreateDispute(context.Background(), models.Dispute{
 		DisputeDB: models.DisputeDB{
@@ -141,10 +166,66 @@ func TestDisputeServiceCreateDisputeAmountValidation(t *testing.T) {
 			Amount:          100,
 			ContractAddress: "addr",
 		},
-		Opponent:        "bob",
-	}, "alice")
-	if !errors.Is(err, ErrMinimalAmount) {
-		t.Fatalf("expected ErrMinimalAmount, got %v", err)
+		Opponent: "bob",
+	}, "alice", "boc")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDisputeServiceCreateDisputeTxFailed(t *testing.T) {
+	repo := &fakeDisputeRepo{
+		usersByUsername: map[string]models.User{
+			"alice": {ID: uuid.New(), Username: "alice"},
+			"bob":   {ID: uuid.New(), Username: "bob"},
+		},
+	}
+	svc := DisputeService{
+		logger:         noopLogger{},
+		disputeCreator: repo,
+		userFinder:     repo,
+		u2dCreator:     repo,
+		msgSender:      &fakeMessageSender{},
+		txMonitor:      &fakeTxMonitor{err: ErrTxFailed},
+	}
+
+	err := svc.CreateDispute(context.Background(), models.Dispute{
+		DisputeDB: models.DisputeDB{
+			ID:              uuid.New(),
+			Title:           "t",
+			Description:     "d",
+			Amount:          100,
+			ContractAddress: "addr",
+		},
+		Opponent: "bob",
+	}, "alice", "boc")
+	if !errors.Is(err, ErrTxFailed) {
+		t.Fatalf("expected ErrTxFailed, got %v", err)
+	}
+	if repo.insertDisputeCalls != 0 {
+		t.Fatalf("expected no inserts when tx failed, got %d", repo.insertDisputeCalls)
+	}
+}
+
+func TestDisputeServicePrecheckCreateDispute(t *testing.T) {
+	repo := &fakeDisputeRepo{
+		usersByUsername: map[string]models.User{
+			"bob": {ID: uuid.New(), Username: "bob", DisputeReadiness: true, MinimumDisputeAmount: 50},
+		},
+	}
+	svc := DisputeService{logger: noopLogger{}, userFinder: repo}
+
+	if err := svc.PrecheckCreateDispute(context.Background(), "bob", 100, "alice"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDisputeServicePrecheckCreateDisputeSelfOpponent(t *testing.T) {
+	svc := DisputeService{logger: noopLogger{}, userFinder: &fakeDisputeRepo{}}
+
+	err := svc.PrecheckCreateDispute(context.Background(), "alice", 100, "alice")
+	if !errors.Is(err, ErrSelfOpponent) {
+		t.Fatalf("expected ErrSelfOpponent, got %v", err)
 	}
 }
 

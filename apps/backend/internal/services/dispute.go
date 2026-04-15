@@ -37,6 +37,14 @@ type User2DisputeUpdater interface {
 	UpdateUser2Dispute(ctx context.Context, opts models.U2DUpdateOpts) error
 }
 
+type MessageSender interface {
+	SendMessage(chatID int64, text string) error
+}
+
+type TransactionMonitor interface {
+	WaitForSuccess(ctx context.Context, boc string) error
+}
+
 type DisputeService struct {
 	logger log.Logger
 
@@ -48,6 +56,7 @@ type DisputeService struct {
 	opponentGetter OpponentGetter
 	userFinder     UserFinder
 	msgSender      MessageSender
+	txMonitor      TransactionMonitor
 }
 
 func NewDisputeService(repo *repository.Repository, log log.Logger, msgSender MessageSender) (DisputeService, error) {
@@ -70,23 +79,30 @@ func NewDisputeService(repo *repository.Repository, log log.Logger, msgSender Me
 	}, nil
 }
 
-func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Dispute, creatorUsername string) error {
-	if dispute.Title == "" || dispute.Description == "" || dispute.Opponent == "" || 
+func (s DisputeService) WithTransactionMonitor(txMonitor TransactionMonitor) DisputeService {
+	s.txMonitor = txMonitor
+	return s
+}
+
+func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Dispute, creatorUsername, boc string) error {
+	if dispute.Title == "" || dispute.Description == "" || dispute.Opponent == "" ||
 		dispute.Amount <= 0 || dispute.ContractAddress == "" {
 		return fmt.Errorf("invalid data for disute creation")
+	}
+	if boc == "" {
+		return fmt.Errorf("boc is required: %w", ErrInvalidBOC)
+	}
+
+	if s.txMonitor == nil {
+		return fmt.Errorf("%w: tx monitor is not configured", ErrTxMonitorUnavailable)
+	}
+	if err := s.txMonitor.WaitForSuccess(ctx, boc); err != nil {
+		return err
 	}
 
 	opponent, err := s.userFinder.GetUserByUsername(ctx, dispute.Opponent)
 	if err != nil {
 		return fmt.Errorf("failed to check if opponent exists: %w", ErrUserNotFound)
-	}
-
-	if !opponent.DisputeReadiness {
-		return fmt.Errorf("opponent %s %w", opponent.Username, ErrUnready)
-	}
-
-	if opponent.MinimumDisputeAmount > dispute.Amount {
-		return fmt.Errorf("%d %w", dispute.Amount, ErrMinimalAmount)
 	}
 
 	err = s.disputeCreator.InsertDispute(ctx, dispute)
@@ -115,6 +131,36 @@ func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Disput
 			return err
 		}
 	}
+	return nil
+}
+
+func (s DisputeService) PrecheckCreateDispute(
+	ctx context.Context,
+	opponent string,
+	amount int,
+	creatorUsername string,
+) error {
+	if opponent == "" || amount <= 0 {
+		return fmt.Errorf("invalid data for disute precheck")
+	}
+
+	if creatorUsername == opponent {
+		return fmt.Errorf("creator and opponent must be different: %w", ErrSelfOpponent)
+	}
+
+	opponentUser, err := s.userFinder.GetUserByUsername(ctx, opponent)
+	if err != nil {
+		return fmt.Errorf("failed to check if opponent exists: %w", ErrUserNotFound)
+	}
+
+	if !opponentUser.DisputeReadiness {
+		return fmt.Errorf("opponent %s %w", opponentUser.Username, ErrUnready)
+	}
+
+	if opponentUser.MinimumDisputeAmount > amount {
+		return fmt.Errorf("%d %w", amount, ErrMinimalAmount)
+	}
+
 	return nil
 }
 
