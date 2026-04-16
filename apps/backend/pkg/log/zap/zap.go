@@ -55,7 +55,7 @@ func (l *Logger) Sync() error {
 }
 
 func New() *Logger {
-	zapLogger, _ := zap.NewDevelopment(zap.AddCallerSkip(1))
+	zapLogger, _ := zap.NewDevelopment(zap.AddCallerSkip(1), zap.AddStacktrace(zap.FatalLevel))
 
 	return &Logger{Logger: zapLogger}
 }
