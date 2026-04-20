@@ -1,10 +1,10 @@
 // src/components/CreateBetForm/CreateBetForm.tsx
-import React, { useState, useRef, ChangeEvent, FormEvent, useEffect } from 'react';
+import React, { useState, useRef, FormEvent, useEffect } from 'react';
 import './CreateBetForm.css';
 import { apiFetch } from '../../utils/apiFetch';
 import { useBetMasterContract } from '../../hooks/useBetMasterContract';
 import { useBetContract } from '../../hooks/useBetContract';
-import { FileInput } from '@telegram-apps/telegram-ui';
+import { FileInput } from '../FileInput/FileInput';
 
 interface Props {
   onClose: () => void;
@@ -23,6 +23,8 @@ const errorMessages: Record<string, string> = {
   'transaction failed': 'Транзакция завершилась с ошибкой',
   'internal server error': 'На сервере произошла непредвиденная ошибка, попробуйте чуть позже',
 };
+
+const CREATE_BET_FILE_INPUT_MAX_FILES = 1;
 
 export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) => {
   useEffect(() => {
@@ -54,11 +56,10 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
   const [opponent, setOpponent] = useState('');
   const [amount, setAmount] = useState<number>(0);
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [fileInputHasError, setFileInputHasError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fileInputResetKey, setFileInputResetKey] = useState(0);
 
   const extractApiError = async (res: Response): Promise<string> => {
     let serverError = `Ошибка ${res.status}`;
@@ -82,25 +83,6 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
       return 1n;
     }
     return value;
-  };
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null;
-    setFile(f);
-    if (f) {
-      setPreview(URL.createObjectURL(f));
-    } else {
-      setPreview(null);
-    }
-  };
-
-  const removePhoto = () => {
-    setFile(null);
-    if (preview) {
-      URL.revokeObjectURL(preview);
-      setPreview(null);
-    }
-    setFileInputResetKey(prev => prev + 1);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -155,7 +137,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel|not sent/i.test(msg)) {
         setError('Транзакция отменена пользователем');
-      } else if (/No enough funds/i.test(msg)) { 
+      } else if (/No enough funds/i.test(msg)) {
         setError('Недостаточно средств для внесения депозита');
       } else {
         setError('Не удалось развернуть контракт и внести депозит');
@@ -372,36 +354,22 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
               </div>
             </label>
 
-            <label>
-              Фото (необязательно):
+            <div className="create-bet-file-section">
+              <div className="create-bet-file-section-label">Файлы (необязательно):</div>
               <FileInput
-                key={fileInputResetKey}
                 className="create-bet-file-input"
-                accept="image/*"
-                label="Добавить фото"
-                onChange={handleFileChange}
+                label="Добавить"
+                maxFiles={CREATE_BET_FILE_INPUT_MAX_FILES}
+                onHasErrorChange={setFileInputHasError}
+                onPrimaryFileChange={setFile}
               />
-            </label>
-
-            {preview && (
-              <div className="create-bet-image-preview">
-                <button
-                  type="button"
-                  className="create-bet-remove-photo-btn"
-                  onClick={removePhoto}
-                  title="Удалить фото"
-                >
-                  ×
-                </button>
-                <img src={preview} alt="Превью" />
-              </div>
-            )}
+            </div>
 
             <div className="create-bet-form-actions">
               <button
                 type="submit"
                 className="create-bet-submit-btn"
-                disabled={submitting || isClosing}
+                disabled={submitting || isClosing || fileInputHasError}
               >
                 {submitting ? 'Отправка…' : 'Вызвать'}
               </button>

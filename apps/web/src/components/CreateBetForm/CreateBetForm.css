@@ -222,40 +222,13 @@
   transform: scale(0.7);
 }
 
-.create-bet-file-input {
-  margin-top: 6px;
-  --tgui--link_color: #a7ebeb;
+.create-bet-file-section {
+  margin-bottom: 12px;
 }
 
-.create-bet-image-preview {
-  position: relative;
-  margin: 10px 0 2px;
-}
-
-.create-bet-image-preview img {
-  display: block;
-  width: 100%;
-  max-height: 220px;
-  object-fit: cover;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-}
-
-.create-bet-remove-photo-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
-  background: rgba(15, 23, 42, 0.78);
+.create-bet-file-section-label {
+  font-size: 14px;
   color: #a7ebeb;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  width: 26px;
-  height: 26px;
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
 }
 
 .create-bet-form-actions {
