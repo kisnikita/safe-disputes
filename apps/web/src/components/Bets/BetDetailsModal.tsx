@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './BetDetailsModal.css';
 import { useBetContract } from '../../hooks/useBetContract';
+import { useTonConnect } from '../../hooks/useTonConnect';
 import { Spinner } from '@telegram-apps/telegram-ui';
 
 interface Props {
@@ -64,8 +65,12 @@ export const BetDetailsModal: React.FC<Props> = ({
   const [evidenceText, setEvidenceText] = useState('');
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [acceptShake, setAcceptShake] = useState(false);
+  const [claimShake, setClaimShake] = useState(false);
+  const [resultShake, setResultShake] = useState<'win' | 'lose' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { accept, refund, win, draw } = useBetContract();
+  const { connected } = useTonConnect();
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setIsOpen(true));
@@ -97,6 +102,12 @@ export const BetDetailsModal: React.FC<Props> = ({
   // Принять/Отклонить
   const handleAction = async (action: 'accept' | 'reject') => {
     if (!bet) return;
+    if (action === 'accept' && !connected) {
+      setError('Подключите TON-кошелёк, чтобы выполнить транзакцию');
+      setAcceptShake(false);
+      requestAnimationFrame(() => setAcceptShake(true));
+      return;
+    }
     setActionLoading(true);
     setError(null);
 
@@ -129,6 +140,12 @@ export const BetDetailsModal: React.FC<Props> = ({
   // Голосование за результат
   const handleResultVote = async (vote: 'win' | 'lose') => {
     if (!bet) return;
+    if (vote === 'win' && !connected) {
+      setError('Подключите TON-кошелёк, чтобы выполнить транзакцию');
+      setResultShake(null);
+      requestAnimationFrame(() => setResultShake(vote));
+      return;
+    }
     setActionLoading(true);
     try {
       const res = await apiFetch(`/api/v1/disputes/${id}/vote`, {
@@ -148,6 +165,12 @@ export const BetDetailsModal: React.FC<Props> = ({
   // Забрать награду/Вернуть средства
   const handleClaim = async () => {
     if (!bet) return;
+    if (!connected) {
+      setError('Подключите TON-кошелёк, чтобы выполнить транзакцию');
+      setClaimShake(false);
+      requestAnimationFrame(() => setClaimShake(true));
+      return;
+    }
     setActionLoading(true);
     setError(null);
     try {
@@ -338,9 +361,11 @@ export const BetDetailsModal: React.FC<Props> = ({
                   {actionLoading ? '…' : 'Отклонить'}
                 </button>
                 <button
-                  className="bet-details-accept-btn"
+                  className={`bet-details-accept-btn${!connected ? ' bet-details-wallet-disconnected' : ''}${acceptShake ? ' bet-details-wallet-shake' : ''}`}
                   disabled={actionLoading}
                   onClick={() => handleAction('accept')}
+                  onAnimationEnd={() => setAcceptShake(false)}
+                  title={connected ? undefined : 'Подключите TON-кошелёк'}
                 >
                   {actionLoading ? '…' : 'Принять'}
                 </button>
@@ -351,16 +376,19 @@ export const BetDetailsModal: React.FC<Props> = ({
             {showResultActions && bet.result === 'processed' && (
               <div className="bet-details-action-buttons">
                 <button
-                  className="bet-details-reject-btn"
+                  className={`bet-details-reject-btn${resultShake === 'lose' ? ' bet-details-wallet-shake' : ''}`}
                   disabled={actionLoading}
                   onClick={() => handleResultVote('lose')}
+                  onAnimationEnd={() => setResultShake(null)}
                 >
                   {actionLoading ? '…' : 'Поражение'}
                 </button>
                 <button
-                  className="bet-details-accept-btn"
+                  className={`bet-details-accept-btn${!connected ? ' bet-details-wallet-disconnected' : ''}${resultShake === 'win' ? ' bet-details-wallet-shake' : ''}`}
                   disabled={actionLoading}
                   onClick={() => handleResultVote('win')}
+                  onAnimationEnd={() => setResultShake(null)}
+                  title={connected ? undefined : 'Подключите TON-кошелёк'}
                 >
                   {actionLoading ? '…' : 'Победа'}
                 </button>
@@ -393,9 +421,11 @@ export const BetDetailsModal: React.FC<Props> = ({
             {showClaimActions && bet.claim && (
               <div className="bet-details-action-buttons">
                 <button
-                  className="bet-details-accept-btn"
+                  className={`bet-details-accept-btn${!connected ? ' bet-details-wallet-disconnected' : ''}${claimShake ? ' bet-details-wallet-shake' : ''}`}
                   disabled={actionLoading}
                   onClick={handleClaim}
+                  onAnimationEnd={() => setClaimShake(false)}
+                  title={connected ? undefined : 'Подключите TON-кошелёк'}
                 >
                   {actionLoading ? '…' : (bet.result === 'win' ? 'Забрать награду' : 'Вернуть средства')}
                 </button>

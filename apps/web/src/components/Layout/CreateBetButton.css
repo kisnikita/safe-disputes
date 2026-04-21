@@ -19,21 +19,40 @@
   user-select: none;
 }
 
-.create-button:hover:not(:disabled) {
+.create-button:hover:not(.create-button-wallet-disconnected) {
   transform: scale(1.03);
 }
 
-.create-button:active:not(:disabled) {
+.create-button:active:not(.create-button-wallet-disconnected) {
   transform: scale(0.97);
 }
 
-.create-button:disabled {
+.create-button-wallet-disconnected {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.create-button-shake {
+  animation: create-button-wallet-shake 280ms ease-in-out;
+}
+
+@keyframes create-button-wallet-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
 }
 
 .create-button.hidden {
   transform: translateY(-150%);
   opacity: 0;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-button-shake {
+    animation: none;
+  }
 }

@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './InvestigationDetailsModal.css';
 import { Spinner } from '@telegram-apps/telegram-ui';
+import { popup } from '@tma.js/sdk-react';
+import { useTonConnect } from '../../hooks/useTonConnect';
 
 interface Evidence {
   id: string;
@@ -51,6 +53,17 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [voteLoading, setVoteLoading] = useState(false);
+  const [voteShake, setVoteShake] = useState<'p1' | 'draw' | 'p2' | null>(null);
+  const { connected } = useTonConnect();
+
+  const showWalletHint = async () => {
+    const message = 'Подключите TON-кошелёк, чтобы выполнить действие';
+    if (popup.isSupported()) {
+      await popup.show({ message });
+      return;
+    }
+    window.alert(message);
+  };
 
   // Load investigation record and dispute details
   useEffect(() => {
@@ -107,6 +120,12 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
 
   const handleVote = async (choice: 'p1' | 'p2' | 'draw') => {
     if (!dispute) return;
+    if (!connected) {
+      setVoteShake(null);
+      requestAnimationFrame(() => setVoteShake(choice));
+      void showWalletHint();
+      return;
+    }
     setVoteLoading(true);
     try {
       await apiFetch(`/api/v1/investigations/${investigation?.id}/vote?vote=${choice}`, {
@@ -163,9 +182,33 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
               <h4>Окончательное голосование</h4>
             </div>
             <div className="investigation-details-vote-buttons">
-              <button onClick={() => handleVote('p1')} disabled={voteLoading}>Пользователь 1</button>
-              <button onClick={() => handleVote('draw')} disabled={voteLoading}>Ничья</button>
-              <button onClick={() => handleVote('p2')} disabled={voteLoading}>Пользователь 2</button>
+              <button
+                className={`${!connected ? ' investigation-details-wallet-disconnected' : ''}${voteShake === 'p1' ? ' investigation-details-wallet-shake' : ''}`}
+                onClick={() => handleVote('p1')}
+                onAnimationEnd={() => setVoteShake(null)}
+                disabled={voteLoading}
+                title={connected ? undefined : 'Подключите TON-кошелёк'}
+              >
+                Пользователь 1
+              </button>
+              <button
+                className={`${!connected ? ' investigation-details-wallet-disconnected' : ''}${voteShake === 'draw' ? ' investigation-details-wallet-shake' : ''}`}
+                onClick={() => handleVote('draw')}
+                onAnimationEnd={() => setVoteShake(null)}
+                disabled={voteLoading}
+                title={connected ? undefined : 'Подключите TON-кошелёк'}
+              >
+                Ничья
+              </button>
+              <button
+                className={`${!connected ? ' investigation-details-wallet-disconnected' : ''}${voteShake === 'p2' ? ' investigation-details-wallet-shake' : ''}`}
+                onClick={() => handleVote('p2')}
+                onAnimationEnd={() => setVoteShake(null)}
+                disabled={voteLoading}
+                title={connected ? undefined : 'Подключите TON-кошелёк'}
+              >
+                Пользователь 2
+              </button>
             </div>
           </>
         )}

@@ -3,6 +3,7 @@ import './CreateBetForm.css';
 import { apiFetch } from '../../utils/apiFetch';
 import { useBetMasterContract } from '../../hooks/useBetMasterContract';
 import { useBetContract } from '../../hooks/useBetContract';
+import { useTonConnect } from '../../hooks/useTonConnect';
 import { FileInput } from '../FileInput/FileInput';
 import { backButton, hideKeyboard, popup } from '@tma.js/sdk-react';
 
@@ -82,6 +83,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
 
   const { getAddress } = useBetContract();
   const { createBetWithDeposit } = useBetMasterContract();
+  const { connected } = useTonConnect();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -92,6 +94,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitShake, setSubmitShake] = useState(false);
 
   const notifyCreatedIfNeeded = useCallback(() => {
     if (!createdRef.current || createdNotifiedRef.current) return;
@@ -298,6 +301,14 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     setSubmitting(true);
     setError(null);
     setSuccess(false);
+
+    if (!connected) {
+      setError('Подключите TON-кошелёк, чтобы выполнить транзакцию');
+      setSubmitShake(false);
+      requestAnimationFrame(() => setSubmitShake(true));
+      setSubmitting(false);
+      return;
+    }
 
     if (!isRequiredFieldsFilled) {
       setError('Заполните все обязательные поля');
@@ -586,8 +597,10 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
             <div className="create-bet-form-actions">
               <button
                 type="submit"
-                className="create-bet-submit-btn"
+                className={`create-bet-submit-btn${!connected ? ' create-bet-submit-btn-wallet-disconnected' : ''}${submitShake ? ' create-bet-submit-btn-shake' : ''}`}
                 disabled={submitting || fileInputHasError || !isRequiredFieldsFilled}
+                onAnimationEnd={() => setSubmitShake(false)}
+                title={connected ? undefined : 'Подключите TON-кошелёк'}
               >
                 {submitting ? 'Отправка…' : 'Вызвать'}
               </button>

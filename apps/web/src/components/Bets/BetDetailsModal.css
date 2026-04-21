@@ -174,8 +174,8 @@
 
 .bet-details-submit-btn:active:not(:disabled),
 .bet-details-close-success-btn:active:not(:disabled),
-.bet-details-accept-btn:active:not(:disabled),
-.bet-details-reject-btn:active:not(:disabled) {
+.bet-details-accept-btn:active:not(:disabled):not(.bet-details-wallet-disconnected),
+.bet-details-reject-btn:active:not(:disabled):not(.bet-details-wallet-disconnected) {
   transform: scale(0.97);
 }
 
@@ -184,6 +184,24 @@
 .bet-details-reject-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.bet-details-wallet-shake {
+  animation: bet-details-wallet-shake 280ms ease-in-out;
+}
+
+.bet-details-wallet-disconnected {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes bet-details-wallet-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
 }
 
 .bet-details-card form > label {
@@ -289,5 +307,9 @@
   .bet-details-card {
     transition: none;
     transform: none;
+  }
+
+  .bet-details-wallet-shake {
+    animation: none;
   }
 }

@@ -111,9 +111,18 @@
 .investigation-details-header-with-back {
   display: flex;
   align-items: center;
+  justify-content: center;
   margin-bottom: 12px;
   position: relative;
-  padding-top: 2.2rem;
+  min-height: 30px;
+  padding: 0 36px;
+}
+
+.investigation-details-header-with-back h4 {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  width: 100%;
 }
 
 .investigation-details-back-btn {
@@ -155,10 +164,34 @@
   cursor: not-allowed;
 }
 
+.investigation-details-wallet-disconnected {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.investigation-details-wallet-shake {
+  animation: investigation-details-wallet-shake 280ms ease-in-out;
+}
+
+@keyframes investigation-details-wallet-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
 .investigation-details-next-btn:active:not(:disabled),
 .investigation-details-nav-buttons button:active:not(:disabled),
-.investigation-details-vote-buttons button:active:not(:disabled),
+.investigation-details-vote-buttons button:active:not(:disabled):not(.investigation-details-wallet-disconnected),
 .investigation-details-back-btn:active:not(:disabled),
 .investigation-details-close-btn:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .investigation-details-wallet-shake {
+    animation: none;
+  }
 }
