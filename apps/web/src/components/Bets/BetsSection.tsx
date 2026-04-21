@@ -71,6 +71,7 @@ const passedBadgeMap: Partial<Record<Bet['result'], { color: string; text: strin
   lose: { color: 'red', text: 'Поражение' },
   draw: { color: 'yellow', text: 'Ничья' },
 };
+const CLAIM_AVAILABLE_FILTER_LABEL = 'К выплате';
 
 export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}, ref) => {
   const { connected } = useTonConnect();
@@ -366,7 +367,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     return {
       current: collect(currentBadgeMap),
       new: collect(newBadgeMap),
-      passed: collect(passedBadgeMap),
+      passed: [...collect(passedBadgeMap), { label: CLAIM_AVAILABLE_FILTER_LABEL, color: 'lime' }],
     };
   })();
 
@@ -762,7 +763,12 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                           : tab === 'passed'
                           ? passedBadgeMap[bet.result] ?? null
                           : null;
-                      return !!badge && activeFilters.includes(badge.text);
+                      const hasStatusFilterMatch = !!badge && activeFilters.includes(badge.text);
+                      const hasClaimAvailableFilterMatch =
+                        tab === 'passed' &&
+                        activeFilters.includes(CLAIM_AVAILABLE_FILTER_LABEL) &&
+                        bet.claim;
+                      return hasStatusFilterMatch || hasClaimAvailableFilterMatch;
                     })
                   : searchFilteredList;
                 const sortedList = sortBets(filteredList, selectedSortByTab[tab]);
