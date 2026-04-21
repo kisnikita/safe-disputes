@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { AppRoot } from './components/Layout/AppRoot';
 import { TabBar } from './components/Layout/TabBar';
 import { CreateBetButton } from './components/Layout/CreateBetButton';
@@ -9,6 +9,7 @@ import { SettingsSection } from './components/Settings/SettingsSection';
 import { SearchSection } from './components/Search/SearchSection';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
 import { Spinner } from '@telegram-apps/telegram-ui';
+import { init, backButton } from '@tma.js/sdk-react';
 import './App.css';
 
 export function App() {
@@ -18,6 +19,25 @@ export function App() {
   const betsSectionRef = useRef<BetsSectionHandle>(null);
   const investigationsSectionRef = useRef<InvestigationsSectionHandle>(null);
   const [_, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (status !== 'ready') return;
+    if (!backButton.isSupported()) return;
+
+    if (!backButton.isMounted()) {
+      backButton.mount();
+    }
+
+    if (showForm) {
+      backButton.show();
+    } else {
+      backButton.hide();
+    }
+  }, [status, showForm]);
 
   return (
     <AppRoot hideTonButton={showForm || status !== 'ready'}>
@@ -40,58 +60,58 @@ export function App() {
             />
           )}
 
-          {showForm && (
-            <CreateBetForm
-              onClose={() => {
-                setShowForm(false);
-                setModalOpen(false);
-              }}
-              onCreated={() => betsSectionRef.current?.refresh()}
-              onOpen={() => setModalOpen(true)}
-            />
-          )}
-
           <div className="app">
             <div
               className={`content${
-                activeTab === 'bets' || activeTab === 'investigations' ? ' no-scroll' : ''
-              }`}
+                !showForm && (activeTab === 'bets' || activeTab === 'investigations') ? ' no-scroll' : ''
+              }${showForm ? ' create-mode' : ''}`}
             >
-              {activeTab === 'bets' && (
+              {showForm && (
+                <CreateBetForm
+                  onClose={() => {
+                    setShowForm(false);
+                    setModalOpen(false);
+                  }}
+                  onCreated={() => betsSectionRef.current?.refresh()}
+                />
+              )}
+              {!showForm && activeTab === 'bets' && (
                 <BetsSection
                   ref={betsSectionRef}
                   onModalChange={open => setModalOpen(open)}
                 />
               )}
-              {activeTab === 'investigations' && (
+              {!showForm && activeTab === 'investigations' && (
                 <InvestigationsSection
                   ref={investigationsSectionRef}
                   onModalChange={open => setModalOpen(open)}
                 />
               )}
-              {activeTab === 'search' && <SearchSection />}
-              {activeTab === 'settings' && <SettingsSection />}
+              {!showForm && activeTab === 'search' && <SearchSection />}
+              {!showForm && activeTab === 'settings' && <SettingsSection />}
             </div>
-            <TabBar
-              active={activeTab}
-              onChange={id => {
-                const nextTab = id as typeof activeTab;
-                if (nextTab === activeTab) {
-                  if (nextTab === 'bets') {
-                    betsSectionRef.current?.scrollToTop();
+            {!showForm && (
+              <TabBar
+                active={activeTab}
+                onChange={id => {
+                  const nextTab = id as typeof activeTab;
+                  if (nextTab === activeTab) {
+                    if (nextTab === 'bets') {
+                      betsSectionRef.current?.scrollToTop();
+                      return;
+                    }
+                    if (nextTab === 'investigations') {
+                      investigationsSectionRef.current?.scrollToTop();
+                    }
                     return;
                   }
-                  if (nextTab === 'investigations') {
-                    investigationsSectionRef.current?.scrollToTop();
+                  setActiveTab(nextTab);
+                  if (nextTab === 'search' || nextTab === 'settings') {
+                      window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));
                   }
-                  return;
-                }
-                setActiveTab(nextTab);
-                if (nextTab === 'search' || nextTab === 'settings') {
-                    window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));
-                }
-              }}
-            />
+                }}
+              />
+            )}
           </div>
         </>
       )}

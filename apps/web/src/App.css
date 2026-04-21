@@ -46,8 +46,27 @@ html, body, #root {
   -webkit-overflow-scrolling: touch; /* «Плавный» скролл на iOS */
 }
 
+.content.create-mode {
+  padding: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
 .content.no-scroll {
   overflow: hidden;
+}
+
+html.ios-keyboard-lock,
+html.ios-keyboard-lock body,
+html.ios-keyboard-lock #root {
+  overscroll-behavior: none;
+}
+
+html.ios-keyboard-lock .subcontent-panel,
+html.ios-keyboard-lock .content {
+  overflow: hidden !important;
+  -webkit-overflow-scrolling: auto !important;
+  touch-action: none !important;
 }
 
 

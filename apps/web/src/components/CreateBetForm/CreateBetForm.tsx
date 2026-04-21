@@ -1,15 +1,21 @@
-// src/components/CreateBetForm/CreateBetForm.tsx
-import React, { useState, useRef, FormEvent, useEffect } from 'react';
+import React, { useState, useRef, FormEvent, useEffect, useCallback } from 'react';
 import './CreateBetForm.css';
 import { apiFetch } from '../../utils/apiFetch';
 import { useBetMasterContract } from '../../hooks/useBetMasterContract';
 import { useBetContract } from '../../hooks/useBetContract';
 import { FileInput } from '../FileInput/FileInput';
+import { backButton, hideKeyboard, popup } from '@tma.js/sdk-react';
 
 interface Props {
   onClose: () => void;
   onCreated: () => void;
-  onOpen: () => void;
+}
+
+export interface CreateBetDraft {
+  title: string;
+  description: string;
+  opponent: string;
+  amount: number;
 }
 
 const errorMessages: Record<string, string> = {
@@ -25,28 +31,54 @@ const errorMessages: Record<string, string> = {
 };
 
 const CREATE_BET_FILE_INPUT_MAX_FILES = 1;
+const DESCRIPTION_MIN_HEIGHT_PX = 80;
+const CREATE_BET_DRAFT_KEY = 'create-bet-draft-v1';
 
-export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) => {
-  useEffect(() => {
-    onOpen();
-  }, [onOpen]);
+const isFromDescriptionTextarea = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.closest('.create-bet-textarea') !== null;
+};
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-  const closeTimeoutRef = useRef<number | null>(null);
-  const hasClosedRef = useRef(false);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setIsOpen(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-  useEffect(() => {
-    return () => {
-      if (closeTimeoutRef.current !== null) {
-        clearTimeout(closeTimeoutRef.current);
-      }
+const parseCreateBetDraft = (raw: string | null): CreateBetDraft | null => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<CreateBetDraft>;
+    if (typeof parsed.title !== 'string') return null;
+    if (typeof parsed.description !== 'string') return null;
+    if (typeof parsed.opponent !== 'string') return null;
+    if (typeof parsed.amount !== 'number' || Number.isNaN(parsed.amount)) return null;
+    return {
+      title: parsed.title,
+      description: parsed.description,
+      opponent: parsed.opponent,
+      amount: parsed.amount,
     };
-  }, []);
+  } catch {
+    return null;
+  }
+};
+
+const getSessionStorage = (): Storage | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
+
+export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
+  const screenRef = useRef<HTMLDivElement | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
+  const draftLoadedRef = useRef(false);
+  const hasUserInputRef = useRef(false);
+  const createdRef = useRef(false);
+  const createdNotifiedRef = useRef(false);
+  const attemptCloseRef = useRef<() => Promise<void>>(async () => {});
+  const closeInFlightRef = useRef(false);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchStartedAtTopRef = useRef(false);
+  const touchHideTriggeredRef = useRef(false);
 
   const { getAddress } = useBetContract();
   const { createBetWithDeposit } = useBetMasterContract();
@@ -60,6 +92,182 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const notifyCreatedIfNeeded = useCallback(() => {
+    if (!createdRef.current || createdNotifiedRef.current) return;
+    createdNotifiedRef.current = true;
+    onCreated();
+  }, [onCreated]);
+
+  const showSaveDraftConfirm = useCallback(async (): Promise<boolean> => {
+    if (popup.isSupported()) {
+      const buttonId = await popup.show({
+        message: 'Сохранить введённые данные перед выходом?',
+        buttons: [
+          { id: 'yes', type: 'default', text: 'Да' },
+          { id: 'no', type: 'default', text: 'Нет' },
+        ],
+      });
+      return buttonId === 'yes';
+    }
+
+    return window.confirm('Сохранить введённые данные перед выходом?');
+  }, []);
+
+  const getCurrentDraft = useCallback((): CreateBetDraft => ({
+    title,
+    description,
+    opponent,
+    amount,
+  }), [title, description, opponent, amount]);
+
+  const saveDraftToStorage = useCallback((draft: CreateBetDraft) => {
+    const storage = getSessionStorage();
+    if (!storage) return;
+    storage.setItem(CREATE_BET_DRAFT_KEY, JSON.stringify(draft));
+  }, []);
+
+  const clearDraftFromStorage = useCallback(() => {
+    const storage = getSessionStorage();
+    if (!storage) return;
+    storage.removeItem(CREATE_BET_DRAFT_KEY);
+  }, []);
+
+  const hideKeyboardSafe = useCallback(() => {
+    if (hideKeyboard.isSupported()) {
+      hideKeyboard();
+      return;
+    }
+  }, []);
+
+  const isScreenAtTop = useCallback((screen: HTMLDivElement): boolean => {
+    const localAtTop = screen.scrollTop <= 1;
+    const root = document.scrollingElement;
+    const docAtTop = root ? root.scrollTop <= 1 : true;
+    const windowAtTop = window.scrollY <= 1;
+    return localAtTop && docAtTop && windowAtTop;
+  }, []);
+
+  const hasSavableDraftData = title.trim().length > 0
+    || description.trim().length > 0
+    || opponent.trim().length > 0
+    || amount > 0;
+  const isRequiredFieldsFilled = title.trim().length > 0
+    && description.trim().length > 0
+    && opponent.trim().length > 0
+    && Number.isFinite(amount)
+    && amount > 0;
+
+  attemptCloseRef.current = async () => {
+    if (closeInFlightRef.current || submitting) return;
+    closeInFlightRef.current = true;
+    try {
+      if (success) {
+        clearDraftFromStorage();
+        notifyCreatedIfNeeded();
+        onClose();
+        return;
+      }
+      if (!hasSavableDraftData) {
+        clearDraftFromStorage();
+        onClose();
+        return;
+      }
+      const shouldSaveDraft = await showSaveDraftConfirm();
+      if (shouldSaveDraft) {
+        saveDraftToStorage(getCurrentDraft());
+      } else {
+        clearDraftFromStorage();
+      }
+      onClose();
+    } finally {
+      closeInFlightRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!backButton.isSupported()) return;
+
+    const handleBackClick = () => {
+      void attemptCloseRef.current();
+    };
+
+    const offClick = backButton.onClick(handleBackClick);
+
+    return () => {
+      offClick();
+    };
+  }, []);
+
+  const handleScreenWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (isFromDescriptionTextarea(event.target)) return;
+    if (!isScreenAtTop(event.currentTarget)) return;
+    if (event.deltaY < 0) {
+      hideKeyboardSafe();
+    }
+  }, [hideKeyboardSafe, isScreenAtTop]);
+
+  const handleScreenTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (isFromDescriptionTextarea(event.target)) return;
+    if (event.touches.length !== 1) return;
+    touchStartYRef.current = event.touches[0].clientY;
+    touchStartedAtTopRef.current = isScreenAtTop(event.currentTarget);
+    touchHideTriggeredRef.current = false;
+  }, [isScreenAtTop]);
+
+  const handleScreenTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (isFromDescriptionTextarea(event.target)) return;
+    if (touchHideTriggeredRef.current) return;
+    if (!touchStartedAtTopRef.current) return;
+    if (event.touches.length !== 1 || touchStartYRef.current === null) return;
+    if (!isScreenAtTop(event.currentTarget)) return;
+
+    const deltaY = event.touches[0].clientY - touchStartYRef.current;
+    if (deltaY > 50) {
+      hideKeyboardSafe();
+      touchHideTriggeredRef.current = true;
+    }
+  }, [hideKeyboardSafe, isScreenAtTop]);
+
+  const resetTouchTracking = useCallback(() => {
+    touchStartYRef.current = null;
+    touchStartedAtTopRef.current = false;
+    touchHideTriggeredRef.current = false;
+  }, []);
+
+  const resizeDescription = useCallback(() => {
+    const textarea = descriptionRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.max(textarea.scrollHeight, DESCRIPTION_MIN_HEIGHT_PX)}px`;
+  }, []);
+
+  useEffect(() => {
+    resizeDescription();
+  }, [description, resizeDescription]);
+
+  useEffect(() => {
+    document.documentElement.classList.add('create-bet-native-scroll');
+    return () => {
+      document.documentElement.classList.remove('create-bet-native-scroll');
+    };
+  }, []);
+
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    const storage = getSessionStorage();
+    if (!storage) return;
+
+    const raw = storage.getItem(CREATE_BET_DRAFT_KEY);
+    if (hasUserInputRef.current) return;
+    const draft = parseCreateBetDraft(raw);
+    if (!draft) return;
+    setTitle(draft.title);
+    setDescription(draft.description);
+    setOpponent(draft.opponent);
+    setAmount(draft.amount);
+  }, []);
 
   const extractApiError = async (res: Response): Promise<string> => {
     let serverError = `Ошибка ${res.status}`;
@@ -90,6 +298,12 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
     setSubmitting(true);
     setError(null);
     setSuccess(false);
+
+    if (!isRequiredFieldsFilled) {
+      setError('Заполните все обязательные поля');
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const precheckRes = await apiFetch('/api/v1/disputes/precheck', {
@@ -173,45 +387,29 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
       setSubmitting(false);
     }
 
-    // Успех: показываем сообщение, оставляем форму открытой
+    // Успех: показываем сообщение, форма закрывается вручную через кнопку/BackButton
+    clearDraftFromStorage();
+    createdRef.current = true;
     setSuccess(true);
-  };
-
-  const requestClose = () => {
-    if (isClosing) return;
-    setIsClosing(true);
-    setIsOpen(false);
-    hasClosedRef.current = false;
-    closeTimeoutRef.current = window.setTimeout(() => {
-      if (hasClosedRef.current) return;
-      hasClosedRef.current = true;
-      onClose();
-    }, 100);
   };
 
   return (
     <div
-      className={`create-bet-overlay${isOpen ? ' open' : ''}`}
-      onClick={requestClose}
+      ref={screenRef}
+      className="create-bet-screen"
+      onWheel={handleScreenWheel}
+      onTouchStart={handleScreenTouchStart}
+      onTouchMove={handleScreenTouchMove}
+      onTouchEnd={resetTouchTracking}
+      onTouchCancel={resetTouchTracking}
     >
       <form
-        className={`form-card create-bet-card${isOpen ? ' open' : ''}`}
+        className="create-bet-page"
         onSubmit={handleSubmit}
-        onClick={e => e.stopPropagation()}
-        onTransitionEnd={e => {
-          if (!isClosing) return;
-          if (e.propertyName !== 'opacity') return;
-          if (e.currentTarget !== e.target) return;
-          if (closeTimeoutRef.current !== null) {
-            clearTimeout(closeTimeoutRef.current);
-          }
-          if (hasClosedRef.current) return;
-          hasClosedRef.current = true;
-          onClose();
-        }}
       >
-        <button className="create-bet-close-btn" type="button" onClick={requestClose}>×</button>
-        <h3>Новое пари</h3>
+        <header className="create-bet-header">
+          <h3>Новое пари</h3>
+        </header>
 
         {error && <div className="create-bet-error-message">{error}</div>}
 
@@ -222,154 +420,174 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated, onOpen }) =
               type="button"
               className="create-bet-close-success-btn"
               onClick={() => {
-                onCreated();
-                requestClose();
+                clearDraftFromStorage();
+                notifyCreatedIfNeeded();
+                onClose();
               }}
             >
-              Закрыть
+              К списку пари
             </button>
           </div>
         ) : (
           <>
-            <label>
-              Название:
-              <div className="create-bet-input-wrap">
-                <input
-                  className="create-bet-input"
-                  type="text"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="О чём пари?"
-                  required
-                />
-                <button
-                  type="button"
-                  className={`create-bet-input-clear${title.length > 0 ? ' visible' : ''}`}
-                  onMouseDown={event => event.preventDefault()}
-                  onClick={() => setTitle('')}
-                  aria-label="Очистить название"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M7 7l10 10M17 7L7 17"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </label>
+            <section className="create-bet-section">
+              <label>
+                Название<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                <div className="create-bet-input-wrap">
+                  <input
+                    className="create-bet-input"
+                    type="text"
+                    value={title}
+                    onChange={e => {
+                      hasUserInputRef.current = true;
+                      setTitle(e.target.value);
+                    }}
+                    placeholder="О чём пари?"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={`create-bet-input-clear${title.length > 0 ? ' visible' : ''}`}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => setTitle('')}
+                    aria-label="Очистить название"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7 7l10 10M17 7L7 17"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </label>
+              <label>
+                Описание<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                <div className="create-bet-input-wrap create-bet-textarea-wrap">
+                  <textarea
+                    ref={descriptionRef}
+                    className="create-bet-input create-bet-textarea"
+                    style={{ minHeight: `${DESCRIPTION_MIN_HEIGHT_PX}px` }}
+                    value={description}
+                    onChange={event => {
+                      hasUserInputRef.current = true;
+                      setDescription(event.target.value);
+                    }}
+                    onInput={resizeDescription}
+                    placeholder="Добавьте детали и условия"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={`create-bet-input-clear${description.length > 0 ? ' visible' : ''}`}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => setDescription('')}
+                    aria-label="Очистить описание"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7 7l10 10M17 7L7 17"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </label>
+            </section>
 
-            <label>
-              Описание:
-              <div className="create-bet-input-wrap create-bet-textarea-wrap">
-                <textarea
-                  className="create-bet-input create-bet-textarea"
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder="Добавьте детали и условия"
-                  required
-                />
-                <button
-                  type="button"
-                  className={`create-bet-input-clear${description.length > 0 ? ' visible' : ''}`}
-                  onMouseDown={event => event.preventDefault()}
-                  onClick={() => setDescription('')}
-                  aria-label="Очистить описание"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M7 7l10 10M17 7L7 17"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </label>
+            <section className="create-bet-section">
+              <label>
+                Оппонент<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                <div className="create-bet-input-wrap">
+                  <input
+                    className="create-bet-input"
+                    type="text"
+                    value={opponent}
+                    onChange={e => {
+                      hasUserInputRef.current = true;
+                      setOpponent(e.target.value);
+                    }}
+                    placeholder="username"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={`create-bet-input-clear${opponent.length > 0 ? ' visible' : ''}`}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => setOpponent('')}
+                    aria-label="Очистить оппонента"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7 7l10 10M17 7L7 17"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </label>
+              <label>
+                Ставка (TON)<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                <div className="create-bet-input-wrap">
+                  <input
+                    className="create-bet-input"
+                    type="number"
+                    step="0.01"
+                    value={amount || ''}
+                    onChange={e => {
+                      hasUserInputRef.current = true;
+                      setAmount(e.target.value === '' ? 0 : parseFloat(e.target.value));
+                    }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={`create-bet-input-clear${amount ? ' visible' : ''}`}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => setAmount(0)}
+                    aria-label="Очистить ставку"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7 7l10 10M17 7L7 17"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </label>
+            </section>
 
-            <label>
-              Оппонент (username):
-              <div className="create-bet-input-wrap">
-                <input
-                  className="create-bet-input"
-                  type="text"
-                  value={opponent}
-                  onChange={e => setOpponent(e.target.value)}
-                  placeholder="username"
-                  required
+            <section className="create-bet-section">
+              <div className="create-bet-file-section">
+                <div className="create-bet-file-section-label">Файлы</div>
+                <FileInput
+                  className="create-bet-file-input"
+                  label="Добавить"
+                  maxFiles={CREATE_BET_FILE_INPUT_MAX_FILES}
+                  onHasErrorChange={setFileInputHasError}
+                  onPrimaryFileChange={setFile}
                 />
-                <button
-                  type="button"
-                  className={`create-bet-input-clear${opponent.length > 0 ? ' visible' : ''}`}
-                  onMouseDown={event => event.preventDefault()}
-                  onClick={() => setOpponent('')}
-                  aria-label="Очистить оппонента"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M7 7l10 10M17 7L7 17"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
               </div>
-            </label>
-
-            <label>
-              Ставка (TON):
-              <div className="create-bet-input-wrap">
-                <input
-                  className="create-bet-input"
-                  type="number"
-                  step="0.01"
-                  value={amount || ''}
-                  onChange={e => setAmount(e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                  required
-                />
-                <button
-                  type="button"
-                  className={`create-bet-input-clear${amount ? ' visible' : ''}`}
-                  onMouseDown={event => event.preventDefault()}
-                  onClick={() => setAmount(0)}
-                  aria-label="Очистить ставку"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M7 7l10 10M17 7L7 17"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </label>
-
-            <div className="create-bet-file-section">
-              <div className="create-bet-file-section-label">Файлы (необязательно):</div>
-              <FileInput
-                className="create-bet-file-input"
-                label="Добавить"
-                maxFiles={CREATE_BET_FILE_INPUT_MAX_FILES}
-                onHasErrorChange={setFileInputHasError}
-                onPrimaryFileChange={setFile}
-              />
-            </div>
+            </section>
 
             <div className="create-bet-form-actions">
               <button
                 type="submit"
                 className="create-bet-submit-btn"
-                disabled={submitting || isClosing || fileInputHasError}
+                disabled={submitting || fileInputHasError || !isRequiredFieldsFilled}
               >
                 {submitting ? 'Отправка…' : 'Вызвать'}
               </button>

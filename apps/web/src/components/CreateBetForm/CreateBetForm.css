@@ -1,177 +1,103 @@
-/* src/components/CreateBetForm/CreateBetForm.css */
-
-.create-bet-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(9, 17, 31, 0.58);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: calc(64px + var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, 0px)));
-  padding-bottom: calc(12px + var(--tg-content-safe-area-inset-bottom, var(--tg-safe-area-inset-bottom, 0px)));
-  padding-left: calc(12px + var(--tg-content-safe-area-inset-left, var(--tg-safe-area-inset-left, 0px)));
-  padding-right: calc(12px + var(--tg-content-safe-area-inset-right, var(--tg-safe-area-inset-right, 0px)));
-  overflow-y: auto;
-  overflow-x: hidden;
-  z-index: 30;
-  opacity: 0;
-  transition: opacity 220ms ease;
-  touch-action: pan-y;
-  overscroll-behavior-x: contain;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.create-bet-overlay.open {
-  opacity: 1;
-}
-
-.form-card {
-  position: relative;
-  width: min(420px, 100%);
-  max-width: 420px;
-  max-height: calc(
-    100dvh
-    - 76px
-    - var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, 0px))
-    - var(--tg-content-safe-area-inset-bottom, var(--tg-safe-area-inset-bottom, 0px))
-  );
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 18px;
-  border-radius: 20px;
+.create-bet-screen {
+  overflow: hidden;
+  height: 100%;
+  min-height: 100%;
   box-sizing: border-box;
-  color: #a7ebeb;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(215deg, rgba(94, 234, 212, 0.2), rgba(15, 23, 42, 0.68));
-  box-shadow:
-    0 14px 30px rgba(15, 23, 42, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -10px 16px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(18px) saturate(145%);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
   touch-action: pan-y;
-  overscroll-behavior-x: contain;
-  overscroll-behavior-y: contain;
+  padding:
+    calc(60px + var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, 0px)))
+    calc(16px + var(--tg-content-safe-area-inset-right, var(--tg-safe-area-inset-right, 0px)))
+    calc(18px + var(--tg-content-safe-area-inset-bottom, var(--tg-safe-area-inset-bottom, 0px)))
+    calc(16px + var(--tg-content-safe-area-inset-left, var(--tg-safe-area-inset-left, 0px)));
+  background:
+    radial-gradient(120% 65% at 50% -10%, rgba(94, 234, 212, 0.26) 0%, rgba(94, 234, 212, 0.02) 48%, transparent 72%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(17, 40, 68, 0.93) 40%, rgba(22, 88, 118, 0.9) 100%);
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-.create-bet-card {
+.create-bet-page {
+  overflow: hidden;
+  width: min(720px, 100%);
   margin: 0 auto;
-  transform: translateY(12px) scale(0.98);
-  opacity: 0;
-  transition: transform 240ms ease, opacity 240ms ease;
-}
-
-.create-bet-card.open {
-  transform: translateY(0) scale(1);
-  opacity: 1;
-}
-
-@media (max-width: 420px) {
-  .create-bet-card {
-    margin: 0 auto;
-  }
-}
-
-.form-card.create-bet-card {
-  width: min(
-    400px,
-    calc(
-      100vw - 32px
-      - var(--tg-content-safe-area-inset-left, var(--tg-safe-area-inset-left, 0px))
-      - var(--tg-content-safe-area-inset-right, var(--tg-safe-area-inset-right, 0px))
-    )
-  ) !important;
-  max-width: 400px !important;
-  padding: 18px !important;
-  max-height: calc(
-    100dvh
-    - 76px
-    - var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, 0px))
-    - var(--tg-content-safe-area-inset-bottom, var(--tg-safe-area-inset-bottom, 0px))
-  ) !important;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-@media (max-width: 400px) {
-  .form-card.create-bet-card {
-    width: calc(
-      100vw - 24px
-      - var(--tg-content-safe-area-inset-left, var(--tg-safe-area-inset-left, 0px))
-      - var(--tg-content-safe-area-inset-right, var(--tg-safe-area-inset-right, 0px))
-    ) !important;
-    padding: 16px !important;
-  }
-}
-
-.form-card h3 {
-  margin: 0 0 14px;
-  padding-right: 28px;
   color: #a7ebeb;
-  font-size: 1.1rem;
 }
 
-.form-card .create-bet-close-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.12);
+.create-bet-header {
+  text-align: center;
+  margin: 4px 0 16px;
+}
+
+.create-bet-header h3 {
+  margin: 0;
+  font-size: clamp(26px, 7vw, 38px);
+  line-height: 1.08;
+  font-weight: 700;
   color: #a7ebeb;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease;
+  text-shadow: 0 4px 18px rgba(15, 23, 42, 0.28);
 }
 
-.form-card .create-bet-close-btn:active {
-  transform: scale(0.9);
+.create-bet-section {
+  margin-bottom: 12px;
 }
 
-.form-card > label {
+.create-bet-section > label {
   display: block;
   margin-bottom: 12px;
+  color: rgba(167, 235, 235, 0.9);
   font-size: 14px;
-  color: #a7ebeb;
 }
 
-.create-bet-input {
-  width: 100%;
-  margin: 0;
-  padding: 10px 38px 10px 12px;
-  box-sizing: border-box;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(10, 18, 32, 0.22);
-  color: #e6ffff;
-  font-size: 14px;
-  outline: none;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+.create-bet-section > label:last-child {
+  margin-bottom: 0;
 }
 
-.create-bet-input::placeholder {
-  color: rgba(167, 235, 235, 0.6);
-}
-
-.create-bet-input:focus-visible {
-  border-color: rgba(51, 255, 245, 0.8);
-}
-
-.create-bet-textarea {
-  min-height: 88px;
-  resize: vertical;
+.create-bet-required-mark {
+  color: #f87171;
+  margin-left: 4px;
+  font-size: 12px;
+  line-height: 1;
+  vertical-align: super;
 }
 
 .create-bet-input-wrap {
   position: relative;
   margin-top: 6px;
+}
+
+.create-bet-input {
+  width: 100%;
+  margin: 0;
+  padding: 12px 38px 12px 14px;
+  box-sizing: border-box;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 18, 32, 0.24);
+  color: #e6ffff;
+  font-size: 15px;
+  outline: none;
+  box-shadow:
+    0 8px 18px rgba(15, 23, 42, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.create-bet-input::placeholder {
+  color: rgba(167, 235, 235, 0.55);
+}
+
+.create-bet-input:focus-visible {
+  border-color: rgba(94, 234, 212, 0.78);
+  box-shadow:
+    0 0 0 2px rgba(94, 234, 212, 0.16),
+    0 8px 18px rgba(15, 23, 42, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.create-bet-textarea {
+    max-height: 280px;
+    resize: none;
+    height: auto;
 }
 
 .create-bet-input-clear {
@@ -182,8 +108,8 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
   color: rgba(167, 235, 235, 0.92);
   cursor: pointer;
   display: inline-flex;
@@ -191,7 +117,7 @@
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s ease, transform 0.3s ease, background 0.3s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .create-bet-input-clear.visible {
@@ -206,7 +132,7 @@
 }
 
 .create-bet-input-clear:active {
-  transform: translateY(-50%) scale(0.7);
+  transform: translateY(-50%) scale(0.74);
 }
 
 .create-bet-textarea-wrap .create-bet-input-clear {
@@ -219,42 +145,52 @@
 }
 
 .create-bet-textarea-wrap .create-bet-input-clear:active {
-  transform: scale(0.7);
+  transform: scale(0.74);
 }
 
 .create-bet-file-section {
-  margin-bottom: 12px;
+  margin-top: 2px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 18, 32, 0.24);
+  box-shadow:
+    0 8px 18px rgba(15, 23, 42, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .create-bet-file-section-label {
   font-size: 14px;
-  color: #a7ebeb;
+  color: rgba(167, 235, 235, 0.95);
 }
 
 .create-bet-form-actions {
+  margin-top: 16px;
   display: flex;
-  justify-content: flex-end;
-  margin-top: 14px;
 }
 
 .create-bet-submit-btn {
+  width: 100%;
+  min-height: 52px;
   color: #a7ebeb;
-  border-radius: 12px;
+  border-radius: 16px;
   background: linear-gradient(215deg, #5eead4a6, rgba(255, 255, 255, 0));
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    0 6px 16px rgba(15, 23, 42, 0.14),
+    0 8px 20px rgba(15, 23, 42, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     inset 0 -10px 20px rgba(0, 0, 0, 0.12);
   backdrop-filter: blur(16px) saturate(200%);
   -webkit-backdrop-filter: blur(16px) saturate(200%);
-  padding: 8px 16px;
+  padding: 10px 16px;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .create-bet-submit-btn:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 .create-bet-submit-btn:disabled {
@@ -263,11 +199,11 @@
 }
 
 .create-bet-error-message {
-  border-radius: 12px;
-  border: 1px solid rgba(239, 68, 68, 0.38);
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
   background: rgba(127, 29, 29, 0.28);
   color: #fecaca;
-  padding: 8px 10px;
+  padding: 10px 12px;
   margin-bottom: 12px;
   font-size: 14px;
 }
@@ -276,22 +212,29 @@
   text-align: center;
   color: #a7ebeb;
   font-size: 16px;
+  padding: 18px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 18, 32, 0.24);
 }
 
 .create-bet-close-success-btn {
   margin-top: 12px;
+  width: 100%;
+  min-height: 46px;
   color: #a7ebeb;
-  border-radius: 12px;
-  background: linear-gradient(215deg, rgba(46, 204, 113, 0.62), rgba(255, 255, 255, 0));
+  border-radius: 14px;
+  background: linear-gradient(215deg, #5eead4a6, rgba(255, 255, 255, 0));
   border: 1px solid rgba(255, 255, 255, 0.18);
-  padding: 8px 16px;
+  box-shadow:
+    0 6px 16px rgba(15, 23, 42, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.12);
   cursor: pointer;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .create-bet-overlay,
-  .create-bet-card {
-    transition: none;
-    transform: none;
+@media (max-width: 520px) {
+  .create-bet-header h3 {
+    font-size: clamp(24px, 8.5vw, 34px);
   }
 }
