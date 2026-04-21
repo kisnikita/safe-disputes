@@ -23,7 +23,9 @@ interface Investigation {
   disputeID: string;
   title: string;
   status: 'current' | 'passed';
+  createdAt?: string;
   endsAt: string; // ISO date string
+  total?: number;
   result: 'new' | 'sent' | 'correct' | 'incorrect';
   vote?: string;
 }
@@ -101,6 +103,14 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const [pressedCardId, setPressedCardId] = useState<string | null>(null);
     const [transitionEnabled, setTransitionEnabled] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedFiltersByTab, setSelectedFiltersByTab] = useState<Record<Subtab, string[]>>({
+      current: [],
+      passed: [],
+    });
+    const [selectedSortByTab, setSelectedSortByTab] = useState<Record<Subtab, string>>({
+      current: investigationSortOptionsByTab.current[0],
+      passed: investigationSortOptionsByTab.passed[0],
+    });
     const [panelCanScrollByTab, setPanelCanScrollByTab] = useState<Record<Subtab, boolean>>({
       current: true,
       passed: true,
@@ -245,6 +255,10 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       itemsByTab.current.length,
       itemsByTab.passed.length,
       normalizedQuery,
+      selectedFiltersByTab.current.join('|'),
+      selectedFiltersByTab.passed.join('|'),
+      selectedSortByTab.current,
+      selectedSortByTab.passed,
       loadingByTab.current,
       loadingByTab.passed,
     ]);
@@ -620,6 +634,49 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       scrollToTop: scrollActivePanelToTop,
     }), [fetchInvestigations, scrollActivePanelToTop, subtab]);
 
+  const sortInvestigations = (list: Investigation[], tab: Subtab, sortOption: string) => {
+    if (sortOption === 'Завершающиеся' && tab === 'current') {
+      return list
+        .map((inv, index) => ({ inv, index }))
+        .sort((a, b) => {
+          const aEndsAt = Date.parse(a.inv.endsAt);
+          const bEndsAt = Date.parse(b.inv.endsAt);
+          if (!Number.isNaN(aEndsAt) && !Number.isNaN(bEndsAt) && aEndsAt !== bEndsAt) {
+            return aEndsAt - bEndsAt;
+          }
+          return a.index - b.index;
+        })
+        .map(({ inv }) => inv);
+    }
+    if (sortOption === 'Крупные') {
+      return list
+        .map((inv, index) => ({ inv, index }))
+        .sort((a, b) => {
+          const aTotal = a.inv.total ?? 0;
+          const bTotal = b.inv.total ?? 0;
+          if (bTotal !== aTotal) {
+            return bTotal - aTotal;
+          }
+          return a.index - b.index;
+        })
+        .map(({ inv }) => inv);
+    }
+    if (sortOption === 'Последние') {
+      return list
+        .map((inv, index) => ({ inv, index }))
+        .sort((a, b) => {
+          const aCreatedAt = a.inv.createdAt ? Date.parse(a.inv.createdAt) : Number.NaN;
+          const bCreatedAt = b.inv.createdAt ? Date.parse(b.inv.createdAt) : Number.NaN;
+          if (!Number.isNaN(aCreatedAt) && !Number.isNaN(bCreatedAt) && bCreatedAt !== aCreatedAt) {
+            return bCreatedAt - aCreatedAt;
+          }
+          return a.index - b.index;
+        })
+        .map(({ inv }) => inv);
+    }
+    return list;
+  };
+
   const getTimeRemaining = (endsAt: string) => {
   // Парсим время окончания как UTC-момент
   const endMs = Date.parse(endsAt);
@@ -698,6 +755,14 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                 blurOnSwipe={isDragging}
                 filterOptions={investigationFilterOptionsByTab[subtab]}
                 sortOptions={investigationSortOptionsByTab[subtab]}
+                selectedFilters={selectedFiltersByTab[subtab]}
+                onSelectedFiltersChange={filters =>
+                  setSelectedFiltersByTab(prev => ({ ...prev, [subtab]: filters }))
+                }
+                selectedSort={selectedSortByTab[subtab]}
+                onSelectedSortChange={sort =>
+                  setSelectedSortByTab(prev => ({ ...prev, [subtab]: sort }))
+                }
                 resetKey={subtab}
               />
 
@@ -718,26 +783,39 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                 >
                   {tabs.map((tab, tabIndex) => {
                     const list = itemsByTab[tab];
-                    const filteredList = normalizedQuery
+                    const searchFilteredList = normalizedQuery
                       ? list.filter(inv =>`${inv.title}`.toLowerCase().includes(normalizedQuery))
                       : list;
+                    const activeFilters = selectedFiltersByTab[tab];
+                    const filteredList = activeFilters.length
+                      ? searchFilteredList.filter(inv => {
+                          const badge =
+                            tab === 'current'
+                              ? currentInvestigationBadgeMap[inv.result] ?? null
+                              : passedInvestigationBadgeMap[inv.result] ?? null;
+                          return !!badge && activeFilters.includes(badge.text);
+                        })
+                      : searchFilteredList;
+                    const sortedList = sortInvestigations(filteredList, tab, selectedSortByTab[tab]);
                     const isActive = tab === subtab;
                     const panelTopOffset = subtabsDocked && !panelCanScrollByTab[tab] ? HIDE_THRESHOLD : 0;
                     const isLoading = loadingByTab[tab];
-                    const isEmpty = !isLoading && filteredList.length === 0;
-                    const isSearchEmpty = Boolean(normalizedQuery);
-                    const emptyMessage = isSearchEmpty
+                    const isEmpty = !isLoading && sortedList.length === 0;
+                    const hasSearch = Boolean(normalizedQuery);
+                    const hasActiveFilters = activeFilters.length > 0;
+                    const isNotFoundState = hasSearch || hasActiveFilters;
+                    const emptyMessage = isNotFoundState
                       ? 'Ничего не найдено'
                       : tab === 'current'
                       ? 'Расследований пока нет'
                       : 'Здесь будут завершённые расследования, в которых вы принимали участие';
-                    const emptyHint = isSearchEmpty
+                    const emptyHint = hasSearch
                       ? 'Проверьте результат в других вкладках'
                       : tab === 'current'
                       ? 'Увеличивайте рейтинг, чтобы повысить вероятность получения расследований'
                       : 'Принять участие можно на вкладке Текущие';
                     const hintIconDirection =
-                      tab === 'current' && !isSearchEmpty ? 'none' : tab === 'current' ? 'right' : 'left';
+                      tab === 'current' && !hasSearch ? 'none' : tab === 'current' ? 'right' : 'left';
                     return (
                       <div
                         key={tab}
@@ -749,8 +827,8 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                         }}
                         onScroll={event => handlePanelScroll(tabIndex, event)}
                       >
-                        {filteredList.map((inv, idx) => {
-                          const isLast = idx === filteredList.length - 1;
+                        {sortedList.map((inv, idx) => {
+                          const isLast = idx === sortedList.length - 1;
                           const badge = tab === 'current' ? 
                           currentInvestigationBadgeMap[inv.result] ?? null : 
                           passedInvestigationBadgeMap[inv.result] ?? null;
@@ -814,7 +892,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                         {isEmpty && (
                           <EmptyState
                             message={emptyMessage}
-                            variant={normalizedQuery ? 'notFound' : 'empty'}
+                            variant={isNotFoundState ? 'notFound' : 'empty'}
                             hint={emptyHint}
                             hintIconDirection={hintIconDirection}
                           />

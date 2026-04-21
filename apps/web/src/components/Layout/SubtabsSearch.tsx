@@ -12,6 +12,10 @@ interface SubtabsSearchProps {
   filterOptions?: Array<string | { label: string; color?: string }>;
   sortOptions?: string[];
   resetKey?: string | number;
+  selectedFilters?: string[];
+  onSelectedFiltersChange?: (value: string[]) => void;
+  selectedSort?: string;
+  onSelectedSortChange?: (value: string) => void;
 }
 
 export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
@@ -23,13 +27,20 @@ export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
   filterOptions = [],
   sortOptions = DEFAULT_SORT_OPTIONS,
   resetKey,
+  selectedFilters: controlledSelectedFilters,
+  onSelectedFiltersChange,
+  selectedSort: controlledSelectedSort,
+  onSelectedSortChange,
 }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const prevResetKeyRef = useRef<string | number | null | undefined>(resetKey);
   const [isFocused, setIsFocused] = useState(false);
   const [activeMenu, setActiveMenu] = useState<'filter' | 'sort' | null>(null);
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [selectedSort, setSelectedSort] = useState<string>(sortOptions[0] ?? 'Последние');
+  const [selectedFilters, setSelectedFilters] = useState<string[]>(controlledSelectedFilters ?? []);
+  const [selectedSort, setSelectedSort] = useState<string>(
+    controlledSelectedSort ?? (sortOptions[0] ?? 'Последние')
+  );
   const hasSelectedFilters = selectedFilters.length > 0;
   const hasCustomSort = selectedSort !== (sortOptions[0] ?? 'Последние');
   const normalizedFilterOptions = filterOptions.map(option =>
@@ -54,18 +65,34 @@ export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
   }, []);
 
   useEffect(() => {
+    if (!controlledSelectedFilters) return;
+    setSelectedFilters(controlledSelectedFilters);
+  }, [controlledSelectedFilters]);
+
+  useEffect(() => {
+    if (!controlledSelectedSort) return;
+    setSelectedSort(controlledSelectedSort);
+  }, [controlledSelectedSort]);
+
+  useEffect(() => {
     if (sortOptions.length === 0) return;
     if (!sortOptions.includes(selectedSort)) {
       setSelectedSort(sortOptions[0]);
+      onSelectedSortChange?.(sortOptions[0]);
     }
-  }, [sortOptions, selectedSort]);
+  }, [sortOptions, selectedSort, onSelectedSortChange]);
 
   useEffect(() => {
     if (resetKey === undefined || resetKey === null) return;
+    if (prevResetKeyRef.current === resetKey) return;
+    prevResetKeyRef.current = resetKey;
     setSelectedFilters([]);
-    setSelectedSort(sortOptions[0] ?? 'Последние');
+    onSelectedFiltersChange?.([]);
+    const defaultSort = sortOptions[0] ?? 'Последние';
+    setSelectedSort(defaultSort);
+    onSelectedSortChange?.(defaultSort);
     setActiveMenu(null);
-  }, [resetKey]);
+  }, [resetKey, onSelectedFiltersChange, onSelectedSortChange, sortOptions]);
 
   const handleCancel = () => {
     onChange('');
@@ -75,9 +102,11 @@ export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
   };
 
   const toggleFilter = (value: string) => {
-    setSelectedFilters(prev =>
-      prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
-    );
+    setSelectedFilters(prev => {
+      const next = prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value];
+      onSelectedFiltersChange?.(next);
+      return next;
+    });
   };
 
   return (
@@ -200,6 +229,7 @@ export const SubtabsSearch: React.FC<SubtabsSearchProps> = ({
                 onMouseDown={event => event.preventDefault()}
                 onClick={() => {
                   setSelectedSort(option);
+                  onSelectedSortChange?.(option);
                   setActiveMenu(null);
                 }}
               >

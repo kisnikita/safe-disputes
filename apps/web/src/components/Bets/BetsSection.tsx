@@ -49,6 +49,11 @@ interface Props {
 
 const tabs = ['current', 'new', 'passed'] as const;
 type Subtab = typeof tabs[number];
+const betSortOptionsByTab: Record<Subtab, string[]> = {
+  current: ['Последние', 'Крупные'],
+  new: ['Последние', 'Крупные'],
+  passed: ['Последние', 'Крупные'],
+};
 const currentBadgeMap: Partial<Record<Bet['result'], { color: string; text: string }>> = {
   processed: { color: 'yellow', text: 'В процессе' },
   answered: { color: 'green', text: 'Результат выбран' },
@@ -103,6 +108,16 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   const [pressedCardId, setPressedCardId] = useState<string | null>(null);
   const [transitionEnabled, setTransitionEnabled] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFiltersByTab, setSelectedFiltersByTab] = useState<Record<Subtab, string[]>>({
+    current: [],
+    new: [],
+    passed: [],
+  });
+  const [selectedSortByTab, setSelectedSortByTab] = useState<Record<Subtab, string>>({
+    current: betSortOptionsByTab.current[0],
+    new: betSortOptionsByTab.new[0],
+    passed: betSortOptionsByTab.passed[0],
+  });
   const [panelCanScrollByTab, setPanelCanScrollByTab] = useState<Record<Subtab, boolean>>({
     current: true,
     new: true,
@@ -252,6 +267,12 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     betsByTab.new.length,
     betsByTab.passed.length,
     normalizedQuery,
+    selectedFiltersByTab.current.join('|'),
+    selectedFiltersByTab.new.join('|'),
+    selectedFiltersByTab.passed.join('|'),
+    selectedSortByTab.current,
+    selectedSortByTab.new,
+    selectedSortByTab.passed,
     loadingByTab.current,
     loadingByTab.new,
     loadingByTab.passed,
@@ -651,6 +672,19 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     scrollToTop: scrollActivePanelToTop,
   }), [fetchFirstPage, scrollActivePanelToTop, subtab]);
 
+  const sortBets = (list: Bet[], sortOption: string) => {
+    if (sortOption !== 'Крупные') return list;
+    return list
+      .map((bet, index) => ({ bet, index }))
+      .sort((a, b) => {
+        if (b.bet.amount !== a.bet.amount) {
+          return b.bet.amount - a.bet.amount;
+        }
+        return a.index - b.index;
+      })
+      .map(({ bet }) => bet);
+  };
+
     return (
       <>
         <div className={`bets-section${subtabsDocked ? ' subtabs-docked' : ''}`}>
@@ -685,6 +719,15 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
             hidden={subtabsDocked}
             blurOnSwipe={isDragging}
             filterOptions={betFilterOptionsByTab[subtab]}
+            sortOptions={betSortOptionsByTab[subtab]}
+            selectedFilters={selectedFiltersByTab[subtab]}
+            onSelectedFiltersChange={filters =>
+              setSelectedFiltersByTab(prev => ({ ...prev, [subtab]: filters }))
+            }
+            selectedSort={selectedSortByTab[subtab]}
+            onSelectedSortChange={sort =>
+              setSelectedSortByTab(prev => ({ ...prev, [subtab]: sort }))
+            }
             resetKey={subtab}
           />
 
@@ -705,26 +748,43 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
             >
               {tabs.map((tab, tabIndex) => {
                 const list = betsByTab[tab];
-                const filteredList = normalizedQuery
+                const searchFilteredList = normalizedQuery
                   ? list.filter(bet =>`${bet.title} ${bet.opponent}`.toLowerCase().includes(normalizedQuery))
                   : list;
+                const activeFilters = selectedFiltersByTab[tab];
+                const filteredList = activeFilters.length
+                  ? searchFilteredList.filter(bet => {
+                      const badge =
+                        tab === 'current'
+                          ? currentBadgeMap[bet.result] ?? null
+                          : tab === 'new'
+                          ? newBadgeMap[bet.result] ?? null
+                          : tab === 'passed'
+                          ? passedBadgeMap[bet.result] ?? null
+                          : null;
+                      return !!badge && activeFilters.includes(badge.text);
+                    })
+                  : searchFilteredList;
+                const sortedList = sortBets(filteredList, selectedSortByTab[tab]);
                 const isActive = tab === subtab;
                 const panelTopOffset = subtabsDocked && !panelCanScrollByTab[tab] ? HIDE_THRESHOLD : 0;
                 const isLoading = loadingByTab[tab];
-                const isEmpty = !isLoading && filteredList.length === 0;
-                const isSearchEmpty = Boolean(normalizedQuery);
-                const showNewTabHint = tab === 'new' && !isSearchEmpty;
-                const showCurrentHint = tab === 'current' && !isSearchEmpty;
-                const showPassedMessageOnly = tab === 'passed' && !isSearchEmpty;
+                const isEmpty = !isLoading && sortedList.length === 0;
+                const hasSearch = Boolean(normalizedQuery);
+                const hasActiveFilters = activeFilters.length > 0;
+                const isNotFoundState = hasSearch || hasActiveFilters;
+                const showNewTabHint = tab === 'new' && !isNotFoundState;
+                const showCurrentHint = tab === 'current' && !isNotFoundState;
+                const showPassedMessageOnly = tab === 'passed' && !isNotFoundState;
                 const hintIconDirection =
-                  isSearchEmpty && tab === 'new'
+                  hasSearch && tab === 'new'
                     ? 'both'
                     : tab === 'current'
                     ? 'right'
                     : tab === 'passed'
                     ? 'left'
                     : 'up';
-                const emptyMessage = isSearchEmpty
+                const emptyMessage = isNotFoundState
                   ? 'Ничего не найдено'
                   : showCurrentHint
                   ? 'Примите пари, чтобы оно появилось здесь'
@@ -737,7 +797,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                   ? subtabsDocked
                     ? 'Прокрутите вверх, чтобы увидеть кнопки действий'
                     : 'Кнопки действий доступны в верхней части экрана'
-                  : isSearchEmpty
+                  : hasSearch
                   ? 'Проверьте результат в других вкладках'
                   : showCurrentHint
                   ? 'Принять пари можно на вкладке Новые'
@@ -753,8 +813,8 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                     }}
                     onScroll={event => handlePanelScroll(tabIndex, event)}
                   >
-                    {filteredList.map((bet, idx) => {
-                      const isLast = idx === filteredList.length - 1;
+                    {sortedList.map((bet, idx) => {
+                      const isLast = idx === sortedList.length - 1;
                       const badge =
                         tab === 'current'
                           ? currentBadgeMap[bet.result] ?? null
@@ -829,7 +889,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                     {isEmpty && (
                       <EmptyState
                         message={emptyMessage}
-                        variant={normalizedQuery ? 'notFound' : 'empty'}
+                        variant={isNotFoundState ? 'notFound' : 'empty'}
                         hint={emptyHint}
                         hintIconDirection={hintIconDirection}
                         onHintClick={showNewTabHint && subtabsDocked ? scrollActivePanelToTop : undefined}
