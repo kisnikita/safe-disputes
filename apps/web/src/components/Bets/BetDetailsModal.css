@@ -14,6 +14,19 @@
   padding: 12px;
 }
 
+.bet-details-overlay,
+.bet-details-overlay * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bet-details-overlay input,
+.bet-details-overlay textarea,
+.bet-details-overlay [contenteditable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .bet-details-overlay.open {
   opacity: 1;
 }
@@ -164,6 +177,11 @@
   -webkit-backdrop-filter: blur(16px) saturate(200%);
 }
 
+.bet-details-close-success-btn {
+  min-width: 100px;
+  padding: 10px 24px;
+}
+
 .bet-details-accept-btn {
   background: linear-gradient(215deg, rgba(46, 204, 113, 0.62), rgba(255, 255, 255, 0));
 }
@@ -286,10 +304,28 @@
 }
 
 .bet-details-success-message {
+  margin: 0;
   text-align: center;
   color: #a7ebeb;
-  font-size: 16px;
-  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+.bet-details-success-card {
+  max-width: 360px;
+}
+
+.bet-details-success-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 2px 2px;
+}
+
+.bet-details-success-actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .bet-details-error-message {

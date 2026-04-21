@@ -11,6 +11,19 @@
   padding: 12px;
 }
 
+.investigation-details-overlay,
+.investigation-details-overlay * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.investigation-details-overlay input,
+.investigation-details-overlay textarea,
+.investigation-details-overlay [contenteditable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .investigation-details-card {
   position: relative;
   width: 100%;
@@ -74,6 +87,8 @@
 }
 
 .investigation-details-next-btn {
+  display: block;
+  margin-left: auto;
   margin-top: 10px;
   padding: 8px 16px;
   background: linear-gradient(215deg, #5eead4a6, rgba(255, 255, 255, 0));

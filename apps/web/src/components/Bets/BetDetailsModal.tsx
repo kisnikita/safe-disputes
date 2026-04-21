@@ -279,7 +279,7 @@ export const BetDetailsModal: React.FC<Props> = ({
       onClick={requestClose}
     >
       <div
-        className={`bet-details-detail-card bet-details-card${isOpen ? ' open' : ''}`}
+        className={`bet-details-detail-card bet-details-card bet-details-success-card${isOpen ? ' open' : ''}`}
         onClick={e => e.stopPropagation()}
         onTransitionEnd={e => {
           if (!isClosing) return;
@@ -293,16 +293,20 @@ export const BetDetailsModal: React.FC<Props> = ({
           onClose();
         }}
       >
-        <p className="bet-details-success-message">{success}</p>
-        <button
-          className="bet-details-close-success-btn"
-          onClick={() => {
-            onCompleted();
-            requestClose();
-          }}
-        >
-          Закрыть
-        </button>
+        <div className="bet-details-success-layout">
+          <p className="bet-details-success-message">{success}</p>
+          <div className="bet-details-success-actions">
+            <button
+              className="bet-details-close-success-btn"
+              onClick={() => {
+                onCompleted();
+                requestClose();
+              }}
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   ) : (

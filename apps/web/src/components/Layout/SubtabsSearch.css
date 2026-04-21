@@ -42,6 +42,15 @@
   border-color: rgba(51, 255, 245, 0.8);
 }
 
+.subtabs-search input[type='search']::-webkit-search-decoration,
+.subtabs-search input[type='search']::-webkit-search-cancel-button,
+.subtabs-search input[type='search']::-webkit-search-results-button,
+.subtabs-search input[type='search']::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 .subtabs-search-input-clear {
   position: absolute;
   top: 50%;

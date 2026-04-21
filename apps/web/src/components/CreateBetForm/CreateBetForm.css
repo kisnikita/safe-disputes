@@ -16,6 +16,19 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.create-bet-screen,
+.create-bet-screen * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.create-bet-screen input,
+.create-bet-screen textarea,
+.create-bet-screen [contenteditable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .create-bet-page {
   overflow: hidden;
   width: min(720px, 100%);
@@ -84,6 +97,17 @@
 
 .create-bet-input::placeholder {
   color: rgba(167, 235, 235, 0.55);
+}
+
+.create-bet-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.create-bet-input[type='number']::-webkit-outer-spin-button,
+.create-bet-input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .create-bet-input:focus-visible {
