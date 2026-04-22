@@ -27,8 +27,8 @@ func TestGetDisputeByID(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
 			return newRows(
-				[]string{"id", "title", "description", "created_at", "updated_at", "cryptocurrency", "amount", "image_data", "image_type", "result", "claim", "vote", "contract_address"},
-				[]driver.Value{dID.String(), "t", "d", now, now, "TON", 100, []byte{1}, "image/png", string(models.DisputesResultWin), true, true, "addr"},
+				[]string{"id", "title", "description", "created_at", "updated_at", "cryptocurrency", "amount", "image_data", "image_type", "ends_at", "next_deadline", "result", "claim", "vote", "contract_address"},
+				[]driver.Value{dID.String(), "t", "d", now, now, "TON", 100, []byte{1}, "image/png", now.Add(2 * time.Hour), now.Add(1 * time.Hour), string(models.DisputesResultWin), true, true, "addr"},
 			), nil
 		},
 	})
@@ -51,7 +51,21 @@ func TestInsertDispute(t *testing.T) {
 		},
 	})
 
-	err := repo.InsertDispute(context.Background(), models.Dispute{DisputeDB: models.DisputeDB{ID: uuid.New(), Title: "t", Description: "d", CreatedAt: time.Now(), UpdatedAt: time.Now(), Cryptocurrency: "TON", Amount: 1, ContractAddress: "a"}})
+	now := time.Now()
+	err := repo.InsertDispute(context.Background(), models.Dispute{
+		DisputeDB: models.DisputeDB{
+			ID:           uuid.New(),
+			Title:        "t",
+			Description:  "d",
+			CreatedAt:    now,
+			UpdatedAt:    now,
+			Cryptocurrency: "TON",
+			Amount:       1,
+			ContractAddress: "a",
+			EndsAt:       now.Add(24 * time.Hour),
+			NextDeadline: now.Add(12 * time.Hour),
+		},
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

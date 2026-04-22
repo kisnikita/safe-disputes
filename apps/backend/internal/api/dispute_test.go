@@ -121,6 +121,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("description", "desc")
 		form.Set("opponent", "bob")
 		form.Set("amount", "100")
+		form.Set("endsAt", time.Now().Add(48*time.Hour).UTC().Format(time.RFC3339))
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
 
@@ -146,6 +147,37 @@ func TestCreateDispute(t *testing.T) {
 		}
 	})
 
+	t.Run("invalid past endsAt returns bad request", func(t *testing.T) {
+		creator := &fakeDisputeCreator{}
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			c.Set("username", "alice")
+			c.Next()
+		})
+		r.POST("/disputes", createDispute(noopLogger{}, creator))
+
+		form := url.Values{}
+		form.Set("title", "test")
+		form.Set("description", "desc")
+		form.Set("opponent", "bob")
+		form.Set("amount", "100")
+		form.Set("endsAt", time.Now().Add(-2*time.Hour).UTC().Format(time.RFC3339))
+		form.Set("contractAddress", "addr")
+		form.Set("boc", "te6cckEBAQEAAgAAAA==")
+
+		req := httptest.NewRequest(http.MethodPost, "/disputes", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
+		}
+		if creator.called {
+			t.Fatal("expected CreateDispute not to be called")
+		}
+	})
+
 	t.Run("maps tx failure to conflict", func(t *testing.T) {
 		creator := &fakeDisputeCreator{err: fmt.Errorf("%w: details", services.ErrTxFailed)}
 		r := gin.New()
@@ -160,6 +192,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("description", "desc")
 		form.Set("opponent", "bob")
 		form.Set("amount", "100")
+		form.Set("endsAt", time.Now().Add(48*time.Hour).UTC().Format(time.RFC3339))
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
 

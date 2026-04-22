@@ -1,0 +1,49 @@
+.time-picker {
+  width: 100%;
+}
+
+.time-picker-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  height: 46px;
+  margin: 0;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 18, 32, 0.24);
+  color: #e6ffff;
+  font-size: 15px;
+  outline: none;
+  text-align: center;
+}
+
+.time-picker-input:focus-visible {
+  border-color: rgba(94, 234, 212, 0.78);
+  box-shadow:
+    0 0 0 2px rgba(94, 234, 212, 0.16),
+    0 8px 18px rgba(15, 23, 42, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.time-picker-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.time-picker-input::-webkit-calendar-picker-indicator {
+  opacity: 0.8;
+  margin: 0;
+}
+
+.time-picker-input::-webkit-date-and-time-value {
+  text-align: center;
+}
+
+.time-picker-input::-webkit-datetime-edit {
+  padding: 0;
+  text-align: center;
+}

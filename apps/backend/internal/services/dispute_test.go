@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/kisnikita/safe-disputes/backend/internal/models"
@@ -21,6 +22,7 @@ type fakeDisputeRepo struct {
 	insertU2DCalls     int
 	insertedU2D        []models.User2Dispute
 	updatedU2D         []models.U2DUpdateOpts
+	updatedDeadlines   []time.Time
 }
 
 type fakeTxMonitor struct {
@@ -46,6 +48,10 @@ func (f *fakeDisputeRepo) GetDisputeForEvidence(context.Context, uuid.UUID) (mod
 }
 func (f *fakeDisputeRepo) InsertDispute(context.Context, models.Dispute) error {
 	f.insertDisputeCalls++
+	return nil
+}
+func (f *fakeDisputeRepo) UpdateDisputeNextDeadline(_ context.Context, _ uuid.UUID, nextDeadline time.Time) error {
+	f.updatedDeadlines = append(f.updatedDeadlines, nextDeadline)
 	return nil
 }
 func (f *fakeDisputeRepo) InsertUser2Dispute(_ context.Context, u2d models.User2Dispute) error {
@@ -295,6 +301,51 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 		}
 		if !strings.Contains(sender.messages[0], "вничью") {
 			t.Fatalf("expected draw message, got %q", sender.messages[0])
+		}
+	})
+
+	t.Run("evidence branch caps deadline by endsAt", func(t *testing.T) {
+		soonEndsAt := time.Now().Add(90 * time.Minute)
+		repo := &fakeDisputeRepo{
+			usersByUsername: map[string]models.User{"alice": voter},
+			usersByID:       map[uuid.UUID]models.User{opponent.ID: opponent},
+			u2dByUser: map[uuid.UUID]models.User2Dispute{
+				voter.ID:    {ID: uuid.New(), Status: models.DisputesStatusCurrent},
+				opponent.ID: {ID: uuid.New(), Vote: true, Result: models.DisputesResultAnswered},
+			},
+			dispute: models.Dispute{
+				DisputeDB: models.DisputeDB{
+					ID:     disputeID,
+					Title:  "D3",
+					EndsAt: soonEndsAt,
+				},
+			},
+			opponentID: opponent.ID,
+		}
+		sender := &fakeMessageSender{}
+		svc := DisputeService{
+			logger:         noopLogger{},
+			userFinder:     repo,
+			u2dGetter:      repo,
+			u2dUpdater:     repo,
+			opponentGetter: repo,
+			disputeFinder:  repo,
+			disputeCreator: repo,
+			msgSender:      sender,
+		}
+
+		err := svc.VoteDispute(context.Background(), disputeID.String(), "alice", true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(repo.updatedDeadlines) != 1 {
+			t.Fatalf("expected 1 deadline update, got %d", len(repo.updatedDeadlines))
+		}
+		if !repo.updatedDeadlines[0].Equal(soonEndsAt) {
+			t.Fatalf("expected deadline capped to endsAt, got %s want %s", repo.updatedDeadlines[0], soonEndsAt)
+		}
+		if sender.calls != 1 {
+			t.Fatalf("expected 1 message, got %d", sender.calls)
 		}
 	})
 }

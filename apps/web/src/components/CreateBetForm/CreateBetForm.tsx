@@ -5,6 +5,7 @@ import { useBetMasterContract } from '../../hooks/useBetMasterContract';
 import { useBetContract } from '../../hooks/useBetContract';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import { FileInput } from '../FileInput/FileInput';
+import { TimePicker } from '../TimePicker/TimePicker';
 import { backButton, hideKeyboard, popup } from '@tma.js/sdk-react';
 
 interface Props {
@@ -17,6 +18,7 @@ export interface CreateBetDraft {
   description: string;
   opponent: string;
   amount: number;
+  endsAtISO: string;
 }
 
 const errorMessages: Record<string, string> = {
@@ -35,6 +37,53 @@ const CREATE_BET_FILE_INPUT_MAX_FILES = 1;
 const DESCRIPTION_MIN_HEIGHT_PX = 80;
 const CREATE_BET_DRAFT_KEY = 'create-bet-draft-v1';
 
+const roundToMinute = (value: Date): Date => {
+  const next = new Date(value);
+  next.setSeconds(0, 0);
+  return next;
+};
+
+const getDefaultEndsAt = (): Date => {
+  const next = new Date();
+  next.setHours(next.getHours() + 24);
+  return roundToMinute(next);
+};
+
+const getMinAllowedEndsAt = (): Date => {
+  const now = new Date();
+  const next = new Date(now);
+  if (now.getSeconds() > 0 || now.getMilliseconds() > 0) {
+    next.setMinutes(next.getMinutes() + 1);
+  }
+  next.setSeconds(0, 0);
+  return next;
+};
+
+const isSameDay = (left: Date, right: Date): boolean => left.getFullYear() === right.getFullYear()
+  && left.getMonth() === right.getMonth()
+  && left.getDate() === right.getDate();
+
+const formatTimeInputValue = (value: Date): string => {
+  const hours = `${value.getHours()}`.padStart(2, '0');
+  const minutes = `${value.getMinutes()}`.padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
+const formatShortDuration = (durationMs: number): string => {
+  const totalMinutes = Math.max(0, Math.floor(durationMs / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) return `${hours} ч`;
+  return `${hours} ч ${minutes} мин`;
+};
+
+const formatDateInputValue = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const isFromDescriptionTextarea = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false;
   return target.closest('.create-bet-textarea') !== null;
@@ -48,11 +97,15 @@ const parseCreateBetDraft = (raw: string | null): CreateBetDraft | null => {
     if (typeof parsed.description !== 'string') return null;
     if (typeof parsed.opponent !== 'string') return null;
     if (typeof parsed.amount !== 'number' || Number.isNaN(parsed.amount)) return null;
+    if (typeof parsed.endsAtISO !== 'string') return null;
+    const parsedDate = new Date(parsed.endsAtISO);
+    if (Number.isNaN(parsedDate.getTime())) return null;
     return {
       title: parsed.title,
       description: parsed.description,
       opponent: parsed.opponent,
       amount: parsed.amount,
+      endsAtISO: parsed.endsAtISO,
     };
   } catch {
     return null;
@@ -80,6 +133,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const touchStartYRef = useRef<number | null>(null);
   const touchStartedAtTopRef = useRef(false);
   const touchHideTriggeredRef = useRef(false);
+  const initialEndsAtRef = useRef<Date>(getDefaultEndsAt());
 
   const { getAddress } = useBetContract();
   const { createBetWithDeposit } = useBetMasterContract();
@@ -89,6 +143,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const [description, setDescription] = useState('');
   const [opponent, setOpponent] = useState('');
   const [amount, setAmount] = useState<number>(0);
+  const [endsAt, setEndsAt] = useState<Date>(() => getDefaultEndsAt());
   const [file, setFile] = useState<File | null>(null);
   const [fileInputHasError, setFileInputHasError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -122,7 +177,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     description,
     opponent,
     amount,
-  }), [title, description, opponent, amount]);
+    endsAtISO: endsAt.toISOString(),
+  }), [title, description, opponent, amount, endsAt]);
 
   const saveDraftToStorage = useCallback((draft: CreateBetDraft) => {
     const storage = getSessionStorage();
@@ -154,12 +210,25 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const hasSavableDraftData = title.trim().length > 0
     || description.trim().length > 0
     || opponent.trim().length > 0
-    || amount > 0;
+    || amount > 0
+    || endsAt.getTime() !== initialEndsAtRef.current.getTime();
+  const minAllowedEndsAt = getMinAllowedEndsAt();
+  const endsAtMs = endsAt.getTime();
+  const minAllowedEndsAtMs = minAllowedEndsAt.getTime();
+  const isEndsAtInvalid = endsAtMs < minAllowedEndsAtMs;
+  const acceptanceWindowMs = endsAtMs - Date.now();
+  const isShortAcceptanceWindow = acceptanceWindowMs > 0 && acceptanceWindowMs < 24 * 60 * 60 * 1000;
+  const acceptanceHintText = isEndsAtInvalid
+    ? 'Дата и время окончания пари указаны в прошлом'
+    : isShortAcceptanceWindow
+      ? `Оппоненту на принятие пари останется ${formatShortDuration(acceptanceWindowMs)}`
+      : 'У оппонента будет 24 часа на принятие пари';
   const isRequiredFieldsFilled = title.trim().length > 0
     && description.trim().length > 0
     && opponent.trim().length > 0
     && Number.isFinite(amount)
-    && amount > 0;
+    && amount > 0
+    && !isEndsAtInvalid;
 
   attemptCloseRef.current = async () => {
     if (closeInFlightRef.current || submitting) return;
@@ -270,6 +339,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     setDescription(draft.description);
     setOpponent(draft.opponent);
     setAmount(draft.amount);
+    setEndsAt(roundToMinute(new Date(draft.endsAtISO)));
   }, []);
 
   const extractApiError = async (res: Response): Promise<string> => {
@@ -312,6 +382,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
 
     if (!isRequiredFieldsFilled) {
       setError('Заполните все обязательные поля');
+      setSubmitting(false);
+      return;
+    }
+    if (isEndsAtInvalid) {
+      setError('Дата и время окончания должны быть в будущем');
       setSubmitting(false);
       return;
     }
@@ -377,6 +452,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     form.append('description', description);
     form.append('opponent', opponent);
     form.append('amount', amount.toString());
+    form.append('endsAt', endsAt.toISOString());
     form.append('contractAddress', betAddress);
     form.append('boc', signedBoc);
     if (file) form.append('image', file);
@@ -442,143 +518,188 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
         ) : (
           <>
             <section className="create-bet-section">
-              <label>
+              <div className="create-bet-field-label">
                 Название<span className="create-bet-required-mark" aria-hidden="true">*</span>
-                <div className="create-bet-input-wrap">
-                  <input
-                    className="create-bet-input"
-                    type="text"
-                    value={title}
-                    onChange={e => {
-                      hasUserInputRef.current = true;
-                      setTitle(e.target.value);
-                    }}
-                    placeholder="О чём пари?"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className={`create-bet-input-clear${title.length > 0 ? ' visible' : ''}`}
-                    onMouseDown={event => event.preventDefault()}
-                    onClick={() => setTitle('')}
-                    aria-label="Очистить название"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M7 7l10 10M17 7L7 17"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </label>
-              <label>
+              </div>
+              <div className="create-bet-input-wrap">
+                <input
+                  className="create-bet-input"
+                  type="text"
+                  value={title}
+                  onChange={e => {
+                    hasUserInputRef.current = true;
+                    setTitle(e.target.value);
+                  }}
+                  placeholder="О чём пари?"
+                  required
+                />
+                <button
+                  type="button"
+                  className={`create-bet-input-clear${title.length > 0 ? ' visible' : ''}`}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => setTitle('')}
+                  aria-label="Очистить название"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="create-bet-field-label">
                 Описание<span className="create-bet-required-mark" aria-hidden="true">*</span>
-                <div className="create-bet-input-wrap create-bet-textarea-wrap">
-                  <textarea
-                    ref={descriptionRef}
-                    className="create-bet-input create-bet-textarea"
-                    style={{ minHeight: `${DESCRIPTION_MIN_HEIGHT_PX}px` }}
-                    value={description}
-                    onChange={event => {
-                      hasUserInputRef.current = true;
-                      setDescription(event.target.value);
-                    }}
-                    onInput={resizeDescription}
-                    placeholder="Добавьте детали и условия"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className={`create-bet-input-clear${description.length > 0 ? ' visible' : ''}`}
-                    onMouseDown={event => event.preventDefault()}
-                    onClick={() => setDescription('')}
-                    aria-label="Очистить описание"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M7 7l10 10M17 7L7 17"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </label>
+              </div>
+              <div className="create-bet-input-wrap create-bet-textarea-wrap">
+                <textarea
+                  ref={descriptionRef}
+                  className="create-bet-input create-bet-textarea"
+                  style={{ minHeight: `${DESCRIPTION_MIN_HEIGHT_PX}px` }}
+                  value={description}
+                  onChange={event => {
+                    hasUserInputRef.current = true;
+                    setDescription(event.target.value);
+                  }}
+                  onInput={resizeDescription}
+                  placeholder="Добавьте детали и условия"
+                  required
+                />
+                <button
+                  type="button"
+                  className={`create-bet-input-clear${description.length > 0 ? ' visible' : ''}`}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => setDescription('')}
+                  aria-label="Очистить описание"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
             </section>
 
             <section className="create-bet-section">
-              <label>
+              <div className="create-bet-field-label">
                 Оппонент<span className="create-bet-required-mark" aria-hidden="true">*</span>
-                <div className="create-bet-input-wrap">
-                  <input
-                    className="create-bet-input"
-                    type="text"
-                    value={opponent}
-                    onChange={e => {
-                      hasUserInputRef.current = true;
-                      setOpponent(e.target.value);
-                    }}
-                    placeholder="username"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className={`create-bet-input-clear${opponent.length > 0 ? ' visible' : ''}`}
-                    onMouseDown={event => event.preventDefault()}
-                    onClick={() => setOpponent('')}
-                    aria-label="Очистить оппонента"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M7 7l10 10M17 7L7 17"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </label>
-              <label>
+              </div>
+              <div className="create-bet-input-wrap">
+                <input
+                  className="create-bet-input"
+                  type="text"
+                  value={opponent}
+                  onChange={e => {
+                    hasUserInputRef.current = true;
+                    setOpponent(e.target.value);
+                  }}
+                  placeholder="username"
+                  required
+                />
+                <button
+                  type="button"
+                  className={`create-bet-input-clear${opponent.length > 0 ? ' visible' : ''}`}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => setOpponent('')}
+                  aria-label="Очистить оппонента"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div className="create-bet-field-label">
                 Ставка (TON)<span className="create-bet-required-mark" aria-hidden="true">*</span>
-                <div className="create-bet-input-wrap">
+              </div>
+              <div className="create-bet-input-wrap">
+                <input
+                  className="create-bet-input"
+                  type="number"
+                  step="0.01"
+                  value={amount || ''}
+                  onChange={e => {
+                    hasUserInputRef.current = true;
+                    setAmount(e.target.value === '' ? 0 : parseFloat(e.target.value));
+                  }}
+                  required
+                />
+                <button
+                  type="button"
+                  className={`create-bet-input-clear${amount ? ' visible' : ''}`}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => setAmount(0)}
+                  aria-label="Очистить ставку"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 7l10 10M17 7L7 17"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </section>
+
+            <section className="create-bet-section">
+              <div className="create-bet-field-label">
+                Окончание пари<span className="create-bet-required-mark" aria-hidden="true">*</span>
+              </div>
+              <div className="create-bet-datetime-row">
+                <div className="create-bet-input-wrap create-bet-date-wrap">
                   <input
-                    className="create-bet-input"
-                    type="number"
-                    step="0.01"
-                    value={amount || ''}
-                    onChange={e => {
+                    className={`create-bet-input create-bet-date-input${isEndsAtInvalid ? ' create-bet-input-invalid' : ''}`}
+                    type="date"
+                    value={formatDateInputValue(endsAt)}
+                    min={formatDateInputValue(minAllowedEndsAt)}
+                    onChange={event => {
                       hasUserInputRef.current = true;
-                      setAmount(e.target.value === '' ? 0 : parseFloat(e.target.value));
+                      const value = event.target.value;
+                      if (!value) return;
+                      const [yearRaw, monthRaw, dayRaw] = value.split('-');
+                      const year = Number(yearRaw);
+                      const month = Number(monthRaw);
+                      const day = Number(dayRaw);
+                      if (!year || !month || !day) return;
+                      const next = new Date(endsAt);
+                      next.setFullYear(year, month - 1, day);
+                      const rounded = roundToMinute(next);
+                      setEndsAt(rounded.getTime() < minAllowedEndsAtMs ? minAllowedEndsAt : rounded);
                     }}
                     required
                   />
-                  <button
-                    type="button"
-                    className={`create-bet-input-clear${amount ? ' visible' : ''}`}
-                    onMouseDown={event => event.preventDefault()}
-                    onClick={() => setAmount(0)}
-                    aria-label="Очистить ставку"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M7 7l10 10M17 7L7 17"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
                 </div>
-              </label>
+                <TimePicker
+                  value={endsAt}
+                  onChange={next => {
+                    hasUserInputRef.current = true;
+                    const rounded = roundToMinute(next);
+                    setEndsAt(rounded.getTime() < minAllowedEndsAtMs ? minAllowedEndsAt : rounded);
+                  }}
+                  minuteStep={1}
+                  min={isSameDay(endsAt, minAllowedEndsAt) ? formatTimeInputValue(minAllowedEndsAt) : undefined}
+                  className={`create-bet-time-picker${isEndsAtInvalid ? ' create-bet-input-invalid' : ''}`}
+                />
+              </div>
+              <p className={`create-bet-field-hint${isEndsAtInvalid ? ' create-bet-field-hint-error' : isShortAcceptanceWindow ? ' create-bet-field-hint-warning' : ''}`}>
+                {acceptanceHintText}
+              </p>
             </section>
 
             <section className="create-bet-section">

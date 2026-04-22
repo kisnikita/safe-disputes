@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/kisnikita/safe-disputes/backend/internal/models"
@@ -19,6 +20,7 @@ type DisputeFinder interface {
 
 type DisputeCreator interface {
 	InsertDispute(ctx context.Context, dispute models.Dispute) error
+	UpdateDisputeNextDeadline(ctx context.Context, disputeID uuid.UUID, nextDeadline time.Time) error
 }
 
 type User2DisputeCreator interface {
@@ -57,6 +59,13 @@ type DisputeService struct {
 	userFinder     UserFinder
 	msgSender      MessageSender
 	txMonitor      TransactionMonitor
+}
+
+func minDisputeDeadline(base, endsAt time.Time) time.Time {
+	if endsAt.Before(base) {
+		return endsAt
+	}
+	return base
 }
 
 func NewDisputeService(repo *repository.Repository, log log.Logger, msgSender MessageSender) (DisputeService, error) {
@@ -127,7 +136,9 @@ func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Disput
 	}
 
 	if opponent.NotificationEnabled {
-		if err = s.msgSender.SendMessage(opponent.ChatID, "У вас новое пари от "+creator.Username); err != nil {
+		if err = s.msgSender.SendMessage(opponent.ChatID, 
+			fmt.Sprintf("У вас новое пари от %s. Примите его в течении %d часов", 
+			creator.Username, dispute.NextDeadline.Hour() - time.Now().Hour())); err != nil {
 			return err
 		}
 	}
@@ -276,15 +287,18 @@ func (s DisputeService) AcceptDispute(ctx context.Context, disputeID string, acc
 		return fmt.Errorf("failed to update opponent dispute status: %w", err)
 	}
 
+	dispute, err := s.disputeFinder.GetDisputeByID(ctx, disputeUUID, acceptor.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get dispute: %w", err)
+	}
+	if err = s.disputeCreator.UpdateDisputeNextDeadline(ctx, disputeUUID, dispute.EndsAt); err != nil {
+		return fmt.Errorf("failed to set next deadline for accepted dispute: %w", err)
+	}
+
 	// Notify opponent
 	opponent, err := s.userFinder.GetUserByID(ctx, opID)
 	if err != nil {
 		return fmt.Errorf("failed to get opponent user: %w", err)
-	}
-
-	dispute, err := s.disputeFinder.GetDisputeByID(ctx, disputeUUID, acceptor.ID)
-	if err != nil {
-		return fmt.Errorf("failed to get dispute: %w", err)
 	}
 
 	if opponent.NotificationEnabled {
@@ -546,6 +560,10 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 		opts.ID = u2dOp.ID
 		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
+		}
+		nextDeadline := minDisputeDeadline(time.Now().Add(24*time.Hour), dispute.EndsAt)
+		if err := s.disputeCreator.UpdateDisputeNextDeadline(ctx, disputeUUID, nextDeadline); err != nil {
+			return fmt.Errorf("failed to set next deadline for evidence stage: %w", err)
 		}
 		if opponent.NotificationEnabled {
 			msg := fmt.Sprintf("Ваше пари %s c игроком %s требует доказательств.",

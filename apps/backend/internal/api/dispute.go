@@ -165,8 +165,13 @@ func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFun
 			req.ImageType = fileHeader.Header.Get("Content-Type") // например "image/jpeg"
 		}
 
-		dispute := models.NewDispute(req)
-		err := disputeCreator.CreateDispute(c, dispute, creator, req.Boc)
+		dispute, err := models.NewDispute(req)
+		if err != nil {
+			log.Error("invalid dispute payload", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+		err = disputeCreator.CreateDispute(c, dispute, creator, req.Boc)
 		switch {
 		case errors.Is(err, services.ErrInvalidBOC):
 			log.Error("invalid transaction boc", zap.String("creator", creator), zap.Error(err))
@@ -261,7 +266,7 @@ func listDisputes(log log.Logger, lister DisputeLister) gin.HandlerFunc {
 		var nextCursor *string
 		if len(disputes) > limit {
 			// берем CreatedAt из (limit)-го индекса (0-based)
-			ts := disputes[limit].CreatedAt.UTC().Format(time.RFC3339Nano)
+			ts := disputes[limit].CreatedAt.Format(time.RFC3339Nano)
 			nextCursor = &ts
 			disputes = disputes[:limit]
 		}

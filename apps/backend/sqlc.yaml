@@ -20,7 +20,7 @@ sql:
               import: "github.com/google/uuid"
               type: "UUID"
 
-          - db_type: "pg_catalog.timestamp"
+          - db_type: "timestamptz"
             go_type: "time.Time"
 
           - db_type: "pg_catalog.numeric"

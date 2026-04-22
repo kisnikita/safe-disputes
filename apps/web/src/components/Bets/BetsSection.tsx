@@ -22,6 +22,8 @@ interface Bet {
   title: string;
   amount: number;
   opponent: string;
+  endsAt: string;
+  nextDeadline: string;
   status: string;
   result:
     | 'new'
@@ -72,6 +74,43 @@ const passedBadgeMap: Partial<Record<Bet['result'], { color: string; text: strin
   draw: { color: 'yellow', text: 'Ничья' },
 };
 const CLAIM_AVAILABLE_FILTER_LABEL = 'К выплате';
+
+const isSameMoment = (leftIso: string, rightIso: string): boolean => {
+  const left = new Date(leftIso).getTime();
+  const right = new Date(rightIso).getTime();
+  if (Number.isNaN(left) || Number.isNaN(right)) return leftIso === rightIso;
+  return left === right;
+};
+
+const getDeadlineChips = (tab: Subtab, bet: Bet): Array<'hourglass' | 'finish'> => {
+  if (tab === 'new') {
+    if (isSameMoment(bet.endsAt, bet.nextDeadline)) return ['hourglass', 'finish'];
+    return ['hourglass'];
+  }
+  if (tab === 'current') {
+    if (bet.result === 'processed') return ['finish'];
+    if (bet.result === 'evidence' || bet.result === 'evidence_answered') return ['hourglass'];
+  }
+  return [];
+};
+
+const getShortDeadlineText = (tab: Subtab, bet: Bet): string => {
+  let targetIso = bet.nextDeadline;
+  if (tab === 'current' && bet.result === 'processed') {
+    targetIso = bet.endsAt;
+  }
+  const targetMs = new Date(targetIso).getTime();
+  if (Number.isNaN(targetMs)) return '';
+  const diffMs = Math.max(0, targetMs - Date.now());
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) return `${days}д ${hours}ч ${minutes}м`;
+  if (hours > 0) return `${hours}ч ${minutes}м`;
+  return `${minutes}м`;
+};
 
 export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}, ref) => {
   const { connected } = useTonConnect();
@@ -829,6 +868,8 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                           : tab === 'passed'
                           ? passedBadgeMap[bet.result] ?? null
                           : null;
+                      const deadlineChips = getDeadlineChips(tab, bet);
+                      const shortDeadline = deadlineChips.length > 0 ? getShortDeadlineText(tab, bet) : '';
 
                       return (
                         <div
@@ -875,6 +916,23 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                             <div className="result-badge">
                               <span className={`dot ${badge.color}`} />
                               {badge.text}
+                            </div>
+                          )}
+                          {deadlineChips.length > 0 && (
+                            <div className="deadline-chip-wrap">
+                              {deadlineChips.map(chip => (
+                                <span
+                                  key={chip}
+                                  className={`deadline-chip ${chip === 'finish' ? 'finish' : 'hourglass'}`}
+                                  title={chip === 'finish' ? 'Дедлайн окончания пари' : 'Ближайший дедлайн'}
+                                  aria-label={chip === 'finish' ? 'Дедлайн окончания пари' : 'Ближайший дедлайн'}
+                                >
+                                  {chip === 'finish' ? '🏁' : '⏳'}
+                                </span>
+                              ))}
+                              {shortDeadline && (
+                                <span className="deadline-chip-time">{shortDeadline}</span>
+                              )}
                             </div>
                           )}
                           {tab === 'passed' && bet.claim && bet.result !== "win" && (

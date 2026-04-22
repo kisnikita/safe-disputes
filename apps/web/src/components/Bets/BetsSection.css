@@ -214,6 +214,43 @@
     inset -1px 1px 4px rgba(255, 255, 255, 0.6);
 }
 
+.deadline-chip-wrap {
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 12px;
+  padding: 2px 8px;
+  background: linear-gradient(215deg, rgba(225, 234, 94, 0.65), rgba(255, 255, 255, 0.5));
+  box-shadow:
+    inset 1px -1px 4px rgba(255, 255, 255, 0.6),
+    inset -1px 1px 4px rgba(255, 255, 255, 0.6);
+}
+
+.deadline-chip {
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deadline-chip.hourglass {
+  filter: saturate(1.05);
+}
+
+.deadline-chip.finish {
+  filter: saturate(1.1);
+}
+
+.deadline-chip-time {
+  font-size: 12px;
+  line-height: 1;
+  color: #0f172a;
+}
+
 .result-badge .dot {
   width: 8px;
   height: 8px;

@@ -56,7 +56,7 @@ func NewInvestigation(disputeID uuid.UUID, total int, title string) Investigatio
 			DisputeID: disputeID,
 			Total:     total,
 			Status:    InvestigationStatusCurrent,
-			EndsAt:    time.Now().Add(24 * time.Hour),
+			EndsAt:    time.Now().Add(3 * time.Hour),
 			Title:     title,
 		},
 	}

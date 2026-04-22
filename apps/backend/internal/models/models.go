@@ -21,6 +21,8 @@ type DisputeDB struct {
 	ImageData       []byte    `db:"image_data" json:"imageData"`
 	ImageType       *string   `db:"image_type" json:"imageType"`
 	ContractAddress string    `db:"contract_address" json:"contractAddress"`
+	EndsAt          time.Time `db:"ends_at" json:"endsAt"`
+	NextDeadline    time.Time `db:"next_deadline" json:"nextDeadline"`
 }
 
 type Evidence struct {

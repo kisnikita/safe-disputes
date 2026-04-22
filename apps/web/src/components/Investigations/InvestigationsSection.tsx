@@ -69,6 +69,20 @@ const investigationSortOptionsByTab: Record<Subtab, string[]> = {
   passed: ['Последние', 'Крупные'],
 };
 
+const getShortDeadlineText = (endsAt: string): string => {
+  const targetMs = Date.parse(endsAt);
+  if (Number.isNaN(targetMs)) return '';
+  const diffMs = Math.max(0, targetMs - Date.now());
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) return `${days}д ${hours}ч ${minutes}м`;
+  if (hours > 0) return `${hours}ч ${minutes}м`;
+  return `${minutes}м`;
+};
+
 export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Props>(
   ({ onModalChange }, ref) => {
     const [subtab, setSubtab] = useState<Subtab>('current');
@@ -677,27 +691,6 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     return list;
   };
 
-  const getTimeRemaining = (endsAt: string) => {
-  // Парсим время окончания как UTC-момент
-  const endMs = Date.parse(endsAt);
-
-  // Считаем, сколько минут нужно добавить к локальному времени,
-  // чтобы получить UTC+3:
-  //   локальный оффсет = new Date().getTimezoneOffset() в минутах (от UTC до локали)
-  //   нам нужно получить смещение от локали до UTC+3 → 180 мин - локальный оффсет
-  const offsetToUTCPlus3Min = -new Date().getTimezoneOffset();
-  // текущее «UTC+3» в миллисекундах
-  const nowUtcPlus3 = Date.now() + offsetToUTCPlus3Min * 60_000;
-
-  const diff = endMs - nowUtcPlus3;
-  if (diff <= 0) return 'завершено';
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
-  return `${days}д ${hours}ч ${minutes}м`;
-};
-
     return (
       <>
         <div className={`investigations-section${subtabsDocked ? ' subtabs-docked' : ''}`}>
@@ -832,6 +825,8 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                           const badge = tab === 'current' ? 
                           currentInvestigationBadgeMap[inv.result] ?? null : 
                           passedInvestigationBadgeMap[inv.result] ?? null;
+                          const deadlineChip = 'hourglass';
+                          const shortDeadline = getShortDeadlineText(inv.endsAt);
 
                           return (
                             <div
@@ -871,13 +866,26 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                               }}
                             >
                               <h4>{inv.title}</h4>
-                              <p>Окончание через: {getTimeRemaining(inv.endsAt)}</p>
                               {inv.vote && <p>Ваш голос: {inv.vote == 'p1' ? 'Пользователь 1' : "Пользователь 2"}</p>}
 
                               {badge && (
-                                <div className="result-badge" style={{ borderColor: badge.color }}>
+                                <div className="result-badge">
                                   <span className={`dot ${badge.color}`} />
                                   {badge.text}
+                                </div>
+                              )}
+                              {tab === 'current' && (
+                                <div className="investigation-deadline-chip-wrap">
+                                  <span
+                                    className={`investigation-deadline-chip ${deadlineChip}`}
+                                    title="До окончания расследования"
+                                    aria-label="До окончания расследования"
+                                  >
+                                    ⏳
+                                  </span>
+                                  {shortDeadline && (
+                                    <span className="investigation-deadline-chip-time">{shortDeadline}</span>
+                                  )}
                                 </div>
                               )}
                             </div>

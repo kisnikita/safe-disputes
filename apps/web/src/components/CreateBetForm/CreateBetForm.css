@@ -54,15 +54,14 @@
   margin-bottom: 12px;
 }
 
-.create-bet-section > label {
+.create-bet-field-label {
   display: block;
-  margin-bottom: 12px;
   color: rgba(167, 235, 235, 0.9);
   font-size: 14px;
 }
 
-.create-bet-section > label:last-child {
-  margin-bottom: 0;
+.create-bet-input-wrap + .create-bet-field-label {
+  margin-top: 12px;
 }
 
 .create-bet-required-mark {
@@ -89,9 +88,6 @@
   color: #e6ffff;
   font-size: 15px;
   outline: none;
-  box-shadow:
-    0 8px 18px rgba(15, 23, 42, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -178,9 +174,88 @@
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(10, 18, 32, 0.24);
+}
+
+.create-bet-datetime-row {
+  --create-bet-time-width: 122px;
+  margin-top: 6px;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.create-bet-datetime-row > * {
+  min-width: 0;
+}
+
+.create-bet-date-wrap {
+  flex: 1 1 auto;
+  margin-top: 0;
+  min-width: 0;
+}
+
+.create-bet-date-input {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  height: 46px;
+  padding-right: 14px;
+  color-scheme: dark;
+  text-align: center;
+}
+
+.create-bet-date-input::-webkit-date-and-time-value {
+  text-align: center;
+}
+
+.create-bet-date-input::-webkit-datetime-edit {
+  text-align: center;
+}
+
+.create-bet-time-picker {
+  flex: 0 0 var(--create-bet-time-width);
+  width: var(--create-bet-time-width);
+  min-width: var(--create-bet-time-width);
+  max-width: var(--create-bet-time-width);
+}
+
+.create-bet-time-picker .time-picker-input {
+  min-height: 46px;
+  height: 46px;
+}
+
+.create-bet-date-input.create-bet-input-invalid:not(:focus-visible),
+.create-bet-time-picker.create-bet-input-invalid .time-picker-input:not(:focus-visible) {
+  border-color: rgba(248, 113, 113, 0.85);
   box-shadow:
-    0 8px 18px rgba(15, 23, 42, 0.2),
+    0 0 0 2px rgba(248, 113, 113, 0.2),
+    0 8px 18px rgba(127, 29, 29, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.create-bet-field-hint {
+  margin: 6px 2px 0;
+  color: rgba(167, 235, 235, 0.72);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.create-bet-field-hint-warning {
+  color: rgba(251, 191, 36, 0.95);
+}
+
+.create-bet-field-hint-error {
+  color: rgba(248, 113, 113, 0.98);
+}
+
+@supports (-webkit-touch-callout: none) {
+  .create-bet-datetime-row {
+    --create-bet-time-width: 112px;
+  }
 }
 
 .create-bet-file-section-label {
@@ -201,9 +276,8 @@
   background: linear-gradient(215deg, #5eead4a6, rgba(255, 255, 255, 0));
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    0 8px 20px rgba(15, 23, 42, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -10px 20px rgba(0, 0, 0, 0.12);
+    inset 0 -20px 20px rgba(0, 0, 0, 0.12);
   backdrop-filter: blur(16px) saturate(200%);
   -webkit-backdrop-filter: blur(16px) saturate(200%);
   padding: 10px 16px;
@@ -278,6 +352,25 @@
 @media (max-width: 520px) {
   .create-bet-header h3 {
     font-size: clamp(24px, 8.5vw, 34px);
+  }
+
+  .create-bet-datetime-row {
+    gap: 8px;
+  }
+
+  .create-bet-datetime-row {
+    --create-bet-time-width: 108px;
+  }
+}
+
+@media (max-width: 460px) {
+  .create-bet-datetime-row {
+    --create-bet-time-width: 104px;
+  }
+
+  .create-bet-time-picker .time-picker-input {
+    padding-left: 10px;
+    padding-right: 10px;
   }
 }
 

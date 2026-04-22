@@ -22,24 +22,25 @@ interface BetDetail {
   description: string;
   amount: number;
   opponent: string;
+  endsAt: string;
   cryptocurrency: string;
   contractAddress: string;
   createdAt: string;
   updatedAt: string;
   imageData?: string;
   imageType?: string;
-  result: 
-    | 'new'
-    | 'sent'
-    | 'processed'
-    | 'answered'
-    | 'evidence'
-    | 'evidence_answered'
-    | 'inspected'
-    | 'rejected'
-    | 'win'
-    | 'lose'
-    | 'draw'
+  result:
+  | 'new'
+  | 'sent'
+  | 'processed'
+  | 'answered'
+  | 'evidence'
+  | 'evidence_answered'
+  | 'inspected'
+  | 'rejected'
+  | 'win'
+  | 'lose'
+  | 'draw'
   claim: boolean;
   vote?: boolean; // true = win, false = lose
 }
@@ -179,7 +180,7 @@ export const BetDetailsModal: React.FC<Props> = ({
       } else if (bet.result === 'win') {
         await win(bet.contractAddress);
       } else if (bet.result === 'rejected') {
-        await refund(bet.contractAddress);  
+        await refund(bet.contractAddress);
       } else {
         throw new Error('Unsupported bet result for claim');
       }
@@ -253,24 +254,14 @@ export const BetDetailsModal: React.FC<Props> = ({
     }, 100);
   };
 
-  const formatDateUtcPlus3 = (iso: string) => {
-    // Парсим ISO-время (UTC)
-    const ms = Date.parse(iso);
-    // Переводим в UTC: убираем локальное смещение
-    const utcMs = ms + new Date(ms).getTimezoneOffset() * 60_000;
-    // Добавляем 3 часа
-    const targetMs = utcMs + 60_000 / 3;
-    const d = new Date(targetMs);
-    // Форматируем, например, «дд.мм.гггг, чч:мм:сс»
-    return d.toLocaleString('ru-RU', {
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleString('ru-RU', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
-    });
-  };
+  });
 
   // UI состояния успеха
   const modal = success ? (
@@ -331,7 +322,7 @@ export const BetDetailsModal: React.FC<Props> = ({
       >
         {loading && (
           <div className="loading">
-           <Spinner size="m" className="spinner"/>
+            <Spinner size="m" className="spinner" />
           </div>
         )}
         {error && <p className="bet-details-error-message">{error}</p>}
@@ -343,7 +334,10 @@ export const BetDetailsModal: React.FC<Props> = ({
             <h3>{bet.title}</h3>
             <p><strong>Оппонент:</strong> {bet.opponent}</p>
             <p><strong>Ставка:</strong> {bet.amount} {bet.cryptocurrency}</p>
-            <p><strong>Создано:</strong> {formatDateUtcPlus3(bet.createdAt)}</p>
+            <p><strong>Создано:</strong> {formatDate(bet.createdAt)}</p>
+            {bet.result === 'new' && (
+              <p><strong>Окончание пари:</strong> {formatDate(bet.endsAt)}</p>
+            )}
             <p className="bet-details-description-label"><strong>Описание:</strong></p>
             <p className="bet-details-description-text">{bet.description}</p>
             {bet.imageData && (

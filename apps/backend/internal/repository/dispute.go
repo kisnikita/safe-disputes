@@ -12,8 +12,8 @@ import (
 
 func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Dispute) error {
 	_, err := repo.db.ExecContext(ctx, `
-	INSERT INTO disputes (id, title, description, created_at, updated_at, cryptocurrency, amount, image_data, image_type, contract_address) 
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+	INSERT INTO disputes (id, title, description, created_at, updated_at, cryptocurrency, amount, image_data, image_type, contract_address, ends_at, next_deadline) 
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		dispute.ID,
 		dispute.Title,
 		dispute.Description,
@@ -24,6 +24,8 @@ func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Disput
 		dispute.ImageData,
 		dispute.ImageType,
 		dispute.ContractAddress,
+		dispute.EndsAt,
+		dispute.NextDeadline,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert dispute: %w", err)
@@ -92,7 +94,7 @@ func (repo *Repository) ListDisputes(
           d.id, d.title, d.description,
         d.created_at, d.updated_at,
           d.cryptocurrency, d.amount,
-          d.image_data, d.image_type,
+          d.image_data, d.image_type, d.ends_at, d.next_deadline,
           u.result, u.claim
         FROM disputes d
         JOIN user2dispute u ON d.id = u.dispute_id
@@ -120,6 +122,8 @@ func (repo *Repository) ListDisputes(
 			&d.Amount,
 			&d.ImageData,
 			&d.ImageType,
+			&d.EndsAt,
+			&d.NextDeadline,
 			&d.Result,
 			&d.Claim,
 		); err != nil {
@@ -141,7 +145,7 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 			d.id, d.title, d.description, 
 			d.created_at, d.updated_at, 
 			d.cryptocurrency, d.amount, 
-			d.image_data, d.image_type,
+			d.image_data, d.image_type, d.ends_at, d.next_deadline,
 			u.result, u.claim, u.vote,
 			d.contract_address
 		FROM disputes d
@@ -158,6 +162,8 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 		&d.Amount,
 		&d.ImageData,
 		&d.ImageType,
+		&d.EndsAt,
+		&d.NextDeadline,
 		&d.Result,
 		&d.Claim,
 		&d.Vote,
@@ -174,7 +180,7 @@ func (repo *Repository) GetDisputeForEvidence(ctx context.Context, disputeID uui
 	err := repo.db.QueryRowContext(ctx, `
 		SELECT 
 			d.id, d.title, d.description, 
-			d.image_data, d.image_type
+			d.image_data, d.image_type, d.ends_at, d.next_deadline
 		FROM disputes d
 		WHERE d.id = $1`,
 		disputeID,
@@ -184,9 +190,23 @@ func (repo *Repository) GetDisputeForEvidence(ctx context.Context, disputeID uui
 		&d.Description,
 		&d.ImageData,
 		&d.ImageType,
+		&d.EndsAt,
+		&d.NextDeadline,
 	)
 	if err != nil {
 		return models.Dispute{}, fmt.Errorf("failed to get dispute by ID: %w", err)
 	}
 	return d, nil
+}
+
+func (repo *Repository) UpdateDisputeNextDeadline(ctx context.Context, disputeID uuid.UUID, nextDeadline time.Time) error {
+	_, err := repo.db.ExecContext(ctx, `
+		UPDATE disputes
+		SET next_deadline = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`, nextDeadline, disputeID)
+	if err != nil {
+		return fmt.Errorf("failed to update dispute next deadline: %w", err)
+	}
+	return nil
 }

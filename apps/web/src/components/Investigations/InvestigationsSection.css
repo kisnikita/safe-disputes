@@ -231,6 +231,7 @@
 
 /* Сбрасываем позиционирование карточек */
 .investigation-card {
+  /* min-height: 100px; */
   padding: 14px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -289,6 +290,43 @@
   box-shadow: 
     inset 1px -1px 4px rgba(255, 255, 255, 0.6),
     inset -1px 1px 4px rgba(255, 255, 255, 0.6);
+}
+
+.investigation-deadline-chip-wrap {
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 12px;
+  padding: 2px 8px;
+  background: linear-gradient(215deg, rgba(225, 234, 94, 0.65), rgba(255, 255, 255, 0.5));
+  box-shadow:
+    inset 1px -1px 4px rgba(255, 255, 255, 0.6),
+    inset -1px 1px 4px rgba(255, 255, 255, 0.6);
+}
+
+.investigation-deadline-chip {
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.investigation-deadline-chip.hourglass {
+  filter: saturate(1.05);
+}
+
+.investigation-deadline-chip.finish {
+  filter: saturate(1.1);
+}
+
+.investigation-deadline-chip-time {
+  font-size: 12px;
+  line-height: 1;
+  color: #0f172a;
 }
 
 /* Точка цвета внутри бейджа */

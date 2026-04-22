@@ -80,7 +80,7 @@ func listInvestigations(log log.Logger, lister InvestigationLister) gin.HandlerF
 		var nextCursor *string
 		if len(investigations) > limit {
 			// берем CreatedAt из (limit)-го индекса (0-based)
-			ts := investigations[limit].CreatedAt.UTC().Format(time.RFC3339Nano)
+			ts := investigations[limit].CreatedAt.Format(time.RFC3339Nano)
 			nextCursor = &ts
 			investigations = investigations[:limit]
 		}
