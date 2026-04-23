@@ -131,7 +131,6 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const attemptCloseRef = useRef<() => Promise<void>>(async () => {});
   const closeInFlightRef = useRef(false);
   const touchStartYRef = useRef<number | null>(null);
-  const touchStartedAtTopRef = useRef(false);
   const touchHideTriggeredRef = useRef(false);
   const initialEndsAtRef = useRef<Date>(getDefaultEndsAt());
 
@@ -199,14 +198,6 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       hideKeyboard();
       return;
     }
-  }, []);
-
-  const isScreenAtTop = useCallback((screen: HTMLDivElement): boolean => {
-    const localAtTop = screen.scrollTop <= 1;
-    const root = document.scrollingElement;
-    const docAtTop = root ? root.scrollTop <= 1 : true;
-    const windowAtTop = window.scrollY <= 1;
-    return localAtTop && docAtTop && windowAtTop;
   }, []);
 
   const hasSavableDraftData = title.trim().length > 0
@@ -278,37 +269,31 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
 
   const handleScreenWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     if (isFromDescriptionTextarea(event.target)) return;
-    if (!isScreenAtTop(event.currentTarget)) return;
-    if (event.deltaY < 0) {
-      hideKeyboardSafe();
-    }
-  }, [hideKeyboardSafe, isScreenAtTop]);
+    if (Math.abs(event.deltaY) < 2) return;
+    hideKeyboardSafe();
+  }, [hideKeyboardSafe]);
 
   const handleScreenTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (isFromDescriptionTextarea(event.target)) return;
     if (event.touches.length !== 1) return;
     touchStartYRef.current = event.touches[0].clientY;
-    touchStartedAtTopRef.current = isScreenAtTop(event.currentTarget);
     touchHideTriggeredRef.current = false;
-  }, [isScreenAtTop]);
+  }, []);
 
   const handleScreenTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (isFromDescriptionTextarea(event.target)) return;
     if (touchHideTriggeredRef.current) return;
-    if (!touchStartedAtTopRef.current) return;
     if (event.touches.length !== 1 || touchStartYRef.current === null) return;
-    if (!isScreenAtTop(event.currentTarget)) return;
 
     const deltaY = event.touches[0].clientY - touchStartYRef.current;
-    if (deltaY > 50) {
+    if (Math.abs(deltaY) > 12) {
       hideKeyboardSafe();
       touchHideTriggeredRef.current = true;
     }
-  }, [hideKeyboardSafe, isScreenAtTop]);
+  }, [hideKeyboardSafe]);
 
   const resetTouchTracking = useCallback(() => {
     touchStartYRef.current = null;
-    touchStartedAtTopRef.current = false;
     touchHideTriggeredRef.current = false;
   }, []);
 
