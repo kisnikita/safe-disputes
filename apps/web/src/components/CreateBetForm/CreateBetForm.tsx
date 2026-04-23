@@ -157,19 +157,21 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     onCreated();
   }, [onCreated]);
 
-  const showSaveDraftConfirm = useCallback(async (): Promise<boolean> => {
+  const showSaveDraftConfirm = useCallback(async (): Promise<'save' | 'discard' | 'cancel'> => {
     if (popup.isSupported()) {
       const buttonId = await popup.show({
         message: 'Сохранить введённые данные перед выходом?',
         buttons: [
           { id: 'yes', type: 'default', text: 'Да' },
-          { id: 'no', type: 'default', text: 'Нет' },
+          { id: 'no', type: 'destructive', text: 'Нет' },
         ],
       });
-      return buttonId === 'yes';
+      if (buttonId === 'yes') return 'save';
+      if (buttonId === 'no') return 'discard';
+      return 'cancel';
     }
 
-    return window.confirm('Сохранить введённые данные перед выходом?');
+    return window.confirm('Сохранить введённые данные перед выходом?') ? 'save' : 'discard';
   }, []);
 
   const getCurrentDraft = useCallback((): CreateBetDraft => ({
@@ -245,8 +247,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
         onClose();
         return;
       }
-      const shouldSaveDraft = await showSaveDraftConfirm();
-      if (shouldSaveDraft) {
+      const draftAction = await showSaveDraftConfirm();
+      if (draftAction === 'cancel') {
+        return;
+      }
+      if (draftAction === 'save') {
         saveDraftToStorage(getCurrentDraft());
       } else {
         clearDraftFromStorage();

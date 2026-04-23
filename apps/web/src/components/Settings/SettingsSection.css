@@ -2,6 +2,8 @@
   position: relative;
   width: 100%;
   max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
   margin-top: 150px;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -15,6 +17,12 @@
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settings-panel {
+    margin-top: 50px;
+  }
 }
 
 .settings-row {
