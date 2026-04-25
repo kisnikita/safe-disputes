@@ -16,6 +16,7 @@ import { ScrollTopHitArea, useDefaultScrollTopHit } from '../Layout/ScrollTopHit
 import './BetsSection.css';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { useTonConnect } from '../../hooks/useTonConnect';
+import tonIcon from '../../../assets/ton-icon.svg';
 
 interface Bet {
   id: string;
@@ -118,6 +119,8 @@ const getAvatarAcronym = (username: string): string => {
   if (!normalized) return '?';
   return normalized.slice(0, 2).toUpperCase();
 };
+
+const formatBetAmount = (value: number): string => value.toFixed(2);
 
 export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}, ref) => {
   const { connected } = useTonConnect();
@@ -862,6 +865,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                     onScroll={event => handlePanelScroll(tabIndex, event)}
                   >
                     {sortedList.map((bet, idx) => {
+                      const formattedAmount = formatBetAmount(bet.amount);
                       const isLast = idx === sortedList.length - 1;
                       const badge =
                         tab === 'current'
@@ -912,7 +916,10 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                           }}
                         >
                           <h4>{bet.title}</h4>
-                          <p>Ставка: {bet.amount} TON</p>
+                          <div className="bet-card-amount">
+                            <img src={tonIcon} alt="" className="bet-card-amount-icon" aria-hidden="true" />
+                            <span className="bet-card-amount-value">{formattedAmount}</span>
+                          </div>
                           <div className="bet-card-opponent">
                             {bet.photoUrl ? (
                               <Avatar

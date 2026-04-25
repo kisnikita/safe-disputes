@@ -297,6 +297,30 @@
   font-weight: 500;
 }
 
+.bet-card-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #0a84e0;
+  font-size: 16px;
+  line-height: 0.5;
+  white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum" 1, "tnum" 1;
+}
+
+.bet-card-amount-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 13px;
+  transform: translateY(1px);
+  margin-bottom: 6px;
+}
+
+.bet-card-amount-value {
+  letter-spacing: -0.01em;
+}
+
 .bet-card-avatar {
   width: 24px;
   height: 24px;
