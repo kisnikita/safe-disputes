@@ -27,10 +27,11 @@ type Dispute_old struct {
 
 type Dispute struct {
 	DisputeDB
-	Opponent     string    `db:"opponent" json:"opponent"`
-	Result       Result    `db:"result" json:"result"`
-	Vote         bool      `db:"vote" json:"vote"`
-	Claim        bool      `db:"claim" json:"claim"`
+	Opponent string  `json:"opponent"`
+	PhotoUrl *string `json:"photoUrl"`
+	Result   Result  `db:"result" json:"result"`
+	Vote     bool    `db:"vote" json:"vote"`
+	Claim    bool    `db:"claim" json:"claim"`
 }
 
 type DisputeListOpts struct {
@@ -83,10 +84,10 @@ func NewDispute(opts CreateDisputeReq) (Dispute, error) {
 			Amount:          int(amount),
 			ImageData:       opts.ImageData,
 			ContractAddress: opts.ContractAddress,
-			EndsAt:       endsAt,
-			NextDeadline: nextDeadline,
+			EndsAt:          endsAt,
+			NextDeadline:    nextDeadline,
 		},
-		Opponent:     opts.Opponent,
+		Opponent: opts.Opponent,
 	}
 	if opts.ImageType != "" {
 		d.ImageType = &opts.ImageType

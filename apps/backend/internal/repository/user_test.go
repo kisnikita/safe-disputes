@@ -14,7 +14,7 @@ import (
 func TestGetUserByUsernameNotFound(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
-			return newRows([]string{"id", "username", "created_at", "notification_enabled", "dispute_readiness", "minimum_dispute_amount", "rating", "chat_id"}), nil
+			return newRows([]string{"id", "username", "photo_url", "created_at", "notification_enabled", "dispute_readiness", "minimum_dispute_amount", "rating", "chat_id"}), nil
 		},
 	})
 
@@ -30,8 +30,8 @@ func TestGetUserByUsernameSuccess(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
 			return newRows(
-				[]string{"id", "username", "created_at", "notification_enabled", "dispute_readiness", "minimum_dispute_amount", "rating", "chat_id"},
-				[]driver.Value{id.String(), "alice", now, true, true, 100, 5, int64(123)},
+				[]string{"id", "username", "photo_url", "created_at", "notification_enabled", "dispute_readiness", "minimum_dispute_amount", "rating", "chat_id"},
+				[]driver.Value{id.String(), "alice", "https://t.me/i/userpic/320/x.png", now, true, true, 100, 5, int64(123)},
 			), nil
 		},
 	})
@@ -42,6 +42,9 @@ func TestGetUserByUsernameSuccess(t *testing.T) {
 	}
 	if user.ID != id || user.Username != "alice" || user.ChatID != 123 {
 		t.Fatalf("unexpected user: %#v", user)
+	}
+	if user.PhotoUrl == nil || *user.PhotoUrl == "" {
+		t.Fatalf("expected photo url to be set: %#v", user)
 	}
 }
 

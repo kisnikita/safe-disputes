@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.uber.org/zap"
@@ -13,10 +14,11 @@ import (
 func (repo *Repository) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
 	var user models.User
 	err := handleNotFoundError(repo.db.QueryRowContext(ctx, `
-	SELECT id, username, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount, rating, chat_id 
+	SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount, rating, chat_id 
 	FROM users WHERE username = $1`, username).Scan(
 		&user.ID,
 		&user.Username,
+		&user.PhotoUrl,
 		&user.CreatedAt,
 		&user.NotificationEnabled,
 		&user.DisputeReadiness,
@@ -33,10 +35,11 @@ func (repo *Repository) GetUserByUsername(ctx context.Context, username string) 
 func (repo *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (models.User, error) {
 	var user models.User
 	err := handleNotFoundError(repo.db.QueryRowContext(ctx, `
-	SELECT id, username, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount, rating, chat_id
+	SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount, rating, chat_id
 	FROM users WHERE id = $1`, id).Scan(
 		&user.ID,
 		&user.Username,
+		&user.PhotoUrl,
 		&user.CreatedAt,
 		&user.NotificationEnabled,
 		&user.DisputeReadiness,
@@ -45,7 +48,7 @@ func (repo *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (models.U
 		&user.ChatID,
 	))
 	if err != nil {
-		return models.User{}, fmt.Errorf("failed to get user by username: %w", err)
+		return models.User{}, fmt.Errorf("failed to get user by ID: %w", err)
 	}
 	return user, nil
 }
@@ -63,10 +66,11 @@ func (repo *Repository) ExistByUsername(ctx context.Context, username string) (b
 func (repo *Repository) InsertUser(ctx context.Context, user models.User) error {
 	repo.logger.Info("creating user", zap.String("username", user.Username))
 	_, err := repo.db.ExecContext(ctx, `
-	INSERT INTO users (id, username, chat_id, notification_enabled) 
-	VALUES ($1, $2, $3, $4)`,
+	INSERT INTO users (id, username, photo_url, chat_id, notification_enabled) 
+	VALUES ($1, $2, $3, $4, $5)`,
 		user.ID,
 		user.Username,
+		user.PhotoUrl,
 		user.ChatID,
 		user.NotificationEnabled,
 	)
@@ -114,7 +118,21 @@ func (repo *Repository) UpdateChatID(ctx context.Context, chatID int64, username
 		username,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to update user: %w", err)
+		return fmt.Errorf("failed to update user chat ID: %w", err)
+	}
+	return nil
+}
+
+func (repo *Repository) UpdateUserPhotoURL(ctx context.Context, username string, photoUrl *string) error {
+	query := `
+		UPDATE users
+		SET photo_url = $1
+		WHERE username = $2 AND photo_url IS DISTINCT FROM $1
+	`
+
+	_, err := repo.db.ExecContext(ctx, query, photoUrl, username)
+	if err != nil {
+		return fmt.Errorf("failed to update user photo url: %w", err)
 	}
 	return nil
 }
@@ -123,7 +141,7 @@ func (repo *Repository) GetTotalUsers(ctx context.Context) (int, error) {
 	var total int
 
 	if err := repo.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&total); err != nil {
-		return 0, fmt.Errorf("failed to update user: %w", err)
+		return 0, fmt.Errorf("failed to get total users: %w", err)
 	}
 	return total, nil
 }
@@ -132,7 +150,7 @@ func (repo *Repository) GetUsers(ctx context.Context, ids []uuid.UUID) ([]models
 	var users []models.User
 
 	query := `
-		SELECT id, username, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount, rating, chat_id
+		SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount, rating, chat_id
 		FROM users
 		WHERE id = ANY($1)
 	`
@@ -148,6 +166,7 @@ func (repo *Repository) GetUsers(ctx context.Context, ids []uuid.UUID) ([]models
 		if err := rows.Scan(
 			&user.ID,
 			&user.Username,
+			&user.PhotoUrl,
 			&user.CreatedAt,
 			&user.NotificationEnabled,
 			&user.DisputeReadiness,

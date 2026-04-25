@@ -141,7 +141,7 @@ func updateChatID(log log.Logger, repo *repository.Repository, ch chan userChatD
 			continue
 		}
 		if !exist {
-			u := models.NewUser(userData.Username)
+			u := models.NewUser(userData.Username, nil)
 			u.ChatID = userData.ChatID
 			u.NotificationEnabled = true
 			err := repo.InsertUser(ctx, u)

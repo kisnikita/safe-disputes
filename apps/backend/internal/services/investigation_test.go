@@ -27,7 +27,9 @@ type fakeInvestigationDeps struct {
 	updateWinnerCnt int
 }
 
-func (f *fakeInvestigationDeps) InsertInvestigation(context.Context, models.Investigation) error { return nil }
+func (f *fakeInvestigationDeps) InsertInvestigation(context.Context, models.Investigation) error {
+	return nil
+}
 func (f *fakeInvestigationDeps) ListInvestigations(_ context.Context, opts models.InvestigationListOpts) ([]models.Investigation, error) {
 	f.listReceivedOpts = opts
 	return f.listResult, nil
@@ -60,17 +62,26 @@ func (f *fakeInvestigationDeps) UpdateWinnersResult(context.Context, uuid.UUID, 
 	f.updateWinnerCnt++
 	return nil
 }
-func (f *fakeInvestigationDeps) GetUserByID(context.Context, uuid.UUID) (models.User, error) { return models.User{}, nil }
+func (f *fakeInvestigationDeps) GetUserByID(context.Context, uuid.UUID) (models.User, error) {
+	return models.User{}, nil
+}
 func (f *fakeInvestigationDeps) GetUserByUsername(context.Context, string) (models.User, error) {
 	return f.user, nil
 }
-func (f *fakeInvestigationDeps) ExistByUsername(context.Context, string) (bool, error) { return false, nil }
-func (f *fakeInvestigationDeps) GetTotalUsers(context.Context) (int, error)            { return 0, nil }
+func (f *fakeInvestigationDeps) ExistByUsername(context.Context, string) (bool, error) {
+	return false, nil
+}
+func (f *fakeInvestigationDeps) GetTotalUsers(context.Context) (int, error) { return 0, nil }
 func (f *fakeInvestigationDeps) GetUsers(context.Context, []uuid.UUID) ([]models.User, error) {
 	return nil, nil
 }
-func (f *fakeInvestigationDeps) GetTopUsers(context.Context, int) ([]models.User, error) { return nil, nil }
+func (f *fakeInvestigationDeps) GetTopUsers(context.Context, int) ([]models.User, error) {
+	return nil, nil
+}
 func (f *fakeInvestigationDeps) UpdateUser(context.Context, models.UserUpdateOpts) error { return nil }
+func (f *fakeInvestigationDeps) UpdateUserPhotoURL(context.Context, string, *string) error {
+	return nil
+}
 func (f *fakeInvestigationDeps) EarnWinnerRating(context.Context, []uuid.UUID) error {
 	f.earnWinnerCnt++
 	return nil
@@ -165,7 +176,7 @@ func TestInvestigationServiceVoteInvestigationDrawFinal(t *testing.T) {
 		u2i:           models.User2Investigation{ID: uuid.New()},
 		investigation: models.Investigation{InvestigationDB: models.InvestigationDB{ID: invID, DisputeID: disputeID, Total: 1, P1: 0, P2: 0, Draw: 0}},
 		winners:       []uuid.UUID{user1.ID},
-		disputeUsers:   []models.User{user1, user2},
+		disputeUsers:  []models.User{user1, user2},
 		u2dByUser: map[uuid.UUID]models.User2Dispute{
 			user1.ID: {ID: uuid.New()},
 			user2.ID: {ID: uuid.New()},

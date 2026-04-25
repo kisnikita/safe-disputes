@@ -16,7 +16,7 @@ type fakeUserCreator struct {
 	gotUsername string
 }
 
-func (f *fakeUserCreator) CreateIfNotExist(_ context.Context, username string) error {
+func (f *fakeUserCreator) CreateIfNotExist(_ context.Context, username string, _ *string) error {
 	f.called = true
 	f.gotUsername = username
 	return f.err

@@ -1,11 +1,12 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
-	initdata "github.com/telegram-mini-apps/init-data-golang"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
 func Middleware() gin.HandlerFunc {
@@ -40,6 +41,7 @@ func Middleware() gin.HandlerFunc {
 			return
 		}
 		c.Set("username", idata.User.Username)
+		c.Set("photoUrl", idata.User.PhotoURL)
 		c.Next()
 	}
 }

@@ -136,9 +136,9 @@ func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Disput
 	}
 
 	if opponent.NotificationEnabled {
-		if err = s.msgSender.SendMessage(opponent.ChatID, 
-			fmt.Sprintf("У вас новое пари от %s. Примите его в течении %d часов", 
-			creator.Username, dispute.NextDeadline.Hour() - time.Now().Hour())); err != nil {
+		if err = s.msgSender.SendMessage(opponent.ChatID,
+			fmt.Sprintf("У вас новое пари от %s. Примите его в течении %d часов",
+				creator.Username, dispute.NextDeadline.Hour()-time.Now().Hour())); err != nil {
 			return err
 		}
 	}
@@ -205,6 +205,7 @@ func (s DisputeService) ListDisputes(ctx context.Context, opts models.DisputeLis
 			return nil, fmt.Errorf("failed to get opponent user: %w", err)
 		}
 		disputes[i].Opponent = opponent.Username
+		disputes[i].PhotoUrl = opponent.PhotoUrl
 	}
 
 	return disputes, nil
@@ -236,6 +237,7 @@ func (s DisputeService) GetDispute(ctx context.Context, disputeID string, creato
 		return models.Dispute{}, fmt.Errorf("failed to get opponent user: %w", err)
 	}
 	dispute.Opponent = opponent.Username
+	dispute.PhotoUrl = opponent.PhotoUrl
 
 	return dispute, nil
 }

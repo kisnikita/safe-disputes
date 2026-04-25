@@ -1,13 +1,15 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type User_old struct {
 	ID                   uuid.UUID `db:"id" json:"id"`
 	Username             string    `db:"username" json:"username"`
+	PhotoUrl             *string   `db:"photo_url" json:"photoUrl"`
 	ChatID               int64     `db:"chat_id" json:"chatID"`
 	CreatedAt            time.Time `db:"created_at" json:"createdAt"`
 	NotificationEnabled  bool      `db:"notification_enabled" json:"notificationEnabled"`
@@ -24,9 +26,10 @@ type UserUpdateOpts struct {
 	Rating               *int   `json:"rating"`
 }
 
-func NewUser(username string) User {
+func NewUser(username string, photoUrl *string) User {
 	return User{
 		ID:       uuid.New(),
 		Username: username,
+		PhotoUrl: photoUrl,
 	}
 }

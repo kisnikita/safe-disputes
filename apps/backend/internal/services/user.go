@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
@@ -27,6 +28,7 @@ type UserCreator interface {
 
 type UserUpdater interface {
 	UpdateUser(ctx context.Context, opts models.UserUpdateOpts) error
+	UpdateUserPhotoURL(ctx context.Context, username string, photoUrl *string) error
 	EarnWinnerRating(ctx context.Context, ids []uuid.UUID) error
 }
 
@@ -67,7 +69,7 @@ func (s UserService) GetByUsername(ctx context.Context, username string) (models
 	return user, nil
 }
 
-func (s UserService) CreateIfNotExist(ctx context.Context, username string) error {
+func (s UserService) CreateIfNotExist(ctx context.Context, username string, photoUrl *string) error {
 	s.logger.Info("checking if user exists", zap.String("username", username))
 	exist, err := s.userFinder.ExistByUsername(ctx, username)
 	if err != nil {
@@ -75,10 +77,14 @@ func (s UserService) CreateIfNotExist(ctx context.Context, username string) erro
 		return err
 	}
 	if exist {
+		if err = s.userUpdater.UpdateUserPhotoURL(ctx, username, photoUrl); err != nil {
+			s.logger.Error("failed to update user photo URL", zap.String("username", username), zap.Error(err))
+			return err
+		}
 		s.logger.Info("user already exists", zap.String("username", username))
 		return nil
 	}
-	user := models.NewUser(username)
+	user := models.NewUser(username, photoUrl)
 	err = s.userCreator.InsertUser(ctx, user)
 	if err != nil {
 		s.logger.Error("failed to create user", zap.String("username", username), zap.Error(err))
