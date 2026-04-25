@@ -253,10 +253,6 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
   }, [loadingByTab, hasMoreByTab]);
 
   useEffect(() => {
-    fetchFirstPage('current');
-  }, [fetchFirstPage]);
-
-  useEffect(() => {
     if (!fetchedByTab[subtab] && !loadingByTab[subtab]) {
       fetchFirstPage(subtab);
     }

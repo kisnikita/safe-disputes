@@ -221,10 +221,6 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     }, []);
 
     useEffect(() => {
-      fetchInvestigations('current');
-    }, [fetchInvestigations]);
-
-    useEffect(() => {
       if (!fetchedByTab[subtab] && !loadingByTab[subtab]) {
         fetchInvestigations(subtab);
       }
