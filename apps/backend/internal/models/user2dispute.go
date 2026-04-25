@@ -26,19 +26,6 @@ const (
 	DisputesResultDraw             Result = "draw"
 )
 
-type User2Dispute_old struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	UserID    uuid.UUID `db:"user_id" json:"userID"`
-	DisputeID uuid.UUID `db:"dispute_id" json:"disputeID"`
-	Status    Status    `db:"status" json:"status"` // "new", "waiting", "pending", "rejected", "finish"
-
-	Result Result `db:"result" json:"result"` // "sent", "processed", "answered", "evidence", "inspected" ||
-	// "rejected", "win", "lose", "draw"
-
-	Vote  bool `db:"vote" json:"vote"`   // true for "win", false for "lose"
-	Claim bool `db:"claim" json:"claim"` // true if user has claimed the dispute
-}
-
 type U2DUpdateOpts struct {
 	ID     uuid.UUID `json:"id"`
 	Status *Status   `json:"status"`

@@ -11,14 +11,6 @@ const (
 	InvestigationResultInCorrect InvestigationResult = "incorrect"
 )
 
-type User2Investigation_old struct {
-	ID              uuid.UUID           `db:"id" json:"id"`
-	InvestigationID uuid.UUID           `db:"investigation_id" json:"investigationID"`
-	UserID          uuid.UUID           `db:"user_id" json:"userID"`
-	Vote            string              `db:"vote" json:"vote"`
-	Result          InvestigationResult `db:"result" json:"result"`
-}
-
 type U2IUpdateOpts struct {
 	ID     uuid.UUID
 	UserID uuid.UUID
