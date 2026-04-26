@@ -7,6 +7,7 @@ import React, {
   forwardRef,
   useImperativeHandle
 } from 'react';
+import Lottie from 'lottie-react';
 import { apiFetch } from '../../utils/apiFetch';
 import { BetDetailsModal } from './BetDetailsModal';
 import { Spinner } from '@telegram-apps/telegram-ui';
@@ -17,6 +18,7 @@ import './BetsSection.css';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import tonIcon from '../../../assets/ton-icon.svg';
+import claimAnimation from '../../../assets/claim.json';
 import { UserAvatar } from '../UserAvatar/UserAvatar';
 
 interface Bet {
@@ -948,11 +950,16 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                               )}
                             </div>
                           )}
-                          {tab === 'passed' && bet.claim && bet.result !== "win" && (
-                            <div className="claim-label">Возврат доступен</div>
-                          )}
-                          {tab === 'passed' && bet.claim && bet.result === "win" && (
-                            <div className="claim-label">Награда доступна</div>
+                          {tab === 'passed' && bet.claim && (
+                            <div className="claim-label" aria-label="Доступно для клейма">
+                              <Lottie
+                                className="claim-label-animation"
+                                animationData={claimAnimation}
+                                loop
+                                autoplay
+                                aria-hidden="true"
+                              />
+                            </div>
                           )}
                         </div>
                       );
