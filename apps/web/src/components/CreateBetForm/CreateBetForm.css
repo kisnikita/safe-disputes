@@ -71,7 +71,8 @@
 }
 
 .create-bet-field-label-with-icon .create-bet-required-mark {
-  margin-left: -4px;
+  margin-left: -2px;
+  margin-bottom: 4px;
 }
 
 .create-bet-ton-icon {

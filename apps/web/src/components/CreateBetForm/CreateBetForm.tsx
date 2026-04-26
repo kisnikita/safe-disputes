@@ -398,7 +398,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       return;
     }
     if (isDescriptionTooLong) {
-      setError(`Описание должно быть не длиннее ${DESCRIPTION_MAX_LENGTH} символов`);
+      setError(`Условия должны быть не длиннее ${DESCRIPTION_MAX_LENGTH} символов`);
       setSubmitting(false);
       return;
     }
@@ -580,7 +580,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                 </button>
               </div>
               <div className="create-bet-field-label">
-                ОПИСАНИЕ<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                УСЛОВИЯ<span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
               <div className="create-bet-input-wrap create-bet-textarea-wrap">
                 <textarea
@@ -601,7 +601,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   className={`create-bet-input-clear${description.length > 0 ? ' visible' : ''}`}
                   onMouseDown={event => event.preventDefault()}
                   onClick={() => setDescription('')}
-                  aria-label="Очистить описание"
+                  aria-label="Очистить условия"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
