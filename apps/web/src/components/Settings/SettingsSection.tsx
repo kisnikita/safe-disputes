@@ -3,6 +3,7 @@ import { apiFetch } from '../../utils/apiFetch';
 import './SettingsSection.css';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { UserAvatar } from '../UserAvatar/UserAvatar';
+import { AmountInput, parseAmountInput } from '../AmountInput/AmountInput';
 
 interface UserSettings {
   notificationEnabled: boolean;
@@ -90,8 +91,8 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
     );
   }
 
-  const parsedMin = parseFloat(minInput);
-  const minChanged = !isNaN(parsedMin) && parsedMin !== settings.minimumDisputeAmount;
+  const parsedMin = parseAmountInput(minInput);
+  const minChanged = Number.isFinite(parsedMin) && parsedMin !== settings.minimumDisputeAmount;
 
   const notifDisabled = saving || settings.chatID === 0;
   const normalizedUsername = username.replace(/^@+/, '').trim();
@@ -155,15 +156,13 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
         <div className="settings-row">
           <span className="settings-label">Минимальная ставка (TON)</span>
           <div className="min-input-wrapper">
-             <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="settings-input"
-                value={minInput}
-                disabled={saving}
-                onChange={e => setMinInput(e.target.value)}
-              />
+            <AmountInput
+              className="settings-input"
+              ref={minInputRef}
+              value={minInput}
+              disabled={saving}
+              onValueChange={setMinInput}
+            />
             {minChanged && (
               <button
                 className="save-button"

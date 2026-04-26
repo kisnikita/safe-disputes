@@ -7,6 +7,7 @@ import { useTonConnect } from '../../hooks/useTonConnect';
 import { FileInput } from '../FileInput/FileInput';
 import { TimePicker } from '../TimePicker/TimePicker';
 import { backButton, hideKeyboard, popup } from '@tma.js/sdk-react';
+import { AmountInput, parseAmountInput } from '../AmountInput/AmountInput';
 
 interface Props {
   onClose: () => void;
@@ -141,7 +142,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [opponent, setOpponent] = useState('');
-  const [amount, setAmount] = useState<number>(0);
+  const [amountInput, setAmountInput] = useState<string>('');
+  const amount = parseAmountInput(amountInput);
   const [endsAt, setEndsAt] = useState<Date>(() => getDefaultEndsAt());
   const [file, setFile] = useState<File | null>(null);
   const [fileInputHasError, setFileInputHasError] = useState(false);
@@ -177,7 +179,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     title,
     description,
     opponent,
-    amount,
+    amount: Number.isFinite(amount) ? amount : 0,
     endsAtISO: endsAt.toISOString(),
   }), [title, description, opponent, amount, endsAt]);
 
@@ -203,7 +205,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const hasSavableDraftData = title.trim().length > 0
     || description.trim().length > 0
     || opponent.trim().length > 0
-    || amount > 0
+    || amountInput.length > 0
     || endsAt.getTime() !== initialEndsAtRef.current.getTime();
   const minAllowedEndsAt = getMinAllowedEndsAt();
   const endsAtMs = endsAt.getTime();
@@ -328,7 +330,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     setTitle(draft.title);
     setDescription(draft.description);
     setOpponent(draft.opponent);
-    setAmount(draft.amount);
+    setAmountInput(draft.amount.toString());
     setEndsAt(roundToMinute(new Date(draft.endsAtISO)));
   }, []);
 
@@ -616,22 +618,20 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                 Ставка (TON)<span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
               <div className="create-bet-input-wrap">
-                <input
+                <AmountInput
                   className="create-bet-input"
-                  type="number"
-                  step="0.01"
-                  value={amount || ''}
-                  onChange={e => {
+                  value={amountInput}
+                  onValueChange={value => {
                     hasUserInputRef.current = true;
-                    setAmount(e.target.value === '' ? 0 : parseFloat(e.target.value));
+                    setAmountInput(value);
                   }}
                   required
                 />
                 <button
                   type="button"
-                  className={`create-bet-input-clear${amount ? ' visible' : ''}`}
+                  className={`create-bet-input-clear${amountInput.length > 0 ? ' visible' : ''}`}
                   onMouseDown={event => event.preventDefault()}
-                  onClick={() => setAmount(0)}
+                  onClick={() => setAmountInput('')}
                   aria-label="Очистить ставку"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
