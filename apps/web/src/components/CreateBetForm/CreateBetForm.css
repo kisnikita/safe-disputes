@@ -57,9 +57,27 @@
 }
 
 .create-bet-field-label {
+  margin-inline-start: 8px;
   display: block;
   color: rgba(167, 235, 235, 0.9);
-  font-size: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.create-bet-field-label-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.create-bet-field-label-with-icon .create-bet-required-mark {
+  margin-left: -4px;
+}
+
+.create-bet-ton-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
 }
 
 .create-bet-input-wrap + .create-bet-field-label {
@@ -77,6 +95,48 @@
 .create-bet-input-wrap {
   position: relative;
   margin-top: 6px;
+}
+
+.create-bet-title-wrap .create-bet-input {
+  padding-right: 80px;
+}
+
+.create-bet-input-counter {
+  position: absolute;
+  top: 50%;
+  right: 40px;
+  transform: translateY(-50%);
+  color: rgba(167, 235, 235, 0.62);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+.create-bet-input-counter-invalid {
+  color: rgba(248, 113, 113, 0.98);
+}
+
+.create-bet-amount-wrap .create-bet-input {
+  padding-right: 96px;
+}
+
+.create-bet-input-suffix {
+  position: absolute;
+  top: 50%;
+  right: 40px;
+  transform: translateY(-50%);
+  color: rgba(167, 235, 235, 0.82);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.create-bet-input-suffix.visible {
+  opacity: 1;
 }
 
 .create-bet-input {
@@ -232,8 +292,17 @@
   height: 46px;
 }
 
+.create-bet-input.create-bet-input-invalid:not(:focus-visible),
 .create-bet-date-input.create-bet-input-invalid:not(:focus-visible),
 .create-bet-time-picker.create-bet-input-invalid .time-picker-input:not(:focus-visible) {
+  border-color: rgba(248, 113, 113, 0.85);
+  box-shadow:
+    0 0 0 2px rgba(248, 113, 113, 0.2),
+    0 8px 18px rgba(127, 29, 29, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.create-bet-input.create-bet-input-invalid:focus-visible {
   border-color: rgba(248, 113, 113, 0.85);
   box-shadow:
     0 0 0 2px rgba(248, 113, 113, 0.2),
@@ -246,13 +315,15 @@
   color: rgba(167, 235, 235, 0.72);
   font-size: 12px;
   line-height: 1.35;
+  margin-bottom: 12px;
+  margin-left: 12px;
 }
 
-.create-bet-field-hint-warning {
+.create-bet-hint-warning {
   color: rgba(251, 191, 36, 0.95);
 }
 
-.create-bet-field-hint-error {
+.create-bet-hint-error {
   color: rgba(248, 113, 113, 0.98);
 }
 
@@ -260,11 +331,6 @@
   .create-bet-datetime-row {
     --create-bet-time-width: 112px;
   }
-}
-
-.create-bet-file-section-label {
-  font-size: 14px;
-  color: rgba(167, 235, 235, 0.95);
 }
 
 .create-bet-form-actions {

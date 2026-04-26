@@ -6,8 +6,10 @@ import { useBetContract } from '../../hooks/useBetContract';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import { FileInput } from '../FileInput/FileInput';
 import { TimePicker } from '../TimePicker/TimePicker';
-import { backButton, hideKeyboard, popup } from '@tma.js/sdk-react';
+import { backButton, hideKeyboard } from '@tma.js/sdk-react';
 import { AmountInput, parseAmountInput } from '../AmountInput/AmountInput';
+import { Alert } from '../ui/alert/Alert';
+import tonIcon from '../../../assets/ton-icon.svg';
 
 interface Props {
   onClose: () => void;
@@ -36,7 +38,11 @@ const errorMessages: Record<string, string> = {
 
 const CREATE_BET_FILE_INPUT_MAX_FILES = 1;
 const DESCRIPTION_MIN_HEIGHT_PX = 80;
+const DESCRIPTION_MAX_LENGTH = 512;
+const DESCRIPTION_WARNING_LENGTH = 450;
 const CREATE_BET_DRAFT_KEY = 'create-bet-draft-v1';
+const USERNAME_REGEX = /^[a-z][a-z0-9_]{4,}$/;
+const TITLE_MAX_LENGTH = 64;
 
 const roundToMinute = (value: Date): Date => {
   const next = new Date(value);
@@ -151,29 +157,14 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitShake, setSubmitShake] = useState(false);
+  const [showOpponentValidation, setShowOpponentValidation] = useState(false);
+  const [showDraftRestoredAlert, setShowDraftRestoredAlert] = useState(false);
 
   const notifyCreatedIfNeeded = useCallback(() => {
     if (!createdRef.current || createdNotifiedRef.current) return;
     createdNotifiedRef.current = true;
     onCreated();
   }, [onCreated]);
-
-  const showSaveDraftConfirm = useCallback(async (): Promise<'save' | 'discard' | 'cancel'> => {
-    if (popup.isSupported()) {
-      const buttonId = await popup.show({
-        message: 'Сохранить введённые данные перед выходом?',
-        buttons: [
-          { id: 'yes', type: 'default', text: 'Да' },
-          { id: 'no', type: 'destructive', text: 'Нет' },
-        ],
-      });
-      if (buttonId === 'yes') return 'save';
-      if (buttonId === 'no') return 'discard';
-      return 'cancel';
-    }
-
-    return window.confirm('Сохранить введённые данные перед выходом?') ? 'save' : 'discard';
-  }, []);
 
   const getCurrentDraft = useCallback((): CreateBetDraft => ({
     title,
@@ -207,6 +198,13 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     || opponent.trim().length > 0
     || amountInput.length > 0
     || endsAt.getTime() !== initialEndsAtRef.current.getTime();
+  const opponentValue = opponent.trim();
+  const isOpponentInvalid = opponentValue.length > 0 && !USERNAME_REGEX.test(opponentValue);
+  const shouldShowOpponentValidation = showOpponentValidation && isOpponentInvalid;
+  const opponentValidationText = 'Username должен начинаться с a-z, содержать только a-z, 0-9 и _, минимум 5 символов';
+  const isTitleTooLong = title.length > TITLE_MAX_LENGTH;
+  const isDescriptionTooLong = description.length > DESCRIPTION_MAX_LENGTH;
+  const isDescriptionNearLimit = description.length >= DESCRIPTION_WARNING_LENGTH && !isDescriptionTooLong;
   const minAllowedEndsAt = getMinAllowedEndsAt();
   const endsAtMs = endsAt.getTime();
   const minAllowedEndsAtMs = minAllowedEndsAt.getTime();
@@ -219,8 +217,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       ? `Оппоненту на принятие пари останется ${formatShortDuration(acceptanceWindowMs)}`
       : 'У оппонента будет 24 часа на принятие пари';
   const isRequiredFieldsFilled = title.trim().length > 0
+    && !isTitleTooLong
     && description.trim().length > 0
-    && opponent.trim().length > 0
+    && !isDescriptionTooLong
+    && opponentValue.length > 0
+    && !shouldShowOpponentValidation
     && Number.isFinite(amount)
     && amount > 0
     && !isEndsAtInvalid;
@@ -234,20 +235,6 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
         notifyCreatedIfNeeded();
         onClose();
         return;
-      }
-      if (!hasSavableDraftData) {
-        clearDraftFromStorage();
-        onClose();
-        return;
-      }
-      const draftAction = await showSaveDraftConfirm();
-      if (draftAction === 'cancel') {
-        return;
-      }
-      if (draftAction === 'save') {
-        saveDraftToStorage(getCurrentDraft());
-      } else {
-        clearDraftFromStorage();
       }
       onClose();
     } finally {
@@ -332,7 +319,34 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     setOpponent(draft.opponent);
     setAmountInput(draft.amount.toString());
     setEndsAt(roundToMinute(new Date(draft.endsAtISO)));
+    setShowDraftRestoredAlert(true);
   }, []);
+
+  useEffect(() => {
+    if (!draftLoadedRef.current) return;
+    if (success) {
+      clearDraftFromStorage();
+      return;
+    }
+    if (hasSavableDraftData) {
+      saveDraftToStorage(getCurrentDraft());
+      return;
+    }
+    clearDraftFromStorage();
+  }, [success, hasSavableDraftData, getCurrentDraft, saveDraftToStorage, clearDraftFromStorage]);
+
+  const handleCancelDraftRestore = useCallback(() => {
+    setTitle('');
+    setDescription('');
+    setOpponent('');
+    setAmountInput('');
+    setEndsAt(initialEndsAtRef.current);
+    setFile(null);
+    setError(null);
+    setShowOpponentValidation(false);
+    setShowDraftRestoredAlert(false);
+    clearDraftFromStorage();
+  }, [clearDraftFromStorage]);
 
   const extractApiError = async (res: Response): Promise<string> => {
     let serverError = `Ошибка ${res.status}`;
@@ -372,6 +386,23 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       return;
     }
 
+    if (isOpponentInvalid) {
+      setShowOpponentValidation(true);
+      setSubmitting(false);
+      return;
+    }
+    setShowOpponentValidation(false);
+    if (isTitleTooLong) {
+      setError(`Название должно быть не длиннее ${TITLE_MAX_LENGTH} символов`);
+      setSubmitting(false);
+      return;
+    }
+    if (isDescriptionTooLong) {
+      setError(`Описание должно быть не длиннее ${DESCRIPTION_MAX_LENGTH} символов`);
+      setSubmitting(false);
+      return;
+    }
+
     if (!isRequiredFieldsFilled) {
       setError('Заполните все обязательные поля');
       setSubmitting(false);
@@ -390,7 +421,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          opponent,
+          opponent: opponentValue,
           amount,
         }),
       });
@@ -442,7 +473,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     const form = new FormData();
     form.append('title', title);
     form.append('description', description);
-    form.append('opponent', opponent);
+    form.append('opponent', opponentValue);
     form.append('amount', amount.toString());
     form.append('endsAt', endsAt.toISOString());
     form.append('contractAddress', betAddress);
@@ -511,11 +542,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
           <>
             <section className="create-bet-section">
               <div className="create-bet-field-label">
-                Название<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                НАЗВАНИЕ<span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
-              <div className="create-bet-input-wrap">
+              <div className="create-bet-input-wrap create-bet-title-wrap">
                 <input
-                  className="create-bet-input"
+                  className={`create-bet-input${isTitleTooLong ? ' create-bet-input-invalid' : ''}`}
                   type="text"
                   value={title}
                   onChange={e => {
@@ -525,6 +556,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   placeholder="О чём пари?"
                   required
                 />
+                {title.length > 0 && (
+                  <span className={`create-bet-input-counter${isTitleTooLong ? ' create-bet-input-counter-invalid' : ''}`}>
+                    {title.length}/{TITLE_MAX_LENGTH}
+                  </span>
+                )}
                 <button
                   type="button"
                   className={`create-bet-input-clear${title.length > 0 ? ' visible' : ''}`}
@@ -544,12 +580,12 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                 </button>
               </div>
               <div className="create-bet-field-label">
-                Описание<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                ОПИСАНИЕ<span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
               <div className="create-bet-input-wrap create-bet-textarea-wrap">
                 <textarea
                   ref={descriptionRef}
-                  className="create-bet-input create-bet-textarea"
+                  className={`create-bet-input create-bet-textarea${isDescriptionTooLong ? ' create-bet-input-invalid' : ''}`}
                   style={{ minHeight: `${DESCRIPTION_MIN_HEIGHT_PX}px` }}
                   value={description}
                   onChange={event => {
@@ -578,20 +614,25 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   </svg>
                 </button>
               </div>
+              {description.length > 0 && (
+                <p className={`create-bet-field-hint${isDescriptionTooLong ? ' create-bet-hint-error' : isDescriptionNearLimit ? ' create-bet-hint-warning' : ''}`}>
+                  {description.length}/{DESCRIPTION_MAX_LENGTH}
+                </p>
+              )}
             </section>
 
             <section className="create-bet-section">
               <div className="create-bet-field-label">
-                Оппонент<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                ОППОНЕНТ<span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
               <div className="create-bet-input-wrap">
                 <input
-                  className="create-bet-input"
+                  className={`create-bet-input${shouldShowOpponentValidation ? ' create-bet-input-invalid' : ''}`}
                   type="text"
                   value={opponent}
                   onChange={e => {
                     hasUserInputRef.current = true;
-                    setOpponent(e.target.value);
+                    setOpponent(e.target.value.toLowerCase());
                   }}
                   placeholder="username"
                   required
@@ -614,10 +655,17 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   </svg>
                 </button>
               </div>
-              <div className="create-bet-field-label">
-                Ставка (TON)<span className="create-bet-required-mark" aria-hidden="true">*</span>
+              {shouldShowOpponentValidation && (
+                <p className="create-bet-field-hint create-bet-hint-error">
+                  {opponentValidationText}
+                </p>
+              )}
+              <div className="create-bet-field-label create-bet-field-label-with-icon">
+                <img src={tonIcon} alt="TON" className="create-bet-ton-icon" />
+                <span>СТАВКА</span>
+                <span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
-              <div className="create-bet-input-wrap">
+              <div className="create-bet-input-wrap create-bet-amount-wrap">
                 <AmountInput
                   className="create-bet-input"
                   value={amountInput}
@@ -625,8 +673,10 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                     hasUserInputRef.current = true;
                     setAmountInput(value);
                   }}
+                  placeholder="1.5 TON"
                   required
                 />
+                <span className={`create-bet-input-suffix${amountInput.length > 0 ? ' visible' : ''}`}>TON</span>
                 <button
                   type="button"
                   className={`create-bet-input-clear${amountInput.length > 0 ? ' visible' : ''}`}
@@ -649,7 +699,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
 
             <section className="create-bet-section">
               <div className="create-bet-field-label">
-                Окончание пари<span className="create-bet-required-mark" aria-hidden="true">*</span>
+                ОКОНЧАНИЕ ПАРИ<span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
               <div className="create-bet-datetime-row">
                 <div className="create-bet-input-wrap create-bet-date-wrap">
@@ -687,14 +737,14 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   className={`create-bet-time-picker${isEndsAtInvalid ? ' create-bet-input-invalid' : ''}`}
                 />
               </div>
-              <p className={`create-bet-field-hint${isEndsAtInvalid ? ' create-bet-field-hint-error' : isShortAcceptanceWindow ? ' create-bet-field-hint-warning' : ''}`}>
+              <p className={`create-bet-field-hint${isEndsAtInvalid ? ' create-bet-hint-error' : isShortAcceptanceWindow ? ' create-bet-hint-warning' : ''}`}>
                 {acceptanceHintText}
               </p>
             </section>
 
             <section className="create-bet-section">
               <div className="create-bet-file-section">
-                <div className="create-bet-file-section-label">Файлы</div>
+                <div className="create-bet-field-label">ФАЙЛЫ</div>
                 <FileInput
                   className="create-bet-file-input"
                   label="Добавить"
@@ -719,6 +769,18 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
           </>
         )}
       </form>
+      <Alert
+        floating
+        placement="bottom"
+        status="success"
+        open={showDraftRestoredAlert}
+        onOpenChange={setShowDraftRestoredAlert}
+        durationMs={4000}
+        title="Черновик был восстановлен"
+        actionLabel="Отменить"
+        actionVariant="default"
+        onAction={handleCancelDraftRestore}
+      />
     </div>
   );
 };
