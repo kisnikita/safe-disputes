@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 import './SettingsSection.css';
 import { Spinner } from '@telegram-apps/telegram-ui';
+import { popup } from '@tma.js/sdk-react';
 import { UserAvatar } from '../UserAvatar/UserAvatar';
 import { AmountInput, parseAmountInput } from '../AmountInput/AmountInput';
+import { TonIcon } from '../TonIcon/TonIcon';
 
 interface UserSettings {
   notificationEnabled: boolean;
@@ -17,6 +19,8 @@ interface SettingsSectionProps {
   userPhotoUrl?: string | null;
 }
 
+const NOTIFICATION_BOT_URL = 'https://t.me/SafeDisputesBot';
+
 export function SettingsSection({ username = '', userPhotoUrl = null }: SettingsSectionProps) {
   const [settings, setSettings] = useState<UserSettings>({
     notificationEnabled: false,
@@ -26,26 +30,38 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
-  const [showHint, setShowHint] = useState(false); // <-- для подсказки
 
   const [minInput, setMinInput] = useState<string>('');
   const minInputRef = useRef<HTMLInputElement>(null);
+  const refreshInFlightRef = useRef(false);
+  const lastSilentRefreshAtRef = useRef(0);
+
+  const loadSettings = useCallback(async (options?: { silent?: boolean; syncMinInput?: boolean }) => {
+    const silent = options?.silent ?? false;
+    const syncMinInput = options?.syncMinInput ?? false;
+    if (refreshInFlightRef.current) return;
+
+    refreshInFlightRef.current = true;
+    if (!silent) setLoading(true);
+    try {
+      const res = await apiFetch('/api/v1/users/me');
+      if (!res.ok) throw new Error();
+      const { data } = await res.json() as { data: UserSettings };
+      setSettings(data);
+      if (syncMinInput) {
+        setMinInput(data.minimumDisputeAmount.toString());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (!silent) setLoading(false);
+      refreshInFlightRef.current = false;
+    }
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiFetch('/api/v1/users/me');
-        if (!res.ok) throw new Error();
-        const { data } = await res.json() as { data: UserSettings };
-        setSettings(data);
-        setMinInput(data.minimumDisputeAmount.toString());
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    void loadSettings({ syncMinInput: true });
+  }, [loadSettings]);
 
   useEffect(() => {
     const blurMinInput = () => {
@@ -66,6 +82,32 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
     };
   }, []);
 
+  useEffect(() => {
+    const refreshAfterReturn = () => {
+      if (saving) return;
+      const now = Date.now();
+      if (now - lastSilentRefreshAtRef.current < 1200) return;
+      lastSilentRefreshAtRef.current = now;
+      void loadSettings({ silent: true });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAfterReturn();
+      }
+    };
+
+    window.addEventListener('focus', refreshAfterReturn);
+    window.addEventListener('pageshow', refreshAfterReturn);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refreshAfterReturn);
+      window.removeEventListener('pageshow', refreshAfterReturn);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadSettings, saving]);
+
   const updateField = async <K extends keyof UserSettings>(field: K, value: UserSettings[K]) => {
     setSaving(true);
     try {
@@ -83,6 +125,38 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
     }
   };
 
+  const openNotificationBot = () => {
+    const webApp = (window as any)?.Telegram?.WebApp;
+    if (typeof webApp?.openTelegramLink === 'function') {
+      webApp.openTelegramLink(NOTIFICATION_BOT_URL);
+      return;
+    }
+    window.open(NOTIFICATION_BOT_URL, '_blank', 'noopener,noreferrer');
+  };
+
+  const showNotificationBotPopup = async () => {
+    const message = 'Чтобы включить уведомления, отправьте любое сообщение боту приложения';
+
+    if (popup.isSupported()) {
+      const buttonId = await popup.show({
+        message,
+        buttons: [
+          { id: 'open', type: 'default', text: 'Открыть бота' },
+          { id: 'ok', type: 'ok'},
+        ],
+      });
+
+      if (buttonId === 'open') {
+        openNotificationBot();
+      }
+      return;
+    }
+
+    if (window.confirm(`${message}\n\nОткрыть бота сейчас?`)) {
+      openNotificationBot();
+    }
+  };
+
   if (loading) {
     return (
       <div className="settings-status">
@@ -94,7 +168,7 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
   const parsedMin = parseAmountInput(minInput);
   const minChanged = Number.isFinite(parsedMin) && parsedMin !== settings.minimumDisputeAmount;
 
-  const notifDisabled = saving || settings.chatID === 0;
+  const notifDisabled = saving;
   const normalizedUsername = username.replace(/^@+/, '').trim();
   const login = normalizedUsername ? `@${normalizedUsername}` : '@user';
 
@@ -112,28 +186,24 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
 
       <div className="settings-card">
         {/* Уведомления */}
-        <div className="settings-row" style={{ position: 'relative' }}>
+        <div className="settings-row">
           <span className="settings-label">Уведомления</span>
-          <label
-            className="switch"
-            onMouseEnter={() => settings.chatID === 0 && setShowHint(true)}
-            onMouseLeave={() => setShowHint(false)}
-            onMouseUp={()  => settings.chatID === 0 && setShowHint(true)}
-          >
+          <label className="switch">
             <input
               type="checkbox"
               checked={settings.notificationEnabled}
               disabled={notifDisabled}
-              onChange={e => updateField('notificationEnabled', e.target.checked)}
+              onChange={async e => {
+                const next = e.target.checked;
+                if (next && settings.chatID === 0) {
+                  await showNotificationBotPopup();
+                  return;
+                }
+                await updateField('notificationEnabled', next);
+              }}
             />
             <span className="slider" />
           </label>
-          {showHint && (
-            <div className="big-hint">
-              Чтобы включить уведомления,<br/>
-              отправьте сообщение боту приложения
-            </div>
-          )}
         </div>
 
         {/* Готовность к новым пари */}
@@ -154,7 +224,10 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
       <div className="settings-card">
         {/* Минимальная ставка */}
         <div className="settings-row">
-          <span className="settings-label">Минимальная ставка (TON)</span>
+          <span className="settings-label settings-label-with-icon">
+            <TonIcon className="settings-ton-icon" title="TON" />
+            <span>Минимальная ставка</span>
+          </span>
           <div className="min-input-wrapper">
             <AmountInput
               className="settings-input"

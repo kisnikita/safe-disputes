@@ -17,9 +17,9 @@ import { ScrollTopHitArea, useDefaultScrollTopHit } from '../Layout/ScrollTopHit
 import './BetsSection.css';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { useTonConnect } from '../../hooks/useTonConnect';
-import tonIcon from '../../../assets/ton-icon.svg';
 import claimAnimation from '../../../assets/claim.json';
 import { UserAvatar } from '../UserAvatar/UserAvatar';
+import { TonIcon } from '../TonIcon/TonIcon';
 
 interface Bet {
   id: string;
@@ -914,7 +914,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                         >
                           <h4>{bet.title}</h4>
                           <div className="bet-card-amount">
-                            <img src={tonIcon} alt="" className="bet-card-amount-icon" aria-hidden="true" />
+                            <TonIcon className="bet-card-amount-icon" />
                             <span className="bet-card-amount-value">{formattedAmount}</span>
                           </div>
                           <div className="bet-card-opponent">

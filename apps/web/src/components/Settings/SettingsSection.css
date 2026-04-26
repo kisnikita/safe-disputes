@@ -40,7 +40,7 @@
   padding: 0 16px;
   font-size: 24px;
   line-height: 1.1;
-  color: #e9ffff;
+  color: #a7ebeb;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -76,6 +76,18 @@
   flex: 1;
   font-size: 15px;
   color: #d7fefe;
+}
+
+.settings-label-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-ton-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 
 .switch {
@@ -134,7 +146,7 @@
 }
 
 .settings-input {
-  width: 108px;
+  width: 64px;
   padding: 8px 10px;
   font-size: 14px;
   border-radius: 12px;
@@ -209,23 +221,4 @@
   font-size: 18px;
   font-weight: 500;
   text-align: center;
-}
-
-.big-hint {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -120%);
-  background: rgba(15, 23, 42, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #d7fefe;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.35;
-  text-align: center;
-  max-width: 220px;
-  z-index: 100;
-  pointer-events: none;
-  margin-top: 100px;
 }

@@ -9,7 +9,7 @@ import { TimePicker } from '../TimePicker/TimePicker';
 import { backButton, hideKeyboard } from '@tma.js/sdk-react';
 import { AmountInput, parseAmountInput } from '../AmountInput/AmountInput';
 import { Alert } from '../ui/alert/Alert';
-import tonIcon from '../../../assets/ton-icon.svg';
+import { TonIcon } from '../TonIcon/TonIcon';
 
 interface Props {
   onClose: () => void;
@@ -661,7 +661,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                 </p>
               )}
               <div className="create-bet-field-label create-bet-field-label-with-icon">
-                <img src={tonIcon} alt="TON" className="create-bet-ton-icon" />
+                <TonIcon className="create-bet-ton-icon" title="TON" />
                 <span>СТАВКА</span>
                 <span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>

@@ -303,9 +303,10 @@
 .bet-card-amount-icon {
   width: 26px;
   height: 26px;
-  flex: 0 0 13px;
-  transform: translateY(1px);
-  margin-bottom: 6px;
+  flex: 0 0 26px;
+  display: block;
+  transform: translateY(0.5px);
+  margin-bottom: 2px;
 }
 
 .bet-card-amount-value {

@@ -1,0 +1,29 @@
+import React from 'react';
+
+interface TonIconProps {
+  className?: string;
+  title?: string;
+}
+
+export const TonIcon: React.FC<TonIconProps> = ({ className, title }) => {
+  const labelled = typeof title === 'string' && title.length > 0;
+
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 40 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-hidden={labelled ? undefined : 'true'}
+      aria-label={labelled ? title : undefined}
+    >
+      <rect width="40" height="40" rx="20" fill="#0098EA" />
+      <path
+        d="M26.831 11H13.1727C10.6613 11 9.06966 13.709 10.333 15.8988L18.7625 30.5094C19.3125 31.4634 20.6911 31.4634 21.2411 30.5094L29.6723 15.8988C30.934 13.7124 29.3423 11 26.8327 11H26.831ZM18.7556 26.128L16.9198 22.575L12.4903 14.6526C12.198 14.1456 12.559 13.4958 13.1709 13.4958H18.7539V26.1297L18.7556 26.128ZM27.5099 14.6509L23.0821 22.5767L21.2463 26.128V13.4941H26.8292C27.4412 13.4941 27.8021 14.1439 27.5099 14.6509Z"
+        fill="white"
+      />
+    </svg>
+  );
+};
+
