@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './InvestigationDetailsModal.css';
 import { Spinner } from '@telegram-apps/telegram-ui';
-import { popup } from '@tma.js/sdk-react';
 import { useTonConnect } from '../../hooks/useTonConnect';
+import { useWalletConnectPopup } from '../../utils/walletPopup';
 
 interface Evidence {
   id: string;
@@ -55,15 +55,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
   const [voteLoading, setVoteLoading] = useState(false);
   const [voteShake, setVoteShake] = useState<'p1' | 'draw' | 'p2' | null>(null);
   const { connected } = useTonConnect();
-
-  const showWalletHint = async () => {
-    const message = 'Подключите TON-кошелёк, чтобы выполнить действие';
-    if (popup.isSupported()) {
-      await popup.show({ message });
-      return;
-    }
-    window.alert(message);
-  };
+  const showWalletConnectPopup = useWalletConnectPopup();
 
   // Load investigation record and dispute details
   useEffect(() => {
@@ -123,7 +115,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
     if (!connected) {
       setVoteShake(null);
       requestAnimationFrame(() => setVoteShake(choice));
-      void showWalletHint();
+      void showWalletConnectPopup();
       return;
     }
     setVoteLoading(true);

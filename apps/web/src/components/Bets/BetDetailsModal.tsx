@@ -6,6 +6,7 @@ import './BetDetailsModal.css';
 import { useBetContract } from '../../hooks/useBetContract';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import { Spinner } from '@telegram-apps/telegram-ui';
+import { useWalletConnectPopup } from '../../utils/walletPopup';
 
 interface Props {
   id: string;
@@ -72,6 +73,7 @@ export const BetDetailsModal: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { accept, refund, win, draw } = useBetContract();
   const { connected } = useTonConnect();
+  const showWalletConnectPopup = useWalletConnectPopup();
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setIsOpen(true));
@@ -104,9 +106,9 @@ export const BetDetailsModal: React.FC<Props> = ({
   const handleAction = async (action: 'accept' | 'reject') => {
     if (!bet) return;
     if (action === 'accept' && !connected) {
-      setError('Подключите TON-кошелёк, чтобы выполнить транзакцию');
       setAcceptShake(false);
       requestAnimationFrame(() => setAcceptShake(true));
+      await showWalletConnectPopup();
       return;
     }
     setActionLoading(true);
@@ -142,9 +144,9 @@ export const BetDetailsModal: React.FC<Props> = ({
   const handleResultVote = async (vote: 'win' | 'lose') => {
     if (!bet) return;
     if (vote === 'win' && !connected) {
-      setError('Подключите TON-кошелёк, чтобы выполнить транзакцию');
       setResultShake(null);
       requestAnimationFrame(() => setResultShake(vote));
+      await showWalletConnectPopup();
       return;
     }
     setActionLoading(true);
@@ -167,9 +169,9 @@ export const BetDetailsModal: React.FC<Props> = ({
   const handleClaim = async () => {
     if (!bet) return;
     if (!connected) {
-      setError('Подключите TON-кошелёк, чтобы выполнить транзакцию');
       setClaimShake(false);
       requestAnimationFrame(() => setClaimShake(true));
+      await showWalletConnectPopup();
       return;
     }
     setActionLoading(true);

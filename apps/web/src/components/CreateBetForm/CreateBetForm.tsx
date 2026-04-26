@@ -10,6 +10,7 @@ import { backButton, hideKeyboard } from '@tma.js/sdk-react';
 import { AmountInput, parseAmountInput } from '../AmountInput/AmountInput';
 import { Alert } from '../ui/alert/Alert';
 import { TonIcon } from '../TonIcon/TonIcon';
+import { useWalletConnectPopup } from '../../utils/walletPopup';
 
 interface Props {
   onClose: () => void;
@@ -144,6 +145,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const { getAddress } = useBetContract();
   const { createBetWithDeposit } = useBetMasterContract();
   const { connected } = useTonConnect();
+  const showWalletConnectPopup = useWalletConnectPopup();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -379,9 +381,9 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     setSuccess(false);
 
     if (!connected) {
-      setError('Подключите TON-кошелёк, чтобы выполнить транзакцию');
       setSubmitShake(false);
       requestAnimationFrame(() => setSubmitShake(true));
+      await showWalletConnectPopup();
       setSubmitting(false);
       return;
     }
