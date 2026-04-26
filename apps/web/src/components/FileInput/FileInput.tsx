@@ -1,7 +1,7 @@
 import React, { ChangeEvent, CSSProperties, MouseEvent, useEffect, useRef, useState } from 'react';
 import './FileInput.css';
 import { compressImageIfNeeded } from '../../utils/imageCompression';
-import { UploadItem, Props } from './Types'
+import { UploadItem, Props } from './types'
 import { CloseIcon, FailedIcon, FileIcon, PaperclipIcon } from './icons';
 import { parseAcceptTokens, isCountedItem, revokePreview, getFileTypeLabel, isFileAccepted } from './helpers';
 import { getFileTooLargeMessage, getUnsupportedFormatMessage, LIMIT_EXCEEDED_MESSAGE } from './messages';

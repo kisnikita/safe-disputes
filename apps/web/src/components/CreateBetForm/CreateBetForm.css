@@ -59,7 +59,7 @@
 .create-bet-field-label {
   display: block;
   color: rgba(167, 235, 235, 0.9);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .create-bet-input-wrap + .create-bet-field-label {
