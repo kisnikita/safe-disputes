@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 import { BetDetailsModal } from './BetDetailsModal';
-import { Avatar, Spinner } from '@telegram-apps/telegram-ui';
+import { Spinner } from '@telegram-apps/telegram-ui';
 import { HIDE_THRESHOLD } from '../../utils/constants';
 import { SubtabsSearch } from '../Layout/SubtabsSearch';
 import { ScrollTopHitArea, useDefaultScrollTopHit } from '../Layout/ScrollTopHitArea';
@@ -17,6 +17,7 @@ import './BetsSection.css';
 import { EmptyState } from '../EmptyState/EmptyState';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import tonIcon from '../../../assets/ton-icon.svg';
+import { UserAvatar } from '../UserAvatar/UserAvatar';
 
 interface Bet {
   id: string;
@@ -112,12 +113,6 @@ const getShortDeadlineText = (tab: Subtab, bet: Bet): string => {
   if (days > 0) return `${days}д ${hours}ч ${minutes}м`;
   if (hours > 0) return `${hours}ч ${minutes}м`;
   return `${minutes}м`;
-};
-
-const getAvatarAcronym = (username: string): string => {
-  const normalized = username.replace(/^@+/, '').trim();
-  if (!normalized) return '?';
-  return normalized.slice(0, 2).toUpperCase();
 };
 
 const formatBetAmount = (value: number): string => value.toFixed(2);
@@ -921,22 +916,12 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                             <span className="bet-card-amount-value">{formattedAmount}</span>
                           </div>
                           <div className="bet-card-opponent">
-                            {bet.photoUrl ? (
-                              <Avatar
-                                size={24}
-                                src={bet.photoUrl}
-                                alt={bet.opponent}
-                                className="bet-card-avatar bet-card-avatar-image"
-                              />
-                            ) : (
-                              <span
-                                className="bet-card-avatar bet-card-avatar-acronym"
-                                aria-label={`Аватар ${bet.opponent}`}
-                                title={bet.opponent}
-                              >
-                                {getAvatarAcronym(bet.opponent)}
-                              </span>
-                            )}
+                            <UserAvatar
+                              className="bet-card-avatar"
+                              size={24}
+                              photoUrl={bet.photoUrl}
+                              username={bet.opponent}
+                            />
                             <span>{bet.opponent}</span>
                           </div>
 

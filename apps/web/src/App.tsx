@@ -8,6 +8,7 @@ import { InvestigationsSection, InvestigationsSectionHandle } from './components
 import { SettingsSection } from './components/Settings/SettingsSection';
 import { SearchSection } from './components/Search/SearchSection';
 import { useTelegramAuth } from './hooks/useTelegramAuth';
+import { apiFetch } from './utils/apiFetch';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { init, backButton } from '@tma.js/sdk-react';
 import './App.css';
@@ -15,6 +16,8 @@ import './App.css';
 export function App() {
   const { status, error } = useTelegramAuth();
   const [activeTab, setActiveTab] = useState<'bets' | 'investigations' | 'search' | 'settings'>('bets');
+  const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const betsSectionRef = useRef<BetsSectionHandle>(null);
   const investigationsSectionRef = useRef<InvestigationsSectionHandle>(null);
@@ -38,6 +41,23 @@ export function App() {
       backButton.hide();
     }
   }, [status, showForm]);
+
+  useEffect(() => {
+    if (status !== 'ready') return;
+
+    (async () => {
+      try {
+        const res = await apiFetch('/api/v1/users/me');
+        const { data } = (await res.json()) as { data?: { username?: string; photoUrl?: string | null } };
+        setUserPhotoUrl(data?.photoUrl ?? null);
+        setUsername(data?.username ?? '');
+      } catch (fetchError) {
+        console.error(fetchError);
+        setUserPhotoUrl(null);
+        setUsername('');
+      }
+    })();
+  }, [status]);
 
   return (
     <AppRoot hideTonButton={showForm || status !== 'ready'}>
@@ -93,6 +113,8 @@ export function App() {
             {!showForm && (
               <TabBar
                 active={activeTab}
+                userPhotoUrl={userPhotoUrl}
+                username={username}
                 onChange={id => {
                   const nextTab = id as typeof activeTab;
                   if (nextTab === activeTab) {

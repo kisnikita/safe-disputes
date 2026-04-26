@@ -1,21 +1,24 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import betIcon from '../../../assets/bet-icon.svg';
 import investigationIcon from '../../../assets/investigation-icon.svg';
-import settingsIcon from '../../../assets/settings-icon.svg';
 import searchIcon from '../../../assets/search-icon.svg';
+import { UserAvatar } from '../UserAvatar/UserAvatar';
 import './TabBar.css';
 
 const tabs: { id: string; label: string; icon?: string }[] = [
   { id: 'bets', label: 'Пари', icon: betIcon },
   { id: 'investigations', label: 'Суд', icon: investigationIcon },
   { id: 'search', label: 'Поиск', icon: searchIcon },
-  { id: 'settings', label: 'Профиль', icon: settingsIcon },
+  { id: 'settings', label: 'Настройки' },
 ];
 
 export const TabBar: React.FC<{
   active: string;
+  userPhotoUrl?: string | null;
+  username?: string;
   onChange: (id: string) => void;
-}> = ({ active, onChange }) => {
+}> = ({ active, userPhotoUrl, username, onChange }) => {
+  const indicatorExtraWidth = 8;
   const navRef = useRef<HTMLElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -50,9 +53,9 @@ export const TabBar: React.FC<{
     if (!button) return;
     const trackRect = track.getBoundingClientRect();
     const buttonRect = button.getBoundingClientRect();
-    const translateX = buttonRect.left - trackRect.left;
+    const translateX = buttonRect.left - trackRect.left - indicatorExtraWidth / 2;
     setIndicatorStyle({
-      width: `${buttonRect.width}px`,
+      width: `${buttonRect.width + indicatorExtraWidth}px`,
       transform: `translateX(${translateX}px) scaleX(1)`,
     });
   }, [activeId]);
@@ -65,16 +68,16 @@ export const TabBar: React.FC<{
       if (!button) return;
       const trackRect = track.getBoundingClientRect();
       const buttonRect = button.getBoundingClientRect();
-      const translateX = buttonRect.left - trackRect.left;
+      const translateX = buttonRect.left - trackRect.left - indicatorExtraWidth / 2;
       setIndicatorStyle({
-        width: `${buttonRect.width}px`,
+        width: `${buttonRect.width + indicatorExtraWidth}px`,
         transform: `translateX(${translateX}px) scaleX(1)`,
       });
     });
     ro.observe(track);
     Object.values(buttonRefs.current).forEach(node => node && ro.observe(node));
     return () => ro.disconnect();
-  }, [activeId]);
+  }, [activeId, indicatorExtraWidth]);
 
   return (
     <nav
@@ -105,6 +108,15 @@ export const TabBar: React.FC<{
                   src={t.icon}
                   alt=""
                   draggable={false}
+                />
+              </span>
+            ) : t.id === 'settings' ? (
+              <span className="tabbar-icon tabbar-avatar" aria-hidden="true">
+                <UserAvatar
+                  className="tab-avatar"
+                  size={24}
+                  photoUrl={userPhotoUrl}
+                  username={username ?? ''}
                 />
               </span>
             ) : null}

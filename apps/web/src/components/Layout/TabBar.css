@@ -57,7 +57,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
   text-align: center;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
@@ -69,11 +69,27 @@
   width: 24px;
   height: 24px;
   transition: transform 0.4s ease, opacity 0.4s ease, filter 0.4s ease;
-  display: inline-block;
+  display: block;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
   filter: brightness(0.9);
+}
+
+.tabbar .tabbar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  line-height: 0;
+}
+
+.tabbar .tab-avatar {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
 }
 
 .tabbar .tabbar-label {
@@ -126,6 +142,10 @@
   transform: scale(1.05);
   opacity: 1;
   filter: brightness(1);
+}
+
+.tabbar button.active .tab-avatar {
+  transform: scale(1.05);
 }
 
 .tabbar button:focus-visible {
