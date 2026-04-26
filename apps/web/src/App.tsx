@@ -108,7 +108,9 @@ export function App() {
                 />
               )}
               {!showForm && activeTab === 'search' && <SearchSection />}
-              {!showForm && activeTab === 'settings' && <SettingsSection />}
+              {!showForm && activeTab === 'settings' && (
+                <SettingsSection username={username} userPhotoUrl={userPhotoUrl} />
+              )}
             </div>
             {!showForm && (
               <TabBar

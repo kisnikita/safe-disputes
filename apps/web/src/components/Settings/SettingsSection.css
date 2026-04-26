@@ -1,28 +1,63 @@
-.settings-panel {
+.settings-screen {
   position: relative;
   width: 100%;
+  box-sizing: border-box;
   max-width: 480px;
   margin-left: auto;
   margin-right: auto;
-  margin-top: 150px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(215deg, rgba(94, 234, 212, 0.15), rgba(15, 23, 42, 0.82));
-  box-shadow:
-    0 14px 30px rgba(15, 23, 42, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -10px 16px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(18px) saturate(145%);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
-  overflow: hidden;
+  margin-top: calc(112px + var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, 0px)));
+  padding: 0 10px 16px;
+  overflow-x: hidden;
   user-select: none;
   -webkit-user-select: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .settings-panel {
+  .settings-screen {
     margin-top: 50px;
   }
+}
+
+.settings-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+
+}
+
+.settings-profile-avatar {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 10px 22px rgba(15, 23, 42, 0.35),
+    0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.settings-profile-login {
+  margin: 0;
+  max-width: 100%;
+  padding: 0 16px;
+  font-size: 24px;
+  line-height: 1.1;
+  color: #e9ffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-card {
+  margin-bottom: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(215deg, rgba(94, 234, 212, 0.15), rgba(15, 23, 42, 0.82));
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -10px 16px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  overflow: hidden;
 }
 
 .settings-row {
@@ -154,10 +189,22 @@
 }
 
 .settings-status {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  z-index: 5;
+  color: #a7ebeb;
+  font-size: 18px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.settings-saving {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px 0;
   color: #a7ebeb;
   font-size: 18px;
   font-weight: 500;
