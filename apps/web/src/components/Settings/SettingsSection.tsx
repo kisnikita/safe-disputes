@@ -4,9 +4,13 @@ import './SettingsSection.css';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { popup } from '@tma.js/sdk-react';
 import { UserAvatar } from '../UserAvatar/UserAvatar';
-import { AmountInput } from '../AmountInput/AmountInput';
+import {
+  AmountInput,
+  DEFAULT_AMOUNT_MAX_FRACTION_DIGITS,
+  validateAmountValue,
+} from '../AmountInput/AmountInput';
 import { TonIcon } from '../TonIcon/TonIcon';
-import { formatNanoToTon, parseTonToNano } from '../../utils/tonAmount';
+import { formatNanoToTon } from '../../utils/tonAmount';
 
 interface UserSettings {
   notificationEnabled: boolean;
@@ -181,8 +185,15 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
     );
   }
 
-  const parsedMinNano = parseTonToNano(minInput, { allowZero: true });
+  const minAmountValidation = validateAmountValue(minInput, {
+    maxFractionDigits: DEFAULT_AMOUNT_MAX_FRACTION_DIGITS,
+    allowZero: true,
+  });
+  const parsedMinNano = minAmountValidation.parsedNano;
+  const minValidationText = minAmountValidation.validationText;
+  const isMinInvalid = minAmountValidation.isInvalid;
   const minChanged = parsedMinNano !== null && parsedMinNano !== settings.minimumDisputeAmountNano;
+  const shouldShowMinSaveButton = minChanged || isMinInvalid;
 
   const notifDisabled = saving;
   const normalizedUsername = username.replace(/^@+/, '').trim();
@@ -255,30 +266,38 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
 
       <div className="settings-card">
         {/* Минимальная ставка */}
-        <div className="settings-row">
+        <div className="settings-row settings-row-min-amount">
           <span className="settings-label settings-label-with-icon">
             <TonIcon className="settings-ton-icon" title="TON" />
             <span>Минимальная ставка</span>
           </span>
-          <div className="min-input-wrapper">
-            <AmountInput
-              className="settings-input"
-              ref={minInputRef}
-              value={minInput}
-              disabled={saving}
-              onValueChange={setMinInput}
-            />
-            {minChanged && (
-              <button
-                className="save-button"
-                onClick={() => {
-                  if (parsedMinNano === null) return;
-                  void updateField('minimumDisputeAmountNano', parsedMinNano);
-                }}
+          <div className="settings-min-amount-controls">
+            <div className="min-input-wrapper">
+              <AmountInput
+                className={`settings-input${isMinInvalid ? ' settings-input-invalid' : ''}`}
+                ref={minInputRef}
+                value={minInput}
+                maxFractionDigits={DEFAULT_AMOUNT_MAX_FRACTION_DIGITS}
                 disabled={saving}
-              >
-                {saving ? '…' : 'Сохранить'}
-              </button>
+                onValueChange={setMinInput}
+              />
+              {shouldShowMinSaveButton && (
+                <button
+                  className="save-button"
+                  onClick={() => {
+                    if (parsedMinNano === null || isMinInvalid) return;
+                    void updateField('minimumDisputeAmountNano', parsedMinNano);
+                  }}
+                  disabled={saving || isMinInvalid}
+                >
+                  {saving ? '…' : 'Сохранить'}
+                </button>
+              )}
+            </div>
+            {isMinInvalid && minValidationText && (
+              <p className="settings-field-hint settings-hint-error">
+                {minValidationText}
+              </p>
             )}
           </div>
         </div>

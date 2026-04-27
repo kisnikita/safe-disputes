@@ -145,6 +145,18 @@
   gap: 8px;
 }
 
+.settings-row-min-amount {
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-min-amount-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 .settings-input {
   width: 64px;
   padding: 8px 10px;
@@ -171,6 +183,27 @@
 
 .settings-input:focus-visible {
   border-color: rgba(51, 255, 245, 0.8);
+}
+
+.settings-input.settings-input-invalid,
+.settings-input.settings-input-invalid:focus-visible {
+  border-color: rgba(248, 113, 113, 0.85);
+  box-shadow:
+    0 0 0 2px rgba(248, 113, 113, 0.2),
+    0 8px 18px rgba(127, 29, 29, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.settings-field-hint {
+  margin: 0 2px 0 0;
+  color: rgba(167, 235, 235, 0.72);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.settings-hint-error {
+  color: rgba(248, 113, 113, 0.98);
 }
 
 .save-button {

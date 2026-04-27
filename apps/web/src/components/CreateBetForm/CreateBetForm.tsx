@@ -7,7 +7,11 @@ import { useTonConnect } from '../../hooks/useTonConnect';
 import { FileInput } from '../FileInput/FileInput';
 import { TimePicker } from '../TimePicker/TimePicker';
 import { backButton, hideKeyboard } from '@tma.js/sdk-react';
-import { AmountInput } from '../AmountInput/AmountInput';
+import {
+  AmountInput,
+  DEFAULT_AMOUNT_MAX_FRACTION_DIGITS,
+  validateAmountValue,
+} from '../AmountInput/AmountInput';
 import { Alert } from '../ui/alert/Alert';
 import { TonIcon } from '../TonIcon/TonIcon';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
@@ -47,8 +51,6 @@ const CREATE_BET_DRAFT_KEY = 'create-bet-draft-v1';
 const USERNAME_REGEX = /^[a-z][a-z0-9_]{4,}$/;
 const TITLE_MAX_LENGTH = 64;
 const MIN_BET_TON = 0.05;
-const AMOUNT_MAX_FRACTION_DIGITS = 2;
-const MAX_INT64_NANO = 9_223_372_036_854_775_807n;
 const MIN_BET_NANO = parseTonToNano(MIN_BET_TON.toFixed(2), { allowZero: true });
 
 const roundToMinute = (value: Date): Date => {
@@ -156,24 +158,15 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const [description, setDescription] = useState('');
   const [opponent, setOpponent] = useState('');
   const [amountInput, setAmountInput] = useState<string>('');
-  const amountNano = parseTonToNano(amountInput);
-  const isAmountEmpty = amountInput.trim().length === 0;
-  const fractionPart = amountInput.split('.')[1] ?? '';
-  const hasTooManyFractionDigits = fractionPart.length > AMOUNT_MAX_FRACTION_DIGITS;
-  const isAmountInvalidNumber = amountInput !== '' && amountNano === null;
-  const amountNanoBigInt = amountNano ? BigInt(amountNano) : null;
-  const isAmountBelowMin = amountNanoBigInt !== null && MIN_BET_NANO !== null && amountNanoBigInt < BigInt(MIN_BET_NANO);
-  const isAmountTooLarge = amountNanoBigInt !== null && amountNanoBigInt > MAX_INT64_NANO;
-  const amountValidationText = hasTooManyFractionDigits
-    ? `Ставка может содержать не более ${AMOUNT_MAX_FRACTION_DIGITS} знаков после запятой`
-    : isAmountInvalidNumber
-      ? 'Введите корректную сумму ставки'
-      : isAmountBelowMin
-        ? `Минимальная ставка: ${MIN_BET_TON.toFixed(2)} TON`
-        : isAmountTooLarge
-          ? `Максимальная ставка: 9 млрд TON`
-          : null;
-  const isAmountInvalid = !isAmountEmpty && amountValidationText !== null;
+  const amountValidation = validateAmountValue(amountInput, {
+    maxFractionDigits: DEFAULT_AMOUNT_MAX_FRACTION_DIGITS,
+    minNano: MIN_BET_NANO,
+    minDisplayTon: MIN_BET_TON.toFixed(2),
+  });
+  const amountNano = amountValidation.parsedNano;
+  const isAmountEmpty = amountValidation.isEmpty;
+  const amountValidationText = amountValidation.validationText;
+  const isAmountInvalid = amountValidation.isInvalid;
   const [endsAt, setEndsAt] = useState<Date>(() => getDefaultEndsAt());
   const [file, setFile] = useState<File | null>(null);
   const [fileInputHasError, setFileInputHasError] = useState(false);
@@ -695,7 +688,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                 <AmountInput
                   className={`create-bet-input${isAmountInvalid ? ' create-bet-input-invalid' : ''}`}
                   value={amountInput}
-                  maxFractionDigits={AMOUNT_MAX_FRACTION_DIGITS}
+                  maxFractionDigits={DEFAULT_AMOUNT_MAX_FRACTION_DIGITS}
                   onValueChange={value => {
                     hasUserInputRef.current = true;
                     setAmountInput(value);
