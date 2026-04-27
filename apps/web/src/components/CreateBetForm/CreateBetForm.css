@@ -350,7 +350,7 @@
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.create-bet-submit-btn:active:not(:disabled) {
+.create-bet-submit-btn:active:not(:disabled):not(.create-bet-submit-btn-blocked) {
   transform: scale(0.98);
 }
 
@@ -359,22 +359,14 @@
   cursor: not-allowed;
 }
 
-.create-bet-submit-btn-wallet-disconnected {
+.create-bet-submit-btn-blocked {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.create-bet-submit-btn-shake {
-  animation: create-bet-wallet-shake 280ms ease-in-out;
-}
-
-@keyframes create-bet-wallet-shake {
-  0% { transform: translateX(0); }
-  20% { transform: translateX(-4px); }
-  40% { transform: translateX(4px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(3px); }
-  100% { transform: translateX(0); }
+.create-bet-submit-btn-wallet-disconnected {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .create-bet-error-message {
@@ -434,11 +426,5 @@
   .create-bet-time-picker .time-picker-input {
     padding-left: 10px;
     padding-right: 10px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .create-bet-submit-btn-shake {
-    animation: none;
   }
 }

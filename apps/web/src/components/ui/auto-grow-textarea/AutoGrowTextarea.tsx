@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  ForwardedRef,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import './AutoGrowTextarea.css';
 
 type Props = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange'> & {
@@ -7,7 +14,20 @@ type Props = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | '
   minHeight?: number;
 };
 
-export const AutoGrowTextarea: React.FC<Props> = ({
+const assignRef = (
+  forwardedRef: ForwardedRef<HTMLTextAreaElement>,
+  value: HTMLTextAreaElement | null,
+) => {
+  if (typeof forwardedRef === 'function') {
+    forwardedRef(value);
+    return;
+  }
+  if (forwardedRef) {
+    forwardedRef.current = value;
+  }
+};
+
+export const AutoGrowTextarea = forwardRef<HTMLTextAreaElement, Props>(({
   value,
   onValueChange,
   minHeight = 80,
@@ -15,8 +35,13 @@ export const AutoGrowTextarea: React.FC<Props> = ({
   style,
   onInput,
   ...rest
-}) => {
+}, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const setTextareaRef = useCallback((node: HTMLTextAreaElement | null) => {
+    textareaRef.current = node;
+    assignRef(ref, node);
+  }, [ref]);
 
   const resize = useCallback(() => {
     const textarea = textareaRef.current;
@@ -37,7 +62,7 @@ export const AutoGrowTextarea: React.FC<Props> = ({
   return (
     <textarea
       {...rest}
-      ref={textareaRef}
+      ref={setTextareaRef}
       className={`auto-grow-textarea${className ? ` ${className}` : ''}`}
       style={mergedStyle}
       value={value}
@@ -48,4 +73,6 @@ export const AutoGrowTextarea: React.FC<Props> = ({
       }}
     />
   );
-};
+});
+
+AutoGrowTextarea.displayName = 'AutoGrowTextarea';

@@ -6,6 +6,7 @@ import { Alert } from '../ui/alert/Alert';
 import { AutoGrowTextarea } from '../ui/auto-grow-textarea/AutoGrowTextarea';
 import '../CreateBetForm/CreateBetForm.css';
 import './EvidenceForm.css';
+import { useBlockedActionFeedback } from '../../hooks/useBlockedActionFeedback';
 
 interface Props {
   disputeId: string;
@@ -19,8 +20,8 @@ interface EvidenceDraft {
 
 const EVIDENCE_FILE_INPUT_MAX_FILES = 1;
 const EVIDENCE_TEXT_MIN_HEIGHT_PX = 96;
-const EVIDENCE_TEXT_MAX_LENGTH = 512;
-const EVIDENCE_TEXT_WARNING_LENGTH = 450;
+const EVIDENCE_TEXT_MAX_LENGTH = 4096;
+const EVIDENCE_TEXT_WARNING_LENGTH = 3600;
 const EVIDENCE_DRAFT_KEY_PREFIX = 'evidence-draft-v1:';
 
 const getSessionStorage = (): Storage | null => {
@@ -52,6 +53,7 @@ const isFromEvidenceTextarea = (target: EventTarget | null): boolean => {
 
 export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted }) => {
   const draftLoadedRef = useRef(false);
+  const statementInputRef = useRef<HTMLTextAreaElement | null>(null);
   const closeInFlightRef = useRef(false);
   const submittedNotifiedRef = useRef(false);
   const attemptCloseRef = useRef<() => Promise<void>>(async () => {});
@@ -64,13 +66,25 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [showDraftRestoredAlert, setShowDraftRestoredAlert] = useState(false);
+  const {
+    isShaking: submitShake,
+    handleShakeAnimationEnd: handleSubmitShakeAnimationEnd,
+    triggerBlockedActionFeedback,
+  } = useBlockedActionFeedback();
 
   const draftKey = getEvidenceDraftKey(disputeId);
+  const isStatementEmpty = statement.trim().length === 0;
   const isStatementTooLong = statement.length > EVIDENCE_TEXT_MAX_LENGTH;
   const isStatementNearLimit = statement.length >= EVIDENCE_TEXT_WARNING_LENGTH && !isStatementTooLong;
-  const isRequiredFieldsFilled = statement.trim().length > 0 && !isStatementTooLong;
-  const hasSavableDraftData = statement.trim().length > 0;
+  const shouldShowStatementValidation = (showValidationErrors && isStatementEmpty) || isStatementTooLong;
+  const statementValidationText = isStatementTooLong
+    ? `Текст должен быть не длиннее ${EVIDENCE_TEXT_MAX_LENGTH} символов`
+    : 'Заполните обязательное поле';
+  const isRequiredFieldsFilled = !isStatementEmpty && !isStatementTooLong;
+  const isSubmitBlockedByValidation = !isRequiredFieldsFilled;
+  const hasSavableDraftData = !isStatementEmpty;
 
   const notifySubmittedIfNeeded = useCallback(() => {
     if (submittedNotifiedRef.current) return;
@@ -145,6 +159,7 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
   const handleCancelDraftRestore = useCallback(() => {
     setStatement('');
     setError(null);
+    setShowValidationErrors(false);
     setShowDraftRestoredAlert(false);
     clearDraftFromStorage();
   }, [clearDraftFromStorage]);
@@ -182,21 +197,23 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (submitting) return;
-    setSubmitting(true);
     setError(null);
     setSuccess(false);
 
     if (isStatementTooLong) {
-      setError(`Текст должен быть не длиннее ${EVIDENCE_TEXT_MAX_LENGTH} символов`);
-      setSubmitting(false);
+      setShowValidationErrors(true);
+      triggerBlockedActionFeedback(() => statementInputRef.current);
       return;
     }
 
     if (!isRequiredFieldsFilled) {
-      setError('Заполните обязательное поле');
-      setSubmitting(false);
+      setShowValidationErrors(true);
+      triggerBlockedActionFeedback(() => statementInputRef.current);
       return;
     }
+
+    setShowValidationErrors(false);
+    setSubmitting(true);
 
     try {
       const form = new FormData();
@@ -230,7 +247,7 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
       onTouchEnd={resetTouchTracking}
       onTouchCancel={resetTouchTracking}
     >
-      <form className="create-bet-page evidence-form-page" onSubmit={handleSubmit}>
+      <form className="create-bet-page evidence-form-page" onSubmit={handleSubmit} noValidate>
         <header className="create-bet-header">
           <h3>Внесение доказательств</h3>
         </header>
@@ -261,7 +278,8 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
               </div>
               <div className="create-bet-input-wrap create-bet-textarea-wrap">
                 <AutoGrowTextarea
-                  className={`create-bet-input create-bet-textarea evidence-form-textarea${isStatementTooLong ? ' create-bet-input-invalid' : ''}`}
+                  ref={statementInputRef}
+                  className={`create-bet-input create-bet-textarea evidence-form-textarea${shouldShowStatementValidation ? ' create-bet-input-invalid' : ''}`}
                   minHeight={EVIDENCE_TEXT_MIN_HEIGHT_PX}
                   value={statement}
                   onValueChange={value => setStatement(value)}
@@ -291,6 +309,11 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
                   {statement.length}/{EVIDENCE_TEXT_MAX_LENGTH}
                 </p>
               )}
+              {shouldShowStatementValidation && (
+                <p className="create-bet-field-hint create-bet-hint-error">
+                  {statementValidationText}
+                </p>
+              )}
             </section>
 
             <section className="create-bet-section">
@@ -309,8 +332,10 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
             <div className="create-bet-form-actions">
               <button
                 type="submit"
-                className="create-bet-submit-btn"
-                disabled={submitting || fileInputHasError || !isRequiredFieldsFilled}
+                className={`create-bet-submit-btn${isSubmitBlockedByValidation ? ' create-bet-submit-btn-blocked' : ''}${submitShake ? ' action-shake' : ''}`}
+                disabled={submitting || fileInputHasError}
+                aria-disabled={submitting || fileInputHasError || isSubmitBlockedByValidation}
+                onAnimationEnd={handleSubmitShakeAnimationEnd}
               >
                 {submitting ? 'Отправка…' : 'Отправить доказательства'}
               </button>

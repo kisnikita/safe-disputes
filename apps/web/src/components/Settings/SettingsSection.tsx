@@ -11,6 +11,7 @@ import {
 } from '../AmountInput/AmountInput';
 import { TonIcon } from '../TonIcon/TonIcon';
 import { formatNanoToTon } from '../../utils/tonAmount';
+import { useBlockedActionFeedback } from '../../hooks/useBlockedActionFeedback';
 
 interface UserSettings {
   notificationEnabled: boolean;
@@ -48,6 +49,11 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
 
   const [minInput, setMinInput] = useState<string>('');
   const minInputRef = useRef<HTMLInputElement>(null);
+  const {
+    isShaking: minSaveShake,
+    triggerShake: triggerMinSaveShake,
+    handleShakeAnimationEnd: handleMinSaveShakeAnimationEnd,
+  } = useBlockedActionFeedback();
   const refreshInFlightRef = useRef(false);
   const lastSilentRefreshAtRef = useRef(0);
 
@@ -283,12 +289,17 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
               />
               {shouldShowMinSaveButton && (
                 <button
-                  className="save-button"
+                  className={`save-button${isMinInvalid ? ' save-button-blocked' : ''}${minSaveShake ? ' action-shake' : ''}`}
                   onClick={() => {
-                    if (parsedMinNano === null || isMinInvalid) return;
+                    if (parsedMinNano === null || isMinInvalid) {
+                      triggerMinSaveShake();
+                      return;
+                    }
                     void updateField('minimumDisputeAmountNano', parsedMinNano);
                   }}
-                  disabled={saving || isMinInvalid}
+                  disabled={saving}
+                  aria-disabled={saving || isMinInvalid}
+                  onAnimationEnd={handleMinSaveShakeAnimationEnd}
                 >
                   {saving ? '…' : 'Сохранить'}
                 </button>

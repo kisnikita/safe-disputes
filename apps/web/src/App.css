@@ -145,3 +145,22 @@ input, textarea {
   justify-content: center;
   padding: 24px 0 16px;
 }
+
+.action-shake {
+  animation: app-action-shake 280ms ease-in-out;
+}
+
+@keyframes app-action-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-shake {
+    animation: none;
+  }
+}

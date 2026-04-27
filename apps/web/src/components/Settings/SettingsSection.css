@@ -225,11 +225,16 @@
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.save-button:active:not(:disabled) {
+.save-button:active:not(:disabled):not(.save-button-blocked) {
   transform: scale(0.98);
 }
 
 .save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-button-blocked {
   opacity: 0.6;
   cursor: not-allowed;
 }

@@ -17,6 +17,7 @@ import { TonIcon } from '../TonIcon/TonIcon';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
 import { parseTonToNano } from '../../utils/tonAmount';
 import { AutoGrowTextarea } from '../ui/auto-grow-textarea/AutoGrowTextarea';
+import { useBlockedActionFeedback } from '../../hooks/useBlockedActionFeedback';
 
 interface Props {
   onClose: () => void;
@@ -30,6 +31,8 @@ export interface CreateBetDraft {
   amountInput: string;
   endsAtISO: string;
 }
+
+type InvalidCreateBetField = 'title' | 'description' | 'opponent' | 'amount' | 'endsAt';
 
 const errorMessages: Record<string, string> = {
   'opponent not found': 'Пользователь с таким username не зарегистрирован в приложении',
@@ -45,8 +48,8 @@ const errorMessages: Record<string, string> = {
 
 const CREATE_BET_FILE_INPUT_MAX_FILES = 1;
 const DESCRIPTION_MIN_HEIGHT_PX = 80;
-const DESCRIPTION_MAX_LENGTH = 512;
-const DESCRIPTION_WARNING_LENGTH = 450;
+const DESCRIPTION_MAX_LENGTH = 4096;
+const DESCRIPTION_WARNING_LENGTH = 3600;
 const CREATE_BET_DRAFT_KEY = 'create-bet-draft-v1';
 const USERNAME_REGEX = /^[a-z][a-z0-9_]{4,}$/;
 const TITLE_MAX_LENGTH = 64;
@@ -139,6 +142,11 @@ const getSessionStorage = (): Storage | null => {
 
 export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const screenRef = useRef<HTMLDivElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const opponentInputRef = useRef<HTMLInputElement | null>(null);
+  const amountInputRef = useRef<HTMLInputElement | null>(null);
+  const endsAtDateInputRef = useRef<HTMLInputElement | null>(null);
   const draftLoadedRef = useRef(false);
   const hasUserInputRef = useRef(false);
   const createdRef = useRef(false);
@@ -153,6 +161,12 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const { createBetWithDeposit } = useBetMasterContract();
   const { connected } = useTonConnect();
   const showWalletConnectPopup = useWalletConnectPopup();
+  const {
+    isShaking: submitShake,
+    triggerShake: triggerSubmitShake,
+    handleShakeAnimationEnd: handleSubmitShakeAnimationEnd,
+    triggerBlockedActionFeedback,
+  } = useBlockedActionFeedback();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -173,8 +187,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [submitShake, setSubmitShake] = useState(false);
-  const [showOpponentValidation, setShowOpponentValidation] = useState(false);
+  const [opponentServerError, setOpponentServerError] = useState<string | null>(null);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [showDraftRestoredAlert, setShowDraftRestoredAlert] = useState(false);
 
   const notifyCreatedIfNeeded = useCallback(() => {
@@ -216,12 +230,29 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     || amountInput.length > 0
     || endsAt.getTime() !== initialEndsAtRef.current.getTime();
   const opponentValue = opponent.trim();
-  const isOpponentInvalid = opponentValue.length > 0 && !USERNAME_REGEX.test(opponentValue);
-  const shouldShowOpponentValidation = showOpponentValidation && isOpponentInvalid;
-  const opponentValidationText = 'Username должен начинаться с a-z, содержать только a-z, 0-9 и _, минимум 5 символов';
+  const isTitleEmpty = title.trim().length === 0;
+  const isDescriptionEmpty = description.trim().length === 0;
+  const isOpponentEmpty = opponentValue.length === 0;
   const isTitleTooLong = title.length > TITLE_MAX_LENGTH;
   const isDescriptionTooLong = description.length > DESCRIPTION_MAX_LENGTH;
   const isDescriptionNearLimit = description.length >= DESCRIPTION_WARNING_LENGTH && !isDescriptionTooLong;
+  const isOpponentInvalid = opponentValue.length > 0 && !USERNAME_REGEX.test(opponentValue);
+  const shouldShowTitleValidation = (showValidationErrors && isTitleEmpty) || isTitleTooLong;
+  const shouldShowDescriptionValidation = (showValidationErrors && isDescriptionEmpty) || isDescriptionTooLong;
+  const descriptionValidationText = isDescriptionTooLong
+    ? `Условия должны быть не длиннее ${DESCRIPTION_MAX_LENGTH} символов`
+    : 'Заполните поле';
+  const shouldShowOpponentValidation = (showValidationErrors && (isOpponentEmpty || isOpponentInvalid))
+    || opponentServerError !== null;
+  const shouldBlockByOpponentValidation = showValidationErrors && isOpponentInvalid;
+  const opponentValidationText = opponentServerError
+    ?? (isOpponentInvalid
+      ? 'Username должен начинаться с a-z, содержать только a-z, 0-9 и _, минимум 5 символов'
+      : 'Введите username оппонента');
+  const shouldShowAmountValidation = (showValidationErrors && isAmountEmpty) || isAmountInvalid;
+  const amountValidationHint = isAmountEmpty
+    ? 'Введите сумму ставки'
+    : (amountValidationText ?? 'Введите корректную сумму ставки');
   const minAllowedEndsAt = getMinAllowedEndsAt();
   const endsAtMs = endsAt.getTime();
   const minAllowedEndsAtMs = minAllowedEndsAt.getTime();
@@ -233,16 +264,17 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     : isShortAcceptanceWindow
       ? `Оппоненту на принятие пари останется ${formatShortDuration(acceptanceWindowMs)}`
       : 'У оппонента будет 24 часа на принятие пари';
-  const isRequiredFieldsFilled = title.trim().length > 0
+  const isRequiredFieldsFilled = !isTitleEmpty
     && !isTitleTooLong
-    && description.trim().length > 0
+    && !isDescriptionEmpty
     && !isDescriptionTooLong
-    && opponentValue.length > 0
-    && !shouldShowOpponentValidation
+    && !isOpponentEmpty
+    && !shouldBlockByOpponentValidation
     && !isAmountEmpty
     && !isAmountInvalid
     && amountNano !== null
     && !isEndsAtInvalid;
+  const isSubmitBlockedByValidation = !isRequiredFieldsFilled;
 
   attemptCloseRef.current = async () => {
     if (closeInFlightRef.current || submitting) return;
@@ -350,7 +382,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     setEndsAt(initialEndsAtRef.current);
     setFile(null);
     setError(null);
-    setShowOpponentValidation(false);
+    setOpponentServerError(null);
+    setShowValidationErrors(false);
     setShowDraftRestoredAlert(false);
     clearDraftFromStorage();
   }, [clearDraftFromStorage]);
@@ -381,50 +414,44 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
+    if (submitting) return;
     setError(null);
+    setOpponentServerError(null);
     setSuccess(false);
 
+    const getFirstInvalidCreateBetField = (): InvalidCreateBetField | null => {
+      if (title.trim().length === 0 || isTitleTooLong) return 'title';
+      if (description.trim().length === 0 || isDescriptionTooLong) return 'description';
+      if (opponentValue.length === 0 || isOpponentInvalid) return 'opponent';
+      if (isAmountEmpty || isAmountInvalid || amountNano === null) return 'amount';
+      if (isEndsAtInvalid) return 'endsAt';
+      return null;
+    };
+
+    const getCreateBetFieldTarget = (field: InvalidCreateBetField): HTMLElement | null => {
+      if (field === 'title') return titleInputRef.current;
+      if (field === 'description') return descriptionInputRef.current;
+      if (field === 'opponent') return opponentInputRef.current;
+      if (field === 'amount') return amountInputRef.current;
+      return endsAtDateInputRef.current;
+    };
+
+    const firstInvalidField = getFirstInvalidCreateBetField();
+    if (firstInvalidField) {
+      setShowValidationErrors(true);
+      triggerBlockedActionFeedback(() => getCreateBetFieldTarget(firstInvalidField));
+      return;
+    }
+
+    setShowValidationErrors(false);
+
     if (!connected) {
-      setSubmitShake(false);
-      requestAnimationFrame(() => setSubmitShake(true));
+      triggerSubmitShake();
       await showWalletConnectPopup();
-      setSubmitting(false);
       return;
     }
 
-    if (isOpponentInvalid) {
-      setShowOpponentValidation(true);
-      setSubmitting(false);
-      return;
-    }
-    setShowOpponentValidation(false);
-    if (isTitleTooLong) {
-      setError(`Название должно быть не длиннее ${TITLE_MAX_LENGTH} символов`);
-      setSubmitting(false);
-      return;
-    }
-    if (isDescriptionTooLong) {
-      setError(`Условия должны быть не длиннее ${DESCRIPTION_MAX_LENGTH} символов`);
-      setSubmitting(false);
-      return;
-    }
-    if (isAmountEmpty || isAmountInvalid) {
-      setError(amountValidationText ?? 'Введите корректную сумму ставки');
-      setSubmitting(false);
-      return;
-    }
-
-    if (!isRequiredFieldsFilled) {
-      setError('Заполните все обязательные поля');
-      setSubmitting(false);
-      return;
-    }
-    if (isEndsAtInvalid) {
-      setError('Дата и время окончания должны быть в будущем');
-      setSubmitting(false);
-      return;
-    }
+    setSubmitting(true);
 
     try {
       const precheckRes = await apiFetch('/api/v1/disputes/precheck', {
@@ -443,7 +470,12 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       }
     } catch (err: any) {
       const key = Object.keys(errorMessages).find(k => err.message.includes(k)) ?? err.message;
-      setError(errorMessages[key] || `Не удалось проверить оппонента: ${key}`);
+      if (key === 'opponent not found') {
+        setOpponentServerError(errorMessages[key]);
+        triggerBlockedActionFeedback(() => opponentInputRef.current);
+      } else {
+        setError(errorMessages[key] || `Не удалось проверить оппонента: ${key}`);
+      }
       setSubmitting(false);
       return;
     }
@@ -536,6 +568,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       <form
         className="create-bet-page"
         onSubmit={handleSubmit}
+        noValidate
       >
         <header className="create-bet-header">
           <h3>Новое пари</h3>
@@ -566,7 +599,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
               </div>
               <div className="create-bet-input-wrap create-bet-title-wrap">
                 <input
-                  className={`create-bet-input${isTitleTooLong ? ' create-bet-input-invalid' : ''}`}
+                  ref={titleInputRef}
+                  className={`create-bet-input${shouldShowTitleValidation ? ' create-bet-input-invalid' : ''}`}
                   type="text"
                   value={title}
                   onChange={e => {
@@ -599,12 +633,20 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   </svg>
                 </button>
               </div>
+              {shouldShowTitleValidation && (
+                <p className="create-bet-field-hint create-bet-hint-error">
+                  {isTitleTooLong
+                    ? `Название должно быть не длиннее ${TITLE_MAX_LENGTH} символов`
+                    : 'Заполните поле'}
+                </p>
+              )}
               <div className="create-bet-field-label">
                 УСЛОВИЯ<span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
               <div className="create-bet-input-wrap create-bet-textarea-wrap">
                 <AutoGrowTextarea
-                  className={`create-bet-input create-bet-textarea${isDescriptionTooLong ? ' create-bet-input-invalid' : ''}`}
+                  ref={descriptionInputRef}
+                  className={`create-bet-input create-bet-textarea${shouldShowDescriptionValidation ? ' create-bet-input-invalid' : ''}`}
                   minHeight={DESCRIPTION_MIN_HEIGHT_PX}
                   value={description}
                   onValueChange={value => {
@@ -637,6 +679,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   {description.length}/{DESCRIPTION_MAX_LENGTH}
                 </p>
               )}
+              {shouldShowDescriptionValidation && (
+                <p className="create-bet-field-hint create-bet-hint-error">
+                  {descriptionValidationText}
+                </p>
+              )}
             </section>
 
             <section className="create-bet-section">
@@ -645,11 +692,13 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
               </div>
               <div className="create-bet-input-wrap">
                 <input
+                  ref={opponentInputRef}
                   className={`create-bet-input${shouldShowOpponentValidation ? ' create-bet-input-invalid' : ''}`}
                   type="text"
                   value={opponent}
                   onChange={e => {
                     hasUserInputRef.current = true;
+                    setOpponentServerError(null);
                     setOpponent(e.target.value.toLowerCase());
                   }}
                   placeholder="username"
@@ -659,7 +708,10 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   type="button"
                   className={`create-bet-input-clear${opponent.length > 0 ? ' visible' : ''}`}
                   onMouseDown={event => event.preventDefault()}
-                  onClick={() => setOpponent('')}
+                  onClick={() => {
+                    setOpponentServerError(null);
+                    setOpponent('');
+                  }}
                   aria-label="Очистить оппонента"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -685,7 +737,8 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
               </div>
               <div className="create-bet-input-wrap create-bet-amount-wrap">
                 <AmountInput
-                  className={`create-bet-input${isAmountInvalid ? ' create-bet-input-invalid' : ''}`}
+                  ref={amountInputRef}
+                  className={`create-bet-input${shouldShowAmountValidation ? ' create-bet-input-invalid' : ''}`}
                   value={amountInput}
                   maxFractionDigits={DEFAULT_AMOUNT_MAX_FRACTION_DIGITS}
                   onValueChange={value => {
@@ -714,9 +767,9 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   </svg>
                 </button>
               </div>
-              {isAmountInvalid && (
+              {shouldShowAmountValidation && (
                 <p className="create-bet-field-hint create-bet-hint-error">
-                  {amountValidationText}
+                  {amountValidationHint}
                 </p>
               )}
             </section>
@@ -728,6 +781,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
               <div className="create-bet-datetime-row">
                 <div className="create-bet-input-wrap create-bet-date-wrap">
                   <input
+                    ref={endsAtDateInputRef}
                     className={`create-bet-input create-bet-date-input${isEndsAtInvalid ? ' create-bet-input-invalid' : ''}`}
                     type="date"
                     value={formatDateInputValue(endsAt)}
@@ -782,9 +836,10 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
             <div className="create-bet-form-actions">
               <button
                 type="submit"
-                className={`create-bet-submit-btn${!connected ? ' create-bet-submit-btn-wallet-disconnected' : ''}${submitShake ? ' create-bet-submit-btn-shake' : ''}`}
-                disabled={submitting || fileInputHasError || !isRequiredFieldsFilled}
-                onAnimationEnd={() => setSubmitShake(false)}
+                className={`create-bet-submit-btn${!connected ? ' create-bet-submit-btn-wallet-disconnected' : ''}${isSubmitBlockedByValidation ? ' create-bet-submit-btn-blocked' : ''}${submitShake ? ' action-shake' : ''}`}
+                disabled={submitting || fileInputHasError}
+                aria-disabled={submitting || fileInputHasError || isSubmitBlockedByValidation}
+                onAnimationEnd={handleSubmitShakeAnimationEnd}
                 title={connected ? undefined : 'Подключите TON-кошелёк'}
               >
                 {submitting ? 'Отправка…' : 'Вызвать'}
