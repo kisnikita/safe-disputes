@@ -612,7 +612,6 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                     setDescription(value);
                   }}
                   placeholder="Добавьте детали и условия"
-                  maxLength={DESCRIPTION_MAX_LENGTH}
                   required
                 />
                 <button

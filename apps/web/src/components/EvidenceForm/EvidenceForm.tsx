@@ -266,7 +266,6 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
                   value={statement}
                   onValueChange={value => setStatement(value)}
                   placeholder="Опишите вашу позицию и что подтверждают файлы"
-                  maxLength={EVIDENCE_TEXT_MAX_LENGTH}
                   required
                 />
                 <button
