@@ -479,8 +479,9 @@ components:
           type: boolean
         disputeReadiness:
           type: boolean
-        minimumDisputeAmount:
+        minimumDisputeAmountNano:
           type: integer
+          format: int64
         rating:
           type: integer
 
@@ -491,8 +492,9 @@ components:
           type: boolean
         disputeReadiness:
           type: boolean
-        minimumDisputeAmount:
-          type: integer
+        minimumDisputeAmountNano:
+          type: string
+          description: Positive integer in nanoTON, encoded as string.
         rating:
           type: integer
 
@@ -522,8 +524,9 @@ components:
           format: date-time
         cryptocurrency:
           type: string
-        amount:
+        amountNano:
           type: integer
+          format: int64
         imageData:
           type: string
           format: byte
@@ -534,7 +537,7 @@ components:
 
     CreateDisputeRequest:
       type: object
-      required: [title, description, opponent, amount, contractAddress]
+      required: [title, description, opponent, amountNano, contractAddress, boc]
       properties:
         title:
           type: string
@@ -542,10 +545,12 @@ components:
           type: string
         opponent:
           type: string
-        amount:
+        amountNano:
           type: string
-          description: Number encoded as string in handler DTO.
+          description: Positive integer in nanoTON, encoded as string.
         contractAddress:
+          type: string
+        boc:
           type: string
         image:
           type: string

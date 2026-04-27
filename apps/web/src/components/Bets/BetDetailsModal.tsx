@@ -7,6 +7,7 @@ import { useBetContract } from '../../hooks/useBetContract';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
+import { formatNanoToTon } from '../../utils/tonAmount';
 
 interface Props {
   id: string;
@@ -21,7 +22,7 @@ interface BetDetail {
   id: string;
   title: string;
   description: string;
-  amount: number;
+  amountNano: string | number;
   opponent: string;
   endsAt: string;
   cryptocurrency: string;
@@ -116,7 +117,7 @@ export const BetDetailsModal: React.FC<Props> = ({
 
     try {
       if (action === 'accept') {
-        await accept(bet.contractAddress, bet.amount.toString());
+        await accept(bet.contractAddress, String(bet.amountNano));
       }
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
@@ -335,7 +336,7 @@ export const BetDetailsModal: React.FC<Props> = ({
             <button className="bet-details-close-btn" onClick={requestClose}>×</button>
             <h3>{bet.title}</h3>
             <p><strong>Оппонент:</strong> {bet.opponent}</p>
-            <p><strong>Ставка:</strong> {bet.amount} {bet.cryptocurrency}</p>
+            <p><strong>Ставка:</strong> {formatNanoToTon(bet.amountNano, 2, { keepTrailingZeros: true })} {bet.cryptocurrency}</p>
             <p><strong>Создано:</strong> {formatDate(bet.createdAt)}</p>
             {(bet.result === 'new' || bet.result === 'sent') && (
               <p><strong>Окончание пари:</strong> {formatDate(bet.endsAt)}</p>

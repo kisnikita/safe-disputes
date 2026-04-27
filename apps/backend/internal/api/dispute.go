@@ -17,7 +17,7 @@ import (
 )
 
 type DisputePrechecker interface {
-	PrecheckCreateDispute(ctx context.Context, opponent string, amount int, creatorUsername string) error
+	PrecheckCreateDispute(ctx context.Context, opponent string, amountNano int64, creatorUsername string) error
 }
 
 type DisputeCreator interface {
@@ -71,21 +71,22 @@ func precheckDispute(log log.Logger, prechecker DisputePrechecker) gin.HandlerFu
 		}
 
 		var req struct {
-			Opponent string `json:"opponent" binding:"required"`
-			Amount   int    `json:"amount" binding:"required"`
+			Opponent   string `json:"opponent" binding:"required"`
+			AmountNano string `json:"amountNano" binding:"required"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			log.Error("invalid request body", zap.Error(err))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 			return
 		}
-		if req.Amount <= 0 {
-			log.Error("amount must be positive", zap.Int("amount", req.Amount))
+		amountNano, err := models.ParsePositiveNano(req.AmountNano)
+		if err != nil {
+			log.Error("amountNano must be a positive integer", zap.String("amountNano", req.AmountNano), zap.Error(err))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 			return
 		}
 
-		err := prechecker.PrecheckCreateDispute(c, req.Opponent, req.Amount, creator)
+		err = prechecker.PrecheckCreateDispute(c, req.Opponent, amountNano, creator)
 		switch {
 		case errors.Is(err, services.ErrUserNotFound):
 			log.Error("opponent not found", zap.String("opponent", req.Opponent), zap.Error(err))
@@ -96,7 +97,7 @@ func precheckDispute(log log.Logger, prechecker DisputePrechecker) gin.HandlerFu
 			c.JSON(http.StatusConflict, gin.H{"error": "creator and opponent must be different"})
 			return
 		case errors.Is(err, services.ErrMinimalAmount):
-			log.Error("amount too less", zap.Int("amount", req.Amount), zap.Error(err))
+			log.Error("amount too less", zap.Int64("amountNano", amountNano), zap.Error(err))
 			c.JSON(http.StatusConflict, gin.H{"error": "amount too less"})
 			return
 		case errors.Is(err, services.ErrUnready):

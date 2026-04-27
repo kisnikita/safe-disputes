@@ -9,6 +9,7 @@ import (
 	"github.com/kisnikita/safe-disputes/backend/pkg/log"
 	"go.uber.org/zap"
 	"net/http"
+	"strconv"
 )
 
 type UserGetter interface {
@@ -73,12 +74,33 @@ func updateUser(log log.Logger, updater UserUpdater) gin.HandlerFunc {
 			return
 		}
 
-		var opts models.UserUpdateOpts
-		if err := c.ShouldBindJSON(&opts); err != nil {
+		var req struct {
+			NotificationEnabled      *bool   `json:"notificationEnabled"`
+			DisputeReadiness         *bool   `json:"disputeReadiness"`
+			MinimumDisputeAmountNano *string `json:"minimumDisputeAmountNano"`
+			Rating                   *int    `json:"rating"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 			return
 		}
-		opts.Username = username
+		var minimumDisputeAmountNano *int64
+		if req.MinimumDisputeAmountNano != nil {
+			v, err := strconv.ParseInt(*req.MinimumDisputeAmountNano, 10, 64)
+			if err != nil || v < 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+				return
+			}
+			minimumDisputeAmountNano = &v
+		}
+
+		opts := models.UserUpdateOpts{
+			Username:                 username,
+			NotificationEnabled:      req.NotificationEnabled,
+			DisputeReadiness:         req.DisputeReadiness,
+			MinimumDisputeAmountNano: minimumDisputeAmountNano,
+			Rating:                   req.Rating,
+		}
 
 		if err := updater.UpdateByUsername(c, opts); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})

@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,7 +12,7 @@ type Dispute struct {
 	Opponent string  `json:"opponent"`
 	PhotoUrl *string `json:"photoUrl"`
 	Result   Result  `db:"result" json:"result"`
-	Vote     bool    `db:"vote" json:"vote"` // true for "win", false for "lose"
+	Vote     bool    `db:"vote" json:"vote"`   // true for "win", false for "lose"
 	Claim    bool    `db:"claim" json:"claim"` // true if user has claimed the dispute
 }
 
@@ -29,7 +28,7 @@ type CreateDisputeReq struct {
 	Title           string `form:"title" binding:"required"`
 	Description     string `form:"description" binding:"required"`
 	Opponent        string `form:"opponent" binding:"required"`
-	Amount          string `form:"amount" binding:"required"`
+	AmountNano      string `form:"amountNano" binding:"required"`
 	EndsAt          string `form:"endsAt" binding:"required"`
 	ContractAddress string `form:"contractAddress" binding:"required"`
 	Boc             string `form:"boc" binding:"required"`
@@ -38,9 +37,9 @@ type CreateDisputeReq struct {
 }
 
 func NewDispute(opts CreateDisputeReq) (Dispute, error) {
-	amount, err := strconv.ParseInt(opts.Amount, 10, 32)
+	amountNano, err := ParsePositiveNano(opts.AmountNano)
 	if err != nil {
-		return Dispute{}, err
+		return Dispute{}, fmt.Errorf("invalid amount: %w", err)
 	}
 	endsAt, err := time.Parse(time.RFC3339, opts.EndsAt)
 	if err != nil {
@@ -64,7 +63,7 @@ func NewDispute(opts CreateDisputeReq) (Dispute, error) {
 			CreatedAt:       createdAt,
 			UpdatedAt:       createdAt,
 			Cryptocurrency:  "TON",
-			Amount:          int(amount),
+			AmountNano:      amountNano,
 			ImageData:       opts.ImageData,
 			ContractAddress: opts.ContractAddress,
 			EndsAt:          endsAt,

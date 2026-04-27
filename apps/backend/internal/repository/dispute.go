@@ -12,7 +12,10 @@ import (
 
 func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Dispute) error {
 	_, err := repo.db.ExecContext(ctx, `
-	INSERT INTO disputes (id, title, description, created_at, updated_at, cryptocurrency, amount, image_data, image_type, contract_address, ends_at, next_deadline) 
+	INSERT INTO disputes (
+		id, title, description, created_at, updated_at, cryptocurrency, amount_nano, image_data, image_type,
+		contract_address, ends_at, next_deadline
+	) 
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		dispute.ID,
 		dispute.Title,
@@ -20,7 +23,7 @@ func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Disput
 		dispute.CreatedAt,
 		dispute.UpdatedAt,
 		dispute.Cryptocurrency,
-		dispute.Amount,
+		dispute.AmountNano,
 		dispute.ImageData,
 		dispute.ImageType,
 		dispute.ContractAddress,
@@ -93,7 +96,7 @@ func (repo *Repository) ListDisputes(
         SELECT
           d.id, d.title, d.description,
         d.created_at, d.updated_at,
-          d.cryptocurrency, d.amount,
+          d.cryptocurrency, d.amount_nano,
           d.image_data, d.image_type, d.ends_at, d.next_deadline,
           u.result, u.claim
         FROM disputes d
@@ -119,7 +122,7 @@ func (repo *Repository) ListDisputes(
 			&d.CreatedAt,
 			&d.UpdatedAt,
 			&d.Cryptocurrency,
-			&d.Amount,
+			&d.AmountNano,
 			&d.ImageData,
 			&d.ImageType,
 			&d.EndsAt,
@@ -144,7 +147,7 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 		SELECT 
 			d.id, d.title, d.description, 
 			d.created_at, d.updated_at, 
-			d.cryptocurrency, d.amount, 
+			d.cryptocurrency, d.amount_nano, 
 			d.image_data, d.image_type, d.ends_at, d.next_deadline,
 			u.result, u.claim, u.vote,
 			d.contract_address
@@ -159,7 +162,7 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 		&d.CreatedAt,
 		&d.UpdatedAt,
 		&d.Cryptocurrency,
-		&d.Amount,
+		&d.AmountNano,
 		&d.ImageData,
 		&d.ImageType,
 		&d.EndsAt,

@@ -20,11 +20,12 @@ import { useTonConnect } from '../../hooks/useTonConnect';
 import claimAnimation from '../../../assets/claim.json';
 import { UserAvatar } from '../UserAvatar/UserAvatar';
 import { TonIcon } from '../TonIcon/TonIcon';
+import { formatNanoToTon } from '../../utils/tonAmount';
 
 interface Bet {
   id: string;
   title: string;
-  amount: number;
+  amountNano: string | number;
   opponent: string;
   photoUrl?: string | null;
   endsAt: string;
@@ -117,7 +118,14 @@ const getShortDeadlineText = (tab: Subtab, bet: Bet): string => {
   return `${minutes}м`;
 };
 
-const formatBetAmount = (value: number): string => value.toFixed(2);
+const formatBetAmount = (value: string | number): string => formatNanoToTon(value, 2, { keepTrailingZeros: true });
+const parseAmountNano = (value: string | number): bigint => {
+  try {
+    return BigInt(value);
+  } catch {
+    return 0n;
+  }
+};
 
 export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}, ref) => {
   const { connected } = useTonConnect();
@@ -720,8 +728,9 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     return list
       .map((bet, index) => ({ bet, index }))
       .sort((a, b) => {
-        if (b.bet.amount !== a.bet.amount) {
-          return b.bet.amount - a.bet.amount;
+        const diff = parseAmountNano(b.bet.amountNano) - parseAmountNano(a.bet.amountNano);
+        if (diff !== 0n) {
+          return diff > 0n ? 1 : -1;
         }
         return a.index - b.index;
       })
@@ -862,7 +871,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
                     onScroll={event => handlePanelScroll(tabIndex, event)}
                   >
                     {sortedList.map((bet, idx) => {
-                      const formattedAmount = formatBetAmount(bet.amount);
+                      const formattedAmount = formatBetAmount(bet.amountNano);
                       const isLast = idx === sortedList.length - 1;
                       const badge =
                         tab === 'current'

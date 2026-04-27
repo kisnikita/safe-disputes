@@ -7,10 +7,11 @@ import { useTonConnect } from '../../hooks/useTonConnect';
 import { FileInput } from '../FileInput/FileInput';
 import { TimePicker } from '../TimePicker/TimePicker';
 import { backButton, hideKeyboard } from '@tma.js/sdk-react';
-import { AmountInput, parseAmountInput } from '../AmountInput/AmountInput';
+import { AmountInput } from '../AmountInput/AmountInput';
 import { Alert } from '../ui/alert/Alert';
 import { TonIcon } from '../TonIcon/TonIcon';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
+import { parseTonToNano } from '../../utils/tonAmount';
 
 interface Props {
   onClose: () => void;
@@ -21,7 +22,7 @@ export interface CreateBetDraft {
   title: string;
   description: string;
   opponent: string;
-  amount: number;
+  amountInput: string;
   endsAtISO: string;
 }
 
@@ -44,6 +45,10 @@ const DESCRIPTION_WARNING_LENGTH = 450;
 const CREATE_BET_DRAFT_KEY = 'create-bet-draft-v1';
 const USERNAME_REGEX = /^[a-z][a-z0-9_]{4,}$/;
 const TITLE_MAX_LENGTH = 64;
+const MIN_BET_TON = 0.05;
+const AMOUNT_MAX_FRACTION_DIGITS = 2;
+const MAX_INT64_NANO = 9_223_372_036_854_775_807n;
+const MIN_BET_NANO = parseTonToNano(MIN_BET_TON.toFixed(2), { allowZero: true });
 
 const roundToMinute = (value: Date): Date => {
   const next = new Date(value);
@@ -104,15 +109,15 @@ const parseCreateBetDraft = (raw: string | null): CreateBetDraft | null => {
     if (typeof parsed.title !== 'string') return null;
     if (typeof parsed.description !== 'string') return null;
     if (typeof parsed.opponent !== 'string') return null;
-    if (typeof parsed.amount !== 'number' || Number.isNaN(parsed.amount)) return null;
     if (typeof parsed.endsAtISO !== 'string') return null;
     const parsedDate = new Date(parsed.endsAtISO);
     if (Number.isNaN(parsedDate.getTime())) return null;
+    const parsedAmountInput = typeof parsed.amountInput === 'string' ? parsed.amountInput : '';
     return {
       title: parsed.title,
       description: parsed.description,
       opponent: parsed.opponent,
-      amount: parsed.amount,
+      amountInput: parsedAmountInput,
       endsAtISO: parsed.endsAtISO,
     };
   } catch {
@@ -151,7 +156,24 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const [description, setDescription] = useState('');
   const [opponent, setOpponent] = useState('');
   const [amountInput, setAmountInput] = useState<string>('');
-  const amount = parseAmountInput(amountInput);
+  const amountNano = parseTonToNano(amountInput);
+  const isAmountEmpty = amountInput.trim().length === 0;
+  const fractionPart = amountInput.split('.')[1] ?? '';
+  const hasTooManyFractionDigits = fractionPart.length > AMOUNT_MAX_FRACTION_DIGITS;
+  const isAmountInvalidNumber = amountInput !== '' && amountNano === null;
+  const amountNanoBigInt = amountNano ? BigInt(amountNano) : null;
+  const isAmountBelowMin = amountNanoBigInt !== null && MIN_BET_NANO !== null && amountNanoBigInt < BigInt(MIN_BET_NANO);
+  const isAmountTooLarge = amountNanoBigInt !== null && amountNanoBigInt > MAX_INT64_NANO;
+  const amountValidationText = hasTooManyFractionDigits
+    ? `Ставка может содержать не более ${AMOUNT_MAX_FRACTION_DIGITS} знаков после запятой`
+    : isAmountInvalidNumber
+      ? 'Введите корректную сумму ставки'
+      : isAmountBelowMin
+        ? `Минимальная ставка: ${MIN_BET_TON.toFixed(2)} TON`
+        : isAmountTooLarge
+          ? `Максимальная ставка: 9 млрд TON`
+          : null;
+  const isAmountInvalid = !isAmountEmpty && amountValidationText !== null;
   const [endsAt, setEndsAt] = useState<Date>(() => getDefaultEndsAt());
   const [file, setFile] = useState<File | null>(null);
   const [fileInputHasError, setFileInputHasError] = useState(false);
@@ -172,9 +194,9 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     title,
     description,
     opponent,
-    amount: Number.isFinite(amount) ? amount : 0,
+    amountInput,
     endsAtISO: endsAt.toISOString(),
-  }), [title, description, opponent, amount, endsAt]);
+  }), [title, description, opponent, amountInput, endsAt]);
 
   const saveDraftToStorage = useCallback((draft: CreateBetDraft) => {
     const storage = getSessionStorage();
@@ -224,8 +246,9 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     && !isDescriptionTooLong
     && opponentValue.length > 0
     && !shouldShowOpponentValidation
-    && Number.isFinite(amount)
-    && amount > 0
+    && !isAmountEmpty
+    && !isAmountInvalid
+    && amountNano !== null
     && !isEndsAtInvalid;
 
   attemptCloseRef.current = async () => {
@@ -319,7 +342,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     setTitle(draft.title);
     setDescription(draft.description);
     setOpponent(draft.opponent);
-    setAmountInput(draft.amount.toString());
+    setAmountInput(draft.amountInput);
     setEndsAt(roundToMinute(new Date(draft.endsAtISO)));
     setShowDraftRestoredAlert(true);
   }, []);
@@ -404,6 +427,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       setSubmitting(false);
       return;
     }
+    if (isAmountEmpty || isAmountInvalid) {
+      setError(amountValidationText ?? 'Введите корректную сумму ставки');
+      setSubmitting(false);
+      return;
+    }
 
     if (!isRequiredFieldsFilled) {
       setError('Заполните все обязательные поля');
@@ -424,7 +452,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
         },
         body: JSON.stringify({
           opponent: opponentValue,
-          amount,
+          amountNano,
         }),
       });
 
@@ -457,7 +485,10 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
 
     let signedBoc: string;
     try {
-      signedBoc = await createBetWithDeposit(betID, amount.toString());
+      if (!amountNano) {
+        throw new Error('invalid amount nano');
+      }
+      signedBoc = await createBetWithDeposit(betID, amountNano);
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel|not sent/i.test(msg)) {
@@ -476,7 +507,12 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     form.append('title', title);
     form.append('description', description);
     form.append('opponent', opponentValue);
-    form.append('amount', amount.toString());
+    if (!amountNano) {
+      setError('Некорректная сумма ставки');
+      setSubmitting(false);
+      return;
+    }
+    form.append('amountNano', amountNano);
     form.append('endsAt', endsAt.toISOString());
     form.append('contractAddress', betAddress);
     form.append('boc', signedBoc);
@@ -669,8 +705,9 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
               </div>
               <div className="create-bet-input-wrap create-bet-amount-wrap">
                 <AmountInput
-                  className="create-bet-input"
+                  className={`create-bet-input${isAmountInvalid ? ' create-bet-input-invalid' : ''}`}
                   value={amountInput}
+                  maxFractionDigits={AMOUNT_MAX_FRACTION_DIGITS}
                   onValueChange={value => {
                     hasUserInputRef.current = true;
                     setAmountInput(value);
@@ -697,6 +734,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   </svg>
                 </button>
               </div>
+              {isAmountInvalid && (
+                <p className="create-bet-field-hint create-bet-hint-error">
+                  {amountValidationText}
+                </p>
+              )}
             </section>
 
             <section className="create-bet-section">

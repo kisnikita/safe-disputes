@@ -17,12 +17,12 @@ type DisputeDB struct {
 	CreatedAt       time.Time `db:"created_at" json:"createdAt"`
 	UpdatedAt       time.Time `db:"updated_at" json:"updatedAt"`
 	Cryptocurrency  string    `db:"cryptocurrency" json:"cryptocurrency"`
-	Amount          int       `db:"amount" json:"amount"`
 	ImageData       []byte    `db:"image_data" json:"imageData"`
 	ImageType       *string   `db:"image_type" json:"imageType"`
 	ContractAddress string    `db:"contract_address" json:"contractAddress"`
 	EndsAt          time.Time `db:"ends_at" json:"endsAt"`
 	NextDeadline    time.Time `db:"next_deadline" json:"nextDeadline"`
+	AmountNano      int64     `db:"amount_nano" json:"amountNano"`
 }
 
 type Evidence struct {
@@ -50,15 +50,15 @@ type InvestigationDB struct {
 }
 
 type User struct {
-	ID                   uuid.UUID `db:"id" json:"id"`
-	Username             string    `db:"username" json:"username"`
-	ChatID               int64     `db:"chat_id" json:"chatID"`
-	CreatedAt            time.Time `db:"created_at" json:"createdAt"`
-	NotificationEnabled  bool      `db:"notification_enabled" json:"notificationEnabled"`
-	DisputeReadiness     bool      `db:"dispute_readiness" json:"disputeReadiness"`
-	MinimumDisputeAmount int       `db:"minimum_dispute_amount" json:"minimumDisputeAmount"`
-	Rating               int       `db:"rating" json:"rating"`
-	PhotoUrl             *string   `db:"photo_url" json:"photoUrl"`
+	ID                       uuid.UUID `db:"id" json:"id"`
+	Username                 string    `db:"username" json:"username"`
+	ChatID                   int64     `db:"chat_id" json:"chatID"`
+	CreatedAt                time.Time `db:"created_at" json:"createdAt"`
+	NotificationEnabled      bool      `db:"notification_enabled" json:"notificationEnabled"`
+	DisputeReadiness         bool      `db:"dispute_readiness" json:"disputeReadiness"`
+	Rating                   int       `db:"rating" json:"rating"`
+	PhotoUrl                 *string   `db:"photo_url" json:"photoUrl"`
+	MinimumDisputeAmountNano int64     `db:"minimum_dispute_amount_nano" json:"minimumDisputeAmountNano"`
 }
 
 type User2Dispute struct {

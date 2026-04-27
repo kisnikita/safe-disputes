@@ -18,10 +18,10 @@ export function useBetContract() {
         getAddress: async (betID: bigint) => {
             return (await Bet.fromInit(betID)).address;
         },
-        accept: async (contractAddress: string, value: string) => {
+        accept: async (contractAddress: string, valueNano: string) => {
             const betContract = await openBet(contractAddress);
             await betContract.send(sender, {
-                value: toNano(value)
+                value: BigInt(valueNano)
             },
                 "accept");
         },

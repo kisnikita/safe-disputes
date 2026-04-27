@@ -5,11 +5,11 @@ import (
 )
 
 type UserUpdateOpts struct {
-	Username             string `json:"username"`
-	NotificationEnabled  *bool  `json:"notificationEnabled"`
-	DisputeReadiness     *bool  `json:"disputeReadiness"`
-	MinimumDisputeAmount *int   `json:"minimumDisputeAmount"`
-	Rating               *int   `json:"rating"`
+	Username                 string `json:"username"`
+	NotificationEnabled      *bool  `json:"notificationEnabled"`
+	DisputeReadiness         *bool  `json:"disputeReadiness"`
+	MinimumDisputeAmountNano *int64 `json:"minimumDisputeAmountNano"`
+	Rating                   *int   `json:"rating"`
 }
 
 func NewUser(username string, photoUrl *string) User {

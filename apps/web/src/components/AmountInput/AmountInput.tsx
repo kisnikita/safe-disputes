@@ -8,9 +8,14 @@ type NativeInputProps = Omit<
 export interface AmountInputProps extends NativeInputProps {
   value: string;
   onValueChange: (value: string) => void;
+  maxFractionDigits?: number;
 }
 
-export function normalizeAmountInput(raw: string, prevValue = ''): string {
+export function normalizeAmountInput(
+  raw: string,
+  prevValue = '',
+  options?: { maxFractionDigits?: number },
+): string {
   let value = raw.replace(',', '.').replace(/[^\d.]/g, '');
 
   // If previous value was just "0", replace it with a typed non-zero digit
@@ -27,6 +32,7 @@ export function normalizeAmountInput(raw: string, prevValue = ''): string {
   const hasDot = value.includes('.');
   const [rawIntPart = '', rawFractionPart = ''] = value.split('.');
   let intPart = rawIntPart;
+  const maxFractionDigits = options?.maxFractionDigits;
 
   if (intPart.length > 1) {
     intPart = intPart.replace(/^0+(?=\d)/, '');
@@ -40,18 +46,17 @@ export function normalizeAmountInput(raw: string, prevValue = ''): string {
     return intPart;
   }
 
-  return `${intPart}.${rawFractionPart}`;
-}
+  const fractionPart = typeof maxFractionDigits === 'number' && maxFractionDigits >= 0
+    ? rawFractionPart.slice(0, maxFractionDigits)
+    : rawFractionPart;
 
-export function parseAmountInput(value: string): number {
-  if (value === '' || value === '.') return NaN;
-  return Number(value);
+  return `${intPart}.${fractionPart}`;
 }
 
 export const AmountInput = forwardRef<HTMLInputElement, AmountInputProps>(
-  function AmountInput({ value, onValueChange, ...props }, ref) {
+  function AmountInput({ value, onValueChange, maxFractionDigits, ...props }, ref) {
     const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-      onValueChange(normalizeAmountInput(event.target.value, value));
+      onValueChange(normalizeAmountInput(event.target.value, value, { maxFractionDigits }));
     };
 
     return (

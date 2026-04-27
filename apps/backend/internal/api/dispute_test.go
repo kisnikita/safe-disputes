@@ -37,14 +37,14 @@ type fakeDisputePrechecker struct {
 	err      error
 	called   bool
 	opponent string
-	amount   int
+	amount   int64
 	creator  string
 }
 
-func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponent string, amount int, creatorUsername string) error {
+func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponent string, amountNano int64, creatorUsername string) error {
 	f.called = true
 	f.opponent = opponent
-	f.amount = amount
+	f.amount = amountNano
 	f.creator = creatorUsername
 	return f.err
 }
@@ -120,7 +120,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("title", "test")
 		form.Set("description", "desc")
 		form.Set("opponent", "bob")
-		form.Set("amount", "100")
+		form.Set("amountNano", "100000000000")
 		form.Set("endsAt", time.Now().Add(48*time.Hour).UTC().Format(time.RFC3339))
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
@@ -139,8 +139,8 @@ func TestCreateDispute(t *testing.T) {
 		if creator.creator != "alice" {
 			t.Fatalf("expected creator alice, got %q", creator.creator)
 		}
-		if creator.disputeArg.Amount != 100 {
-			t.Fatalf("expected amount 100, got %d", creator.disputeArg.Amount)
+		if creator.disputeArg.AmountNano != 100_000_000_000 {
+			t.Fatalf("expected amountNano 100000000000, got %d", creator.disputeArg.AmountNano)
 		}
 		if creator.boc == "" {
 			t.Fatal("expected boc to be passed")
@@ -160,7 +160,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("title", "test")
 		form.Set("description", "desc")
 		form.Set("opponent", "bob")
-		form.Set("amount", "100")
+		form.Set("amountNano", "100000000000")
 		form.Set("endsAt", time.Now().Add(-2*time.Hour).UTC().Format(time.RFC3339))
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
@@ -191,7 +191,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("title", "test")
 		form.Set("description", "desc")
 		form.Set("opponent", "bob")
-		form.Set("amount", "100")
+		form.Set("amountNano", "100000000000")
 		form.Set("endsAt", time.Now().Add(48*time.Hour).UTC().Format(time.RFC3339))
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
@@ -217,7 +217,7 @@ func TestPrecheckDispute(t *testing.T) {
 		})
 		r.POST("/disputes/precheck", precheckDispute(noopLogger{}, prechecker))
 
-		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"bob","amount":100}`))
+		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"bob","amountNano":"100000000000"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
@@ -236,7 +236,7 @@ func TestPrecheckDispute(t *testing.T) {
 		})
 		r.POST("/disputes/precheck", precheckDispute(noopLogger{}, prechecker))
 
-		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"bob","amount":100}`))
+		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"bob","amountNano":"100000000000"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
@@ -250,7 +250,7 @@ func TestPrecheckDispute(t *testing.T) {
 		if prechecker.creator != "alice" {
 			t.Fatalf("expected creator alice, got %q", prechecker.creator)
 		}
-		if prechecker.opponent != "bob" || prechecker.amount != 100 {
+		if prechecker.opponent != "bob" || prechecker.amount != 100_000_000_000 {
 			t.Fatalf("unexpected args: opponent=%q amount=%d", prechecker.opponent, prechecker.amount)
 		}
 	})
@@ -264,7 +264,7 @@ func TestPrecheckDispute(t *testing.T) {
 		})
 		r.POST("/disputes/precheck", precheckDispute(noopLogger{}, prechecker))
 
-		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"alice","amount":100}`))
+		req := httptest.NewRequest(http.MethodPost, "/disputes/precheck", strings.NewReader(`{"opponent":"alice","amountNano":"100000000000"}`))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)

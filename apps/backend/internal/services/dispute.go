@@ -95,7 +95,7 @@ func (s DisputeService) WithTransactionMonitor(txMonitor TransactionMonitor) Dis
 
 func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Dispute, creatorUsername, boc string) error {
 	if dispute.Title == "" || dispute.Description == "" || dispute.Opponent == "" ||
-		dispute.Amount <= 0 || dispute.ContractAddress == "" {
+		dispute.AmountNano <= 0 || dispute.ContractAddress == "" {
 		return fmt.Errorf("invalid data for disute creation")
 	}
 	if boc == "" {
@@ -148,10 +148,10 @@ func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Disput
 func (s DisputeService) PrecheckCreateDispute(
 	ctx context.Context,
 	opponent string,
-	amount int,
+	amountNano int64,
 	creatorUsername string,
 ) error {
-	if opponent == "" || amount <= 0 {
+	if opponent == "" || amountNano <= 0 {
 		return fmt.Errorf("invalid data for disute precheck")
 	}
 
@@ -168,8 +168,8 @@ func (s DisputeService) PrecheckCreateDispute(
 		return fmt.Errorf("opponent %s %w", opponentUser.Username, ErrUnready)
 	}
 
-	if opponentUser.MinimumDisputeAmount > amount {
-		return fmt.Errorf("%d %w", amount, ErrMinimalAmount)
+	if opponentUser.MinimumDisputeAmountNano > amountNano {
+		return fmt.Errorf("%d %w", amountNano, ErrMinimalAmount)
 	}
 
 	return nil

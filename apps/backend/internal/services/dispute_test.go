@@ -97,12 +97,12 @@ func (f *fakeDisputeRepo) GetTopUsers(context.Context, int) ([]models.User, erro
 func TestDisputeServiceCreateDispute(t *testing.T) {
 	creator := models.User{ID: uuid.New(), Username: "alice"}
 	opponent := models.User{
-		ID:                   uuid.New(),
-		Username:             "bob",
-		DisputeReadiness:     true,
-		MinimumDisputeAmount: 50,
-		NotificationEnabled:  true,
-		ChatID:               777,
+		ID:                       uuid.New(),
+		Username:                 "bob",
+		DisputeReadiness:         true,
+		MinimumDisputeAmountNano: 50 * models.NanoPerTON,
+		NotificationEnabled:      true,
+		ChatID:                   777,
 	}
 	repo := &fakeDisputeRepo{
 		usersByUsername: map[string]models.User{
@@ -126,7 +126,7 @@ func TestDisputeServiceCreateDispute(t *testing.T) {
 			ID:              uuid.New(),
 			Title:           "test",
 			Description:     "desc",
-			Amount:          100,
+			AmountNano:      100 * models.NanoPerTON,
 			ContractAddress: "addr",
 		},
 		Opponent: "bob",
@@ -152,7 +152,7 @@ func TestDisputeServiceCreateDisputeIgnoresOpponentSettings(t *testing.T) {
 	repo := &fakeDisputeRepo{
 		usersByUsername: map[string]models.User{
 			"alice": {ID: uuid.New(), Username: "alice"},
-			"bob":   {ID: uuid.New(), Username: "bob", DisputeReadiness: false, MinimumDisputeAmount: 500},
+			"bob":   {ID: uuid.New(), Username: "bob", DisputeReadiness: false, MinimumDisputeAmountNano: 500 * models.NanoPerTON},
 		},
 	}
 	svc := DisputeService{
@@ -169,7 +169,7 @@ func TestDisputeServiceCreateDisputeIgnoresOpponentSettings(t *testing.T) {
 			ID:              uuid.New(),
 			Title:           "t",
 			Description:     "d",
-			Amount:          100,
+			AmountNano:      100 * models.NanoPerTON,
 			ContractAddress: "addr",
 		},
 		Opponent: "bob",
@@ -200,7 +200,7 @@ func TestDisputeServiceCreateDisputeTxFailed(t *testing.T) {
 			ID:              uuid.New(),
 			Title:           "t",
 			Description:     "d",
-			Amount:          100,
+			AmountNano:      100 * models.NanoPerTON,
 			ContractAddress: "addr",
 		},
 		Opponent: "bob",
@@ -216,12 +216,12 @@ func TestDisputeServiceCreateDisputeTxFailed(t *testing.T) {
 func TestDisputeServicePrecheckCreateDispute(t *testing.T) {
 	repo := &fakeDisputeRepo{
 		usersByUsername: map[string]models.User{
-			"bob": {ID: uuid.New(), Username: "bob", DisputeReadiness: true, MinimumDisputeAmount: 50},
+			"bob": {ID: uuid.New(), Username: "bob", DisputeReadiness: true, MinimumDisputeAmountNano: 50 * models.NanoPerTON},
 		},
 	}
 	svc := DisputeService{logger: noopLogger{}, userFinder: repo}
 
-	if err := svc.PrecheckCreateDispute(context.Background(), "bob", 100, "alice"); err != nil {
+	if err := svc.PrecheckCreateDispute(context.Background(), "bob", 100*models.NanoPerTON, "alice"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -229,7 +229,7 @@ func TestDisputeServicePrecheckCreateDispute(t *testing.T) {
 func TestDisputeServicePrecheckCreateDisputeSelfOpponent(t *testing.T) {
 	svc := DisputeService{logger: noopLogger{}, userFinder: &fakeDisputeRepo{}}
 
-	err := svc.PrecheckCreateDispute(context.Background(), "alice", 100, "alice")
+	err := svc.PrecheckCreateDispute(context.Background(), "alice", 100*models.NanoPerTON, "alice")
 	if !errors.Is(err, ErrSelfOpponent) {
 		t.Fatalf("expected ErrSelfOpponent, got %v", err)
 	}

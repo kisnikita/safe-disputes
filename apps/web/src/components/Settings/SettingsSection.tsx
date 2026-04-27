@@ -4,13 +4,21 @@ import './SettingsSection.css';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { popup } from '@tma.js/sdk-react';
 import { UserAvatar } from '../UserAvatar/UserAvatar';
-import { AmountInput, parseAmountInput } from '../AmountInput/AmountInput';
+import { AmountInput } from '../AmountInput/AmountInput';
 import { TonIcon } from '../TonIcon/TonIcon';
+import { formatNanoToTon, parseTonToNano } from '../../utils/tonAmount';
 
 interface UserSettings {
   notificationEnabled: boolean;
   disputeReadiness: boolean;
-  minimumDisputeAmount: number;
+  minimumDisputeAmountNano: string;
+  chatID: number;
+}
+
+interface UserSettingsResponse {
+  notificationEnabled: boolean;
+  disputeReadiness: boolean;
+  minimumDisputeAmountNano: string | number;
   chatID: number;
 }
 
@@ -25,7 +33,7 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
   const [settings, setSettings] = useState<UserSettings>({
     notificationEnabled: false,
     disputeReadiness: true,
-    minimumDisputeAmount: 0,
+    minimumDisputeAmountNano: '0',
     chatID: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -46,10 +54,14 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
     try {
       const res = await apiFetch('/api/v1/users/me');
       if (!res.ok) throw new Error();
-      const { data } = await res.json() as { data: UserSettings };
-      setSettings(data);
+      const { data } = await res.json() as { data: UserSettingsResponse };
+      const normalizedData: UserSettings = {
+        ...data,
+        minimumDisputeAmountNano: String(data.minimumDisputeAmountNano ?? '0'),
+      };
+      setSettings(normalizedData);
       if (syncMinInput) {
-        setMinInput(data.minimumDisputeAmount.toString());
+        setMinInput(formatNanoToTon(normalizedData.minimumDisputeAmountNano, 9));
       }
     } catch (err) {
       console.error(err);
@@ -165,8 +177,8 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
     );
   }
 
-  const parsedMin = parseAmountInput(minInput);
-  const minChanged = Number.isFinite(parsedMin) && parsedMin !== settings.minimumDisputeAmount;
+  const parsedMinNano = parseTonToNano(minInput, { allowZero: true });
+  const minChanged = parsedMinNano !== null && parsedMinNano !== settings.minimumDisputeAmountNano;
 
   const notifDisabled = saving;
   const normalizedUsername = username.replace(/^@+/, '').trim();
@@ -239,7 +251,10 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
             {minChanged && (
               <button
                 className="save-button"
-                onClick={() => updateField('minimumDisputeAmount', parsedMin)}
+                onClick={() => {
+                  if (parsedMinNano === null) return;
+                  void updateField('minimumDisputeAmountNano', parsedMinNano);
+                }}
                 disabled={saving}
               >
                 {saving ? '…' : 'Сохранить'}

@@ -1,5 +1,5 @@
 import { BetMaster, CreateBet } from "../../../../blockchain/wrappers/BetMaster";
-import { Address, OpenedContract, Sender, toNano } from "@ton/core";
+import { Address, OpenedContract, Sender } from "@ton/core";
 import { useAsyncInitialize } from "./useAsyncInitialize";
 import { useTonClient } from "./useTonClient";
 import { useTonConnect } from "./useTonConnect";
@@ -18,13 +18,13 @@ export function useBetMasterContract() {
     }, [client]);
 
     return {
-        createBetWithDeposit: async (betID: bigint, depositValue: string) => {
+        createBetWithDeposit: async (betID: bigint, depositValueNano: string) => {
             if (!masterContract) throw new Error("master contract not ready");
             const msg: CreateBet = {
                 $$type: "CreateBet",
                 id: betID,
             };
-            const totalValue = toNano(depositValue);
+            const totalValue = BigInt(depositValueNano);
 
             let boc = "";
             const senderWithBocCapture: Sender = {
