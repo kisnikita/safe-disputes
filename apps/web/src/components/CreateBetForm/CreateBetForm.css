@@ -177,14 +177,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.create-bet-textarea {
-    /* max-height: 280px; */
-    overflow: hidden;
-    scrollbar-width: none;
-    resize: none;
-    height: auto;
-}
-
 .create-bet-input-clear {
   position: absolute;
   top: 50%;

@@ -1,5 +1,5 @@
 // src/components/Bets/BetDetailsModal.tsx
-import React, { useState, useEffect, ChangeEvent, FormEvent, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiFetch } from '../../utils/apiFetch';
 import './BetDetailsModal.css';
@@ -13,6 +13,7 @@ interface Props {
   id: string;
   onClose: () => void;
   onCompleted: () => void;
+  onOpenEvidence: (disputeId: string) => void;
   showActions?: boolean;
   showResultActions?: boolean;
   showClaimActions?: boolean;
@@ -51,6 +52,7 @@ export const BetDetailsModal: React.FC<Props> = ({
   id,
   onClose,
   onCompleted,
+  onOpenEvidence,
   showActions,
   showResultActions,
   showClaimActions,
@@ -64,14 +66,9 @@ export const BetDetailsModal: React.FC<Props> = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [evidenceForm, setEvidenceForm] = useState(false);
-  const [evidenceText, setEvidenceText] = useState('');
-  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [acceptShake, setAcceptShake] = useState(false);
   const [claimShake, setClaimShake] = useState(false);
   const [resultShake, setResultShake] = useState<'win' | 'lose' | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { accept, refund, win, draw } = useBetContract();
   const { connected } = useTonConnect();
   const showWalletConnectPopup = useWalletConnectPopup();
@@ -209,42 +206,6 @@ export const BetDetailsModal: React.FC<Props> = ({
     }
   };
 
-  // Отправка доказательств
-  const handleEvidenceSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!bet) return;
-    setActionLoading(true);
-    try {
-      const form = new FormData();
-      form.append('description', evidenceText);
-      if (evidenceFile) form.append('evidence', evidenceFile);
-      const res = await apiFetch(`/api/v1/disputes/${id}/evidence`, {
-        method: 'POST',
-        body: form,
-      });
-      if (!res.ok) throw new Error();
-      setSuccess('Доказательства отправлены!');
-    } catch {
-      // ignore
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Работа с превью файла доказательств
-  const handleEvidenceFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null;
-    setEvidenceFile(f);
-    if (f) setPreview(URL.createObjectURL(f));
-    else setPreview(null);
-  };
-  const removeEvidencePhoto = () => {
-    if (preview) URL.revokeObjectURL(preview);
-    setEvidenceFile(null);
-    setPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   const requestClose = () => {
     if (isClosing) return;
     setIsClosing(true);
@@ -331,7 +292,7 @@ export const BetDetailsModal: React.FC<Props> = ({
         {error && <p className="bet-details-error-message">{error}</p>}
 
         {/* Просмотр деталей */}
-        {!loading && bet && !evidenceForm && (
+        {!loading && bet && (
           <>
             <button className="bet-details-close-btn" onClick={requestClose}>×</button>
             <h3>{bet.title}</h3>
@@ -411,7 +372,7 @@ export const BetDetailsModal: React.FC<Props> = ({
               <div className="bet-details-action-buttons">
                 <button
                   className="bet-details-submit-btn"
-                  onClick={() => setEvidenceForm(true)}
+                  onClick={() => onOpenEvidence(id)}
                 >
                   Внести доказательства
                 </button>
@@ -432,66 +393,6 @@ export const BetDetailsModal: React.FC<Props> = ({
                 </button>
               </div>
             )}
-          </>
-        )}
-
-        {/* Форма доказательств */}
-        {!loading && bet && evidenceForm && (
-          <>
-            <div className="bet-details-header-with-back">
-              <button
-                type="button"
-                className="bet-details-back-btn"
-                onClick={() => setEvidenceForm(false)}
-              >
-                ←
-              </button>
-              <h3>Внесите доказательства</h3>
-            </div>
-
-            <form onSubmit={handleEvidenceSubmit}>
-              <label>
-                Описание:
-                <textarea
-                  value={evidenceText}
-                  onChange={e => setEvidenceText(e.target.value)}
-                  required
-                />
-              </label>
-
-              <label>
-                Фото (необязательно):
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleEvidenceFileChange}
-                />
-              </label>
-
-              {preview && (
-                <div className="bet-details-image-preview">
-                  <button
-                    type="button"
-                    className="bet-details-remove-photo-btn"
-                    onClick={removeEvidencePhoto}
-                  >
-                    ×
-                  </button>
-                  <img src={preview} alt="Превью" />
-                </div>
-              )}
-
-              <div className="bet-details-form-actions">
-                <button
-                  type="submit"
-                  className="bet-details-submit-btn"
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? 'Отправка…' : 'Отправить'}
-                </button>
-              </div>
-            </form>
           </>
         )}
       </div>

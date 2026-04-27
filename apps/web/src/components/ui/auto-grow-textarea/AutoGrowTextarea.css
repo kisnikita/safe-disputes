@@ -1,0 +1,6 @@
+.auto-grow-textarea {
+  resize: none;
+  overflow: hidden;
+  height: auto;
+  scrollbar-width: none;
+}

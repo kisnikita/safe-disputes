@@ -53,6 +53,9 @@ export interface BetsSectionHandle {
 
 interface Props {
   onModalChange: (open: boolean) => void;
+  onOpenEvidence: (disputeId: string) => void;
+  initialOpenBetId?: string | null;
+  onInitialOpenBetHandled?: () => void;
 }
 
 const tabs = ['current', 'new', 'passed'] as const;
@@ -127,7 +130,12 @@ const parseAmountNano = (value: string | number): bigint => {
   }
 };
 
-export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}, ref) => {
+export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
+  onModalChange,
+  onOpenEvidence,
+  initialOpenBetId = null,
+  onInitialOpenBetHandled,
+}, ref) => {
   const { connected } = useTonConnect();
   const [subtab, setSubtab] = useState<Subtab>('current');
   const [betsByTab, setBetsByTab] = useState<Record<Subtab, Bet[]>>({
@@ -430,6 +438,13 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
     setSelectedId(null);
     onModalChange(false);
   };
+
+  useEffect(() => {
+    if (!initialOpenBetId) return;
+    setSelectedId(initialOpenBetId);
+    onModalChange(true);
+    onInitialOpenBetHandled?.();
+  }, [initialOpenBetId, onInitialOpenBetHandled, onModalChange]);
 
   const clearTapState = () => {
     tapStateRef.current = null;
@@ -1002,6 +1017,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({onModalChange}
             onCompleted={() => {
               fetchFirstPage(subtab);
             }}
+            onOpenEvidence={onOpenEvidence}
             showActions={subtab === 'new'}
             showResultActions={subtab === 'current'}
             showClaimActions={subtab === 'passed'}

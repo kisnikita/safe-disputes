@@ -12,6 +12,7 @@ import { Alert } from '../ui/alert/Alert';
 import { TonIcon } from '../TonIcon/TonIcon';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
 import { parseTonToNano } from '../../utils/tonAmount';
+import { AutoGrowTextarea } from '../ui/auto-grow-textarea/AutoGrowTextarea';
 
 interface Props {
   onClose: () => void;
@@ -136,7 +137,6 @@ const getSessionStorage = (): Storage | null => {
 
 export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const screenRef = useRef<HTMLDivElement | null>(null);
-  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const draftLoadedRef = useRef(false);
   const hasUserInputRef = useRef(false);
   const createdRef = useRef(false);
@@ -310,17 +310,6 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
     touchStartYRef.current = null;
     touchHideTriggeredRef.current = false;
   }, []);
-
-  const resizeDescription = useCallback(() => {
-    const textarea = descriptionRef.current;
-    if (!textarea) return;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${Math.max(textarea.scrollHeight, DESCRIPTION_MIN_HEIGHT_PX)}px`;
-  }, []);
-
-  useEffect(() => {
-    resizeDescription();
-  }, [description, resizeDescription]);
 
   useEffect(() => {
     document.documentElement.classList.add('create-bet-native-scroll');
@@ -621,17 +610,16 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                 УСЛОВИЯ<span className="create-bet-required-mark" aria-hidden="true">*</span>
               </div>
               <div className="create-bet-input-wrap create-bet-textarea-wrap">
-                <textarea
-                  ref={descriptionRef}
+                <AutoGrowTextarea
                   className={`create-bet-input create-bet-textarea${isDescriptionTooLong ? ' create-bet-input-invalid' : ''}`}
-                  style={{ minHeight: `${DESCRIPTION_MIN_HEIGHT_PX}px` }}
+                  minHeight={DESCRIPTION_MIN_HEIGHT_PX}
                   value={description}
-                  onChange={event => {
+                  onValueChange={value => {
                     hasUserInputRef.current = true;
-                    setDescription(event.target.value);
+                    setDescription(value);
                   }}
-                  onInput={resizeDescription}
                   placeholder="Добавьте детали и условия"
+                  maxLength={DESCRIPTION_MAX_LENGTH}
                   required
                 />
                 <button

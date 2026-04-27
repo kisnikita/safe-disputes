@@ -1,0 +1,11 @@
+.evidence-form-screen .create-bet-header {
+  margin-bottom: 18px;
+}
+
+.evidence-form-page {
+  width: min(720px, 100%);
+}
+
+.evidence-form-textarea {
+  max-width: 100%;
+}

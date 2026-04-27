@@ -3,6 +3,7 @@ import { AppRoot } from './components/Layout/AppRoot';
 import { TabBar } from './components/Layout/TabBar';
 import { CreateBetButton } from './components/Layout/CreateBetButton';
 import { CreateBetForm } from './components/CreateBetForm/CreateBetForm';
+import { EvidenceForm } from './components/EvidenceForm/EvidenceForm';
 import { BetsSection, BetsSectionHandle } from './components/Bets/BetsSection';
 import { InvestigationsSection, InvestigationsSectionHandle } from './components/Investigations/InvestigationsSection';
 import { SettingsSection } from './components/Settings/SettingsSection';
@@ -16,9 +17,11 @@ import './App.css';
 export function App() {
   const { status, error } = useTelegramAuth();
   const [activeTab, setActiveTab] = useState<'bets' | 'investigations' | 'search' | 'settings'>('bets');
+  const [activeScreen, setActiveScreen] = useState<'tabs' | 'createBet' | 'evidence'>('tabs');
+  const [evidenceDisputeId, setEvidenceDisputeId] = useState<string | null>(null);
+  const [pendingBetModalId, setPendingBetModalId] = useState<string | null>(null);
   const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
   const [username, setUsername] = useState<string>('');
-  const [showForm, setShowForm] = useState(false);
   const betsSectionRef = useRef<BetsSectionHandle>(null);
   const investigationsSectionRef = useRef<InvestigationsSectionHandle>(null);
   const [_, setModalOpen] = useState(false);
@@ -35,12 +38,12 @@ export function App() {
       backButton.mount();
     }
 
-    if (showForm) {
+    if (activeScreen !== 'tabs') {
       backButton.show();
     } else {
       backButton.hide();
     }
-  }, [status, showForm]);
+  }, [status, activeScreen]);
 
   useEffect(() => {
     if (status !== 'ready') return;
@@ -60,7 +63,7 @@ export function App() {
   }, [status]);
 
   return (
-    <AppRoot hideTonButton={showForm || status !== 'ready'}>
+    <AppRoot hideTonButton={activeScreen !== 'tabs' || status !== 'ready'}>
       {status === 'loading' && (
         <div className="center">
           <Spinner size="l" className="spinner" />
@@ -73,46 +76,69 @@ export function App() {
       )}
       {status === 'ready' && (
         <>
-          {activeTab === 'bets' && (
+          {activeScreen === 'tabs' && activeTab === 'bets' && (
             <CreateBetButton
-              onOpenForm={() => setShowForm(true)}
-              forceHidden={showForm}
+              onOpenForm={() => setActiveScreen('createBet')}
+              forceHidden={activeScreen !== 'tabs'}
             />
           )}
 
           <div className="app">
             <div
               className={`content${
-                !showForm && (activeTab === 'bets' || activeTab === 'investigations') ? ' no-scroll' : ''
-              }${showForm ? ' create-mode' : ''}`}
+                activeScreen === 'tabs' && (activeTab === 'bets' || activeTab === 'investigations') ? ' no-scroll' : ''
+              }${activeScreen !== 'tabs' ? ' create-mode' : ''}`}
             >
-              {showForm && (
+              {activeScreen === 'createBet' && (
                 <CreateBetForm
                   onClose={() => {
-                    setShowForm(false);
+                    setActiveScreen('tabs');
                     setModalOpen(false);
                   }}
                   onCreated={() => betsSectionRef.current?.refresh()}
                 />
               )}
-              {!showForm && activeTab === 'bets' && (
+              {activeScreen === 'evidence' && evidenceDisputeId && (
+                <EvidenceForm
+                  disputeId={evidenceDisputeId}
+                  onClose={() => {
+                    const targetBetId = evidenceDisputeId;
+                    setActiveScreen('tabs');
+                    setActiveTab('bets');
+                    setEvidenceDisputeId(null);
+                    setPendingBetModalId(targetBetId);
+                    setModalOpen(false);
+                  }}
+                  onSubmitted={() => {
+                    betsSectionRef.current?.refresh();
+                  }}
+                />
+              )}
+              {activeScreen === 'tabs' && activeTab === 'bets' && (
                 <BetsSection
                   ref={betsSectionRef}
                   onModalChange={open => setModalOpen(open)}
+                  initialOpenBetId={pendingBetModalId}
+                  onInitialOpenBetHandled={() => setPendingBetModalId(null)}
+                  onOpenEvidence={disputeId => {
+                    setEvidenceDisputeId(disputeId);
+                    setActiveScreen('evidence');
+                    setModalOpen(false);
+                  }}
                 />
               )}
-              {!showForm && activeTab === 'investigations' && (
+              {activeScreen === 'tabs' && activeTab === 'investigations' && (
                 <InvestigationsSection
                   ref={investigationsSectionRef}
                   onModalChange={open => setModalOpen(open)}
                 />
               )}
-              {!showForm && activeTab === 'search' && <SearchSection />}
-              {!showForm && activeTab === 'settings' && (
+              {activeScreen === 'tabs' && activeTab === 'search' && <SearchSection />}
+              {activeScreen === 'tabs' && activeTab === 'settings' && (
                 <SettingsSection username={username} userPhotoUrl={userPhotoUrl} />
               )}
             </div>
-            {!showForm && (
+            {activeScreen === 'tabs' && (
               <TabBar
                 active={activeTab}
                 userPhotoUrl={userPhotoUrl}
