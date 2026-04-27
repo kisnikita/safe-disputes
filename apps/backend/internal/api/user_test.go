@@ -156,6 +156,28 @@ func TestUpdateUser(t *testing.T) {
 			t.Fatalf("expected username alice, got %q", updater.opts.Username)
 		}
 	})
+
+	t.Run("passes investigation readiness to updater", func(t *testing.T) {
+		updater := &fakeUserUpdater{}
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			c.Set("username", "alice")
+			c.Next()
+		})
+		r.PATCH("/me", updateUser(noopLogger{}, updater))
+
+		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"investigationReadiness":false}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("expected %d, got %d", http.StatusNoContent, rr.Code)
+		}
+		if updater.opts.InvestigationReadiness == nil || *updater.opts.InvestigationReadiness {
+			t.Fatalf("expected investigationReadiness=false, got %#v", updater.opts.InvestigationReadiness)
+		}
+	})
 }
 
 func TestGetTop(t *testing.T) {

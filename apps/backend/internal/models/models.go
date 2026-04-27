@@ -59,6 +59,7 @@ type User struct {
 	Rating                   int       `db:"rating" json:"rating"`
 	PhotoUrl                 *string   `db:"photo_url" json:"photoUrl"`
 	MinimumDisputeAmountNano int64     `db:"minimum_dispute_amount_nano" json:"minimumDisputeAmountNano"`
+	InvestigationReadiness   bool      `db:"investigation_readiness" json:"investigationReadiness"`
 }
 
 type User2Dispute struct {

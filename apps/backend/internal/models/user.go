@@ -8,6 +8,7 @@ type UserUpdateOpts struct {
 	Username                 string `json:"username"`
 	NotificationEnabled      *bool  `json:"notificationEnabled"`
 	DisputeReadiness         *bool  `json:"disputeReadiness"`
+	InvestigationReadiness   *bool  `json:"investigationReadiness"`
 	MinimumDisputeAmountNano *int64 `json:"minimumDisputeAmountNano"`
 	Rating                   *int   `json:"rating"`
 }

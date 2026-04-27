@@ -479,6 +479,8 @@ components:
           type: boolean
         disputeReadiness:
           type: boolean
+        investigationReadiness:
+          type: boolean
         minimumDisputeAmountNano:
           type: integer
           format: int64
@@ -491,6 +493,8 @@ components:
         notificationEnabled:
           type: boolean
         disputeReadiness:
+          type: boolean
+        investigationReadiness:
           type: boolean
         minimumDisputeAmountNano:
           type: string

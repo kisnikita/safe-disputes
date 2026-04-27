@@ -140,17 +140,12 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 	}
 
 	// --- CREATE INVESTIGATION ---
-	total, err := s.userFinder.GetTotalUsers(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get total users: %w", err)
-	}
-
 	dispute, err := s.disputesFinder.GetDisputeByID(ctx, disputeUUID, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get dispute by ID: %w", err)
 	}
 
-	investigation := models.NewInvestigation(disputeUUID, total-2, dispute.Title)
+	investigation := models.NewInvestigation(disputeUUID, 0, dispute.Title)
 
 	err = s.investigationCreator.InsertInvestigation(ctx, investigation)
 	if err != nil {
@@ -161,6 +156,9 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 	userIDs, err := s.evidenceBroadcaster.BroadcastInvestigation(ctx, u2i, user.ID, opID)
 	if err != nil {
 		return fmt.Errorf("failed to broadcast investigation: %w", err)
+	}
+	if len(userIDs) == 0 {
+		return nil
 	}
 
 	users, err := s.userFinder.GetUsers(ctx, userIDs)

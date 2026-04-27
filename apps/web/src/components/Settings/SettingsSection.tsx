@@ -11,6 +11,7 @@ import { formatNanoToTon, parseTonToNano } from '../../utils/tonAmount';
 interface UserSettings {
   notificationEnabled: boolean;
   disputeReadiness: boolean;
+  investigationReadiness: boolean;
   minimumDisputeAmountNano: string;
   chatID: number;
 }
@@ -18,6 +19,7 @@ interface UserSettings {
 interface UserSettingsResponse {
   notificationEnabled: boolean;
   disputeReadiness: boolean;
+  investigationReadiness: boolean;
   minimumDisputeAmountNano: string | number;
   chatID: number;
 }
@@ -33,6 +35,7 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
   const [settings, setSettings] = useState<UserSettings>({
     notificationEnabled: false,
     disputeReadiness: true,
+    investigationReadiness: true,
     minimumDisputeAmountNano: '0',
     chatID: 0,
   });
@@ -57,6 +60,7 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
       const { data } = await res.json() as { data: UserSettingsResponse };
       const normalizedData: UserSettings = {
         ...data,
+        investigationReadiness: data.investigationReadiness ?? true,
         minimumDisputeAmountNano: String(data.minimumDisputeAmountNano ?? '0'),
       };
       setSettings(normalizedData);
@@ -217,7 +221,9 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
             <span className="slider" />
           </label>
         </div>
+      </div>
 
+      <div className="settings-card">
         {/* Готовность к новым пари */}
         <div className="settings-row">
           <span className="settings-label">Готовность к новым пари</span>
@@ -227,6 +233,20 @@ export function SettingsSection({ username = '', userPhotoUrl = null }: Settings
               checked={settings.disputeReadiness}
               disabled={saving}
               onChange={e => updateField('disputeReadiness', e.target.checked)}
+            />
+            <span className="slider" />
+          </label>
+        </div>
+
+        {/* Готовность к новым расследованиям */}
+        <div className="settings-row">
+          <span className="settings-label">Готовность к новым расследованиям</span>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={settings.investigationReadiness}
+              disabled={saving}
+              onChange={e => updateField('investigationReadiness', e.target.checked)}
             />
             <span className="slider" />
           </label>

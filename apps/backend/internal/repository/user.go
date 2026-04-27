@@ -14,7 +14,8 @@ import (
 func (repo *Repository) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
 	var user models.User
 	err := handleNotFoundError(repo.db.QueryRowContext(ctx, `
-	SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount_nano, rating, chat_id 
+	SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, investigation_readiness, 
+	minimum_dispute_amount_nano, rating, chat_id 
 	FROM users WHERE username = $1`, username).Scan(
 		&user.ID,
 		&user.Username,
@@ -22,6 +23,7 @@ func (repo *Repository) GetUserByUsername(ctx context.Context, username string) 
 		&user.CreatedAt,
 		&user.NotificationEnabled,
 		&user.DisputeReadiness,
+		&user.InvestigationReadiness,
 		&user.MinimumDisputeAmountNano,
 		&user.Rating,
 		&user.ChatID,
@@ -35,7 +37,8 @@ func (repo *Repository) GetUserByUsername(ctx context.Context, username string) 
 func (repo *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (models.User, error) {
 	var user models.User
 	err := handleNotFoundError(repo.db.QueryRowContext(ctx, `
-	SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount_nano, rating, chat_id
+	SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, investigation_readiness, 
+	minimum_dispute_amount_nano, rating, chat_id
 	FROM users WHERE id = $1`, id).Scan(
 		&user.ID,
 		&user.Username,
@@ -43,6 +46,7 @@ func (repo *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (models.U
 		&user.CreatedAt,
 		&user.NotificationEnabled,
 		&user.DisputeReadiness,
+		&user.InvestigationReadiness,
 		&user.MinimumDisputeAmountNano,
 		&user.Rating,
 		&user.ChatID,
@@ -86,14 +90,16 @@ func (repo *Repository) UpdateUser(ctx context.Context, opts models.UserUpdateOp
 		SET
 			notification_enabled = COALESCE($1, notification_enabled),
 			dispute_readiness = COALESCE($2, dispute_readiness),
-			minimum_dispute_amount_nano = COALESCE($3, minimum_dispute_amount_nano),
-			rating = COALESCE($4, rating)
-		WHERE username = $5
+			investigation_readiness = COALESCE($3, investigation_readiness),
+			minimum_dispute_amount_nano = COALESCE($4, minimum_dispute_amount_nano),
+			rating = COALESCE($5, rating)
+		WHERE username = $6
 	`
 
 	_, err := repo.db.ExecContext(ctx, query,
 		opts.NotificationEnabled,
 		opts.DisputeReadiness,
+		opts.InvestigationReadiness,
 		opts.MinimumDisputeAmountNano,
 		opts.Rating,
 		opts.Username,
@@ -150,7 +156,8 @@ func (repo *Repository) GetUsers(ctx context.Context, ids []uuid.UUID) ([]models
 	var users []models.User
 
 	query := `
-		SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, minimum_dispute_amount_nano, rating, chat_id
+		SELECT id, username, photo_url, created_at, notification_enabled, dispute_readiness, investigation_readiness,
+		 minimum_dispute_amount_nano, rating, chat_id
 		FROM users
 		WHERE id = ANY($1)
 	`
@@ -170,6 +177,7 @@ func (repo *Repository) GetUsers(ctx context.Context, ids []uuid.UUID) ([]models
 			&user.CreatedAt,
 			&user.NotificationEnabled,
 			&user.DisputeReadiness,
+			&user.InvestigationReadiness,
 			&user.MinimumDisputeAmountNano,
 			&user.Rating,
 			&user.ChatID,

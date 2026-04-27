@@ -11,7 +11,11 @@ import (
 func (repo *Repository) BroadcastInvestigation(ctx context.Context, u2i models.User2Investigation, p1, p2 uuid.UUID,
 ) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
-	rows, err := repo.db.QueryContext(ctx, `SELECT id FROM users`)
+	rows, err := repo.db.QueryContext(ctx, `
+		SELECT id
+		FROM users
+		WHERE investigation_readiness = TRUE
+	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch users: %w", err)
 	}
@@ -42,6 +46,15 @@ func (repo *Repository) BroadcastInvestigation(ctx context.Context, u2i models.U
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over users: %w", err)
+	}
+
+	_, err = repo.db.ExecContext(ctx, `
+		UPDATE investigations
+		SET total = $1
+		WHERE id = $2
+	`, len(ids), u2i.InvestigationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update investigation total: %w", err)
 	}
 
 	return ids, nil
