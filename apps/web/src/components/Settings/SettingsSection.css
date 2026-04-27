@@ -40,7 +40,7 @@
   padding: 0 16px;
   font-size: 24px;
   line-height: 1.1;
-  color: #a7ebeb;
+  color: #d7fefe;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -50,7 +50,7 @@
   margin-bottom: 14px;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(215deg, rgba(94, 234, 212, 0.15), rgba(15, 23, 42, 0.82));
+  background: rgba(15, 23, 42, 0.15);
   box-shadow:
     0 2px 6px rgba(15, 23, 42, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
@@ -66,6 +66,7 @@
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
   min-height: 56px;
+  background: linear-gradient(215deg, rgba(94, 234, 212, 0.15), rgba(15, 23, 42, 0.65));
 }
 
 .settings-row:last-child {
