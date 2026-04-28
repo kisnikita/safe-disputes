@@ -302,7 +302,7 @@ export const BetDetailsModal: React.FC<Props> = ({
             {(bet.result === 'new' || bet.result === 'sent') && (
               <p><strong>Окончание пари:</strong> {formatDate(bet.endsAt)}</p>
             )}
-            <p className="bet-details-description-label"><strong>Описание:</strong></p>
+            <p className="bet-details-description-label"><strong>Условия:</strong></p>
             <p className="bet-details-description-text">{bet.description}</p>
             {bet.imageData && (
               <img
