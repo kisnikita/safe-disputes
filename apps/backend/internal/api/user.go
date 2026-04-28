@@ -77,6 +77,7 @@ func updateUser(log log.Logger, updater UserUpdater) gin.HandlerFunc {
 		var req struct {
 			NotificationEnabled      *bool   `json:"notificationEnabled"`
 			DisputeReadiness         *bool   `json:"disputeReadiness"`
+			InvestigationReadiness   *bool   `json:"investigationReadiness"`
 			MinimumDisputeAmountNano *string `json:"minimumDisputeAmountNano"`
 			Rating                   *int    `json:"rating"`
 		}
@@ -98,6 +99,7 @@ func updateUser(log log.Logger, updater UserUpdater) gin.HandlerFunc {
 			Username:                 username,
 			NotificationEnabled:      req.NotificationEnabled,
 			DisputeReadiness:         req.DisputeReadiness,
+			InvestigationReadiness:   req.InvestigationReadiness,
 			MinimumDisputeAmountNano: minimumDisputeAmountNano,
 			Rating:                   req.Rating,
 		}
