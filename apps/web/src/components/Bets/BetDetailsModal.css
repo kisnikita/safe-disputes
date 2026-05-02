@@ -1,5 +1,9 @@
 /* src/components/Bets/BetDetailsModal.css */
 .bet-details-overlay {
+  --bet-safe-top: calc(8px + var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, 0px));
+  --bet-safe-right: calc(var(--tg-content-safe-area-inset-right, 0px) + var(--tg-safe-area-inset-right, 0px));
+  --bet-safe-bottom: calc(8px + var(--tg-content-safe-area-inset-bottom, 0px) + var(--tg-safe-area-inset-bottom, 0px));
+  --bet-safe-left: calc(var(--tg-content-safe-area-inset-left, 0px) + var(--tg-safe-area-inset-left, 0px));
   position: fixed;
   inset: 0;
   background: rgba(9, 17, 31, 0.58);
@@ -11,7 +15,11 @@
   z-index: 30;
   opacity: 0;
   transition: opacity 220ms ease;
-  padding: 12px;
+  padding:
+    calc(12px + var(--bet-safe-top))
+    calc(12px + var(--bet-safe-right))
+    calc(12px + var(--bet-safe-bottom))
+    calc(12px + var(--bet-safe-left));
 }
 
 .bet-details-overlay,
@@ -35,7 +43,7 @@
   position: relative;
   width: 100%;
   max-width: 420px;
-  max-height: 90vh;
+  max-height: calc(100dvh - 24px - var(--bet-safe-top) - var(--bet-safe-bottom));
   overflow-y: auto;
   padding: 18px;
   border-radius: 20px;
@@ -66,12 +74,16 @@
   padding-right: 28px;
   color: #e6ffff;
   font-size: 1.1rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .bet-details-card p {
   margin: 0 0 8px;
   color: #e6ffff;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .bet-details-card strong {
@@ -153,6 +165,8 @@
   background: transparent;
   color: #eaffff;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .bet-details-form-actions,
