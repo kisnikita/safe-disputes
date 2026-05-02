@@ -15,7 +15,7 @@ import {
 import { Alert } from '../ui/alert/Alert';
 import { TonIcon } from '../TonIcon/TonIcon';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
-import { parseTonToNano } from '../../utils/tonAmount';
+import { calculateBetDepositNano, formatNanoToTon, parseTonToNano } from '../../utils/tonAmount';
 import { AutoGrowTextarea } from '../ui/auto-grow-textarea/AutoGrowTextarea';
 import { useBlockedActionFeedback } from '../../hooks/useBlockedActionFeedback';
 
@@ -181,6 +181,12 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const isAmountEmpty = amountValidation.isEmpty;
   const amountValidationText = amountValidation.validationText;
   const isAmountInvalid = amountValidation.isInvalid;
+  const amountDepositNano = amountNano !== null && !isAmountInvalid
+    ? calculateBetDepositNano(amountNano)
+    : null;
+  const amountDepositTon = amountDepositNano !== null
+    ? formatNanoToTon(amountDepositNano, 2)
+    : null;
   const [endsAt, setEndsAt] = useState<Date>(() => getDefaultEndsAt());
   const [file, setFile] = useState<File | null>(null);
   const [fileInputHasError, setFileInputHasError] = useState(false);
@@ -502,13 +508,15 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       if (!amountNano) {
         throw new Error('invalid amount nano');
       }
-      signedBoc = await createBetWithDeposit(betID, amountNano);
+      const depositNano = calculateBetDepositNano(amountNano);
+      const totalValueNano = (BigInt(amountNano) + BigInt(depositNano)).toString();
+      signedBoc = await createBetWithDeposit(betID, totalValueNano);
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel|not sent/i.test(msg)) {
         setError('Транзакция отменена пользователем');
       } else if (/No enough funds/i.test(msg)) {
-        setError('Недостаточно средств для внесения депозита');
+        setError('Недостаточно средств для внесения суммы ставки и депозита');
       } else {
         setError('Не удалось развернуть контракт и внести депозит');
       }
@@ -767,6 +775,11 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   </svg>
                 </button>
               </div>
+              {amountDepositTon !== null && (
+                <p className="create-bet-field-hint create-bet-hint-muted">
+                  +{amountDepositTon} TON депозит
+                </p>
+              )}
               {shouldShowAmountValidation && (
                 <p className="create-bet-field-hint create-bet-hint-error">
                   {amountValidationHint}

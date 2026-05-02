@@ -316,6 +316,10 @@
   color: rgba(251, 191, 36, 0.95);
 }
 
+.create-bet-hint-muted {
+  color: rgba(167, 235, 235, 0.56);
+}
+
 .create-bet-hint-error {
   color: rgba(248, 113, 113, 0.98);
 }

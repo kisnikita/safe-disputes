@@ -7,6 +7,7 @@ import { useBetContract } from '../../hooks/useBetContract';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { ImageViewerModal } from '../ImageViewer/ImageViewerModal';
+import { calculateBetDepositNano, formatNanoToTon } from '../../utils/tonAmount';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
 import { formatNanoToTon } from '../../utils/tonAmount';
 
@@ -229,6 +230,13 @@ export const BetDetailsModal: React.FC<Props> = ({
       minute: '2-digit',
   });
 
+  const formatAmountWithDeposit = (amountNano: string | number, currency: string): string => {
+    const amountTon = formatNanoToTon(amountNano, 2, { keepTrailingZeros: true });
+    const depositNano = calculateBetDepositNano(String(amountNano));
+    const depositTon = formatNanoToTon(depositNano, 2);
+    return `${amountTon} ${currency} (+${depositTon} ${currency} депозит)`;
+  };
+
   // UI состояния успеха
   const modal = success ? (
     <div
@@ -299,7 +307,7 @@ export const BetDetailsModal: React.FC<Props> = ({
             <button className="bet-details-close-btn" onClick={requestClose}>×</button>
             <h3>{bet.title}</h3>
             <p><strong>Оппонент:</strong> {bet.opponent}</p>
-            <p><strong>Ставка:</strong> {formatNanoToTon(bet.amountNano, 2, { keepTrailingZeros: true })} {bet.cryptocurrency}</p>
+            <p><strong>Ставка:</strong> {formatAmountWithDeposit(bet.amountNano, bet.cryptocurrency)}</p>
             <p><strong>Создано:</strong> {formatDate(bet.createdAt)}</p>
             {(bet.result === 'new' || bet.result === 'sent') && (
               <p><strong>Окончание пари:</strong> {formatDate(bet.endsAt)}</p>
