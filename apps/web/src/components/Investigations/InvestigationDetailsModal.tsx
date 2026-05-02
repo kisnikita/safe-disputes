@@ -5,6 +5,7 @@ import { apiFetch } from '../../utils/apiFetch';
 import './InvestigationDetailsModal.css';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { useTonConnect } from '../../hooks/useTonConnect';
+import { ImageViewerModal } from '../ImageViewer/ImageViewerModal';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
 
 interface Evidence {
@@ -54,6 +55,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
   const [loading, setLoading] = useState(false);
   const [voteLoading, setVoteLoading] = useState(false);
   const [voteShake, setVoteShake] = useState<'p1' | 'draw' | 'p2' | null>(null);
+  const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null);
   const { connected } = useTonConnect();
   const showWalletConnectPopup = useWalletConnectPopup();
 
@@ -154,11 +156,20 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
             <h4>Доказательства пользователя {evidences[currentIndex].userNumber}</h4>
             <p className="investigation-details-description">{evidences[currentIndex].description}</p>
             {evidences[currentIndex].imageData && (
-              <img
-                src={`data:${evidences[currentIndex].imageType};base64,${evidences[currentIndex].imageData}`}
-                alt="Evidence"
-                className="investigation-details-evidence-image"
-              />
+              <button
+                type="button"
+                className="investigation-details-evidence-image-trigger"
+                onClick={() => {
+                  setPreviewImageSrc(`data:${evidences[currentIndex].imageType};base64,${evidences[currentIndex].imageData}`);
+                }}
+                aria-label="Открыть доказательство"
+              >
+                <img
+                  src={`data:${evidences[currentIndex].imageType};base64,${evidences[currentIndex].imageData}`}
+                  alt="Evidence"
+                  className="investigation-details-evidence-image"
+                />
+              </button>
             )}
             <div className="investigation-details-nav-buttons">
               <button disabled={currentIndex === 0} onClick={handleBack}>Назад</button>
@@ -205,6 +216,12 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
           </>
         )}
       </div>
+      <ImageViewerModal
+        isOpen={previewImageSrc !== null}
+        src={previewImageSrc}
+        alt="Доказательство"
+        onClose={() => setPreviewImageSrc(null)}
+      />
     </div>
   );
 

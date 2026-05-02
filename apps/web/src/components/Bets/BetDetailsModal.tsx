@@ -6,6 +6,7 @@ import './BetDetailsModal.css';
 import { useBetContract } from '../../hooks/useBetContract';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import { Spinner } from '@telegram-apps/telegram-ui';
+import { ImageViewerModal } from '../ImageViewer/ImageViewerModal';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
 import { formatNanoToTon } from '../../utils/tonAmount';
 
@@ -69,6 +70,7 @@ export const BetDetailsModal: React.FC<Props> = ({
   const [acceptShake, setAcceptShake] = useState(false);
   const [claimShake, setClaimShake] = useState(false);
   const [resultShake, setResultShake] = useState<'win' | 'lose' | null>(null);
+  const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null);
   const { accept, refund, win, draw } = useBetContract();
   const { connected } = useTonConnect();
   const showWalletConnectPopup = useWalletConnectPopup();
@@ -305,11 +307,18 @@ export const BetDetailsModal: React.FC<Props> = ({
             <p className="bet-details-description-label"><strong>Условия:</strong></p>
             <p className="bet-details-description-text">{bet.description}</p>
             {bet.imageData && (
-              <img
-                src={`data:${bet.imageType};base64,${bet.imageData}`}
-                alt="Фото пари"
-                className="bet-details-image"
-              />
+              <button
+                type="button"
+                className="bet-details-image-trigger"
+                onClick={() => setPreviewImageSrc(`data:${bet.imageType};base64,${bet.imageData}`)}
+                aria-label="Открыть фото пари"
+              >
+                <img
+                  src={`data:${bet.imageType};base64,${bet.imageData}`}
+                  alt="Фото пари"
+                  className="bet-details-image"
+                />
+              </button>
             )}
 
             {/* Кнопки для вкладки «Новые» */}
@@ -396,6 +405,12 @@ export const BetDetailsModal: React.FC<Props> = ({
           </>
         )}
       </div>
+      <ImageViewerModal
+        isOpen={previewImageSrc !== null}
+        src={previewImageSrc}
+        alt="Фото пари"
+        onClose={() => setPreviewImageSrc(null)}
+      />
     </div>
   );
 
