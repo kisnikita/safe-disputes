@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -136,9 +137,13 @@ func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Disput
 	}
 
 	if opponent.NotificationEnabled {
+		hoursLeft := int(math.Ceil(time.Until(dispute.NextDeadline).Hours()))
+		if hoursLeft < 1 {
+			hoursLeft = 1
+		}
 		if err = s.msgSender.SendMessage(opponent.ChatID,
-			fmt.Sprintf("У вас новое пари от %s. Примите его в течении %d часов",
-				creator.Username, dispute.NextDeadline.Hour()-time.Now().Hour())); err != nil {
+			fmt.Sprintf("У вас новое пари от %s. Примите его в течение %d часов",
+				creator.Username, hoursLeft)); err != nil {
 			return err
 		}
 	}
