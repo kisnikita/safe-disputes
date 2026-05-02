@@ -9,7 +9,6 @@ import { Spinner } from '@telegram-apps/telegram-ui';
 import { ImageViewerModal } from '../ImageViewer/ImageViewerModal';
 import { calculateBetDepositNano, formatNanoToTon } from '../../utils/tonAmount';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
-import { formatNanoToTon } from '../../utils/tonAmount';
 
 interface Props {
   id: string;
