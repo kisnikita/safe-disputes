@@ -27,8 +27,21 @@ func TestGetInvestigation(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
 			return newRows(
-				[]string{"id", "dispute_id", "title", "status", "ends_at", "result", "vote"},
-				[]driver.Value{invID.String(), disputeID.String(), "INV", string(models.InvestigationStatusCurrent), now, string(models.InvestigationResultSent), "p1"},
+				[]string{"id", "dispute_id", "title", "total", "p1", "p2", "draw", "status", "created_at", "ends_at", "result", "vote"},
+				[]driver.Value{
+					invID.String(),
+					disputeID.String(),
+					"INV",
+					int64(1),
+					int64(1),
+					int64(0),
+					int64(0),
+					string(models.InvestigationStatusCurrent),
+					now,
+					now,
+					string(models.InvestigationResultSent),
+					"p1",
+				},
 			), nil
 		},
 	})

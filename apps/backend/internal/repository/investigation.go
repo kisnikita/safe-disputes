@@ -124,7 +124,8 @@ func (repo *Repository) GetInvestigation(ctx context.Context, invID, userID uuid
 	query := `
 		SELECT
 		  i.id, i.dispute_id, i.title,
-		  i.status,  i.ends_at,
+		  i.total, i.p1, i.p2, i.draw,
+		  i.status, i.created_at, i.ends_at,
 		  u.result, u.vote
 		FROM investigations i
 		JOIN user2investigation u ON i.id = u.investigation_id
@@ -138,7 +139,12 @@ func (repo *Repository) GetInvestigation(ctx context.Context, invID, userID uuid
 		&investigation.ID,
 		&investigation.DisputeID,
 		&investigation.Title,
+		&investigation.Total,
+		&investigation.P1,
+		&investigation.P2,
+		&investigation.Draw,
 		&investigation.Status,
+		&investigation.CreatedAt,
 		&investigation.EndsAt,
 		&investigation.Result,
 		&investigation.Vote,
