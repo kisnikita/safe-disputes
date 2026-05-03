@@ -27,7 +27,7 @@ func TestGetOpponentID(t *testing.T) {
 	}
 }
 
-func TestUpdateDisputeParticipant(t *testing.T) {
+func TestUpdateParticipant(t *testing.T) {
 	execCalls := 0
 	repo := newTestRepo(t, &stubDB{
 		execFn: func(string, []driver.NamedValue) (driver.Result, error) {
@@ -36,7 +36,7 @@ func TestUpdateDisputeParticipant(t *testing.T) {
 		},
 	})
 
-	err := repo.UpdateDisputeParticipant(context.Background(), models.DisputeParticipantUpdateOpts{ID: uuid.New()})
+	err := repo.UpdateParticipant(context.Background(), models.ParticipantUpdateOpts{ID: uuid.New()})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestBroadcastInvestigationSkipsDisputeUsers(t *testing.T) {
 		},
 	})
 
-	ids, err := repo.BroadcastInvestigation(context.Background(), models.NewUser2Investigation(uuid.New(), uuid.Nil), p1, p2)
+	ids, err := repo.BroadcastInvestigation(context.Background(), models.NewJuror(uuid.New(), uuid.Nil), p1, p2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestBroadcastInvestigationSkipsDisputeUsers(t *testing.T) {
 	}
 }
 
-func TestUpdateUser2InvestigationAndDelete(t *testing.T) {
+func TestUpdateJurorAndDelete(t *testing.T) {
 	execCalls := 0
 	repo := newTestRepo(t, &stubDB{
 		execFn: func(string, []driver.NamedValue) (driver.Result, error) {
@@ -96,7 +96,7 @@ func TestUpdateUser2InvestigationAndDelete(t *testing.T) {
 
 	vote := "p1"
 	res := models.InvestigationResultSent
-	err := repo.UpdateUser2Investigation(context.Background(), models.U2IUpdateOpts{ID: uuid.New(), Vote: &vote, Result: &res})
+	err := repo.UpdateJuror(context.Background(), models.JurorUpdateOpts{ID: uuid.New(), Vote: &vote, Result: &res})
 	if err != nil {
 		t.Fatalf("unexpected update error: %v", err)
 	}

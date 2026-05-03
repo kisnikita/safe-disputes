@@ -8,7 +8,7 @@ import (
 	"github.com/lib/pq"
 )
 
-func (repo *Repository) BroadcastInvestigation(ctx context.Context, u2i models.User2Investigation, p1, p2 uuid.UUID,
+func (repo *Repository) BroadcastInvestigation(ctx context.Context, u2i models.Juror, p1, p2 uuid.UUID,
 ) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
 	rows, err := repo.db.QueryContext(ctx, `
@@ -34,12 +34,12 @@ func (repo *Repository) BroadcastInvestigation(ctx context.Context, u2i models.U
 		}
 
 		_, err := repo.db.ExecContext(ctx, `
-			INSERT INTO user2investigation (id, user_id, investigation_id, result, vote)
+			INSERT INTO jurors (id, user_id, investigation_id, result, vote)
 			VALUES ($1, $2, $3, $4, $5)`,
 			uuid.New(), userID, u2i.InvestigationID, u2i.Result, u2i.Vote,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert user2investigation: %w", err)
+			return nil, fmt.Errorf("failed to insert jurors: %w", err)
 		}
 		ids = append(ids, userID)
 	}
@@ -60,11 +60,11 @@ func (repo *Repository) BroadcastInvestigation(ctx context.Context, u2i models.U
 	return ids, nil
 }
 
-func (repo *Repository) GetUser2Investigation(ctx context.Context, invID, userID uuid.UUID) (models.User2Investigation, error) {
-	var u2i models.User2Investigation
+func (repo *Repository) GetJuror(ctx context.Context, invID, userID uuid.UUID) (models.Juror, error) {
+	var u2i models.Juror
 	if err := repo.db.QueryRowContext(ctx, `
 		SELECT id, investigation_id, user_id, vote, result
-		FROM user2investigation
+		FROM jurors
 		WHERE investigation_id = $1 AND user_id = $2`,
 		invID, userID,
 	).Scan(
@@ -74,28 +74,28 @@ func (repo *Repository) GetUser2Investigation(ctx context.Context, invID, userID
 		&u2i.Vote,
 		&u2i.Result,
 	); err != nil {
-		return models.User2Investigation{}, fmt.Errorf("failed to get user2investigation: %w", err)
+		return models.Juror{}, fmt.Errorf("failed to get jurors: %w", err)
 	}
 	return u2i, nil
 }
 
-func (repo *Repository) UpdateUser2Investigation(ctx context.Context, opts models.U2IUpdateOpts) error {
+func (repo *Repository) UpdateJuror(ctx context.Context, opts models.JurorUpdateOpts) error {
 	query := `
-		UPDATE user2investigation
+		UPDATE jurors
 		SET vote = COALESCE($1, vote),
 			result = COALESCE($2, result)
 		WHERE id = $3
 	`
 	_, err := repo.db.ExecContext(ctx, query, opts.Vote, opts.Result, opts.ID)
 	if err != nil {
-		return fmt.Errorf("failed to update user2investigation: %w", err)
+		return fmt.Errorf("failed to update jurors: %w", err)
 	}
 	return nil
 }
 
 func (repo *Repository) DeleteUsersWithoutVote(ctx context.Context, invID uuid.UUID) error {
 	query := `
-		DELETE FROM user2investigation
+		DELETE FROM jurors
 		WHERE investigation_id = $1 AND vote = ''
 	`
 	_, err := repo.db.ExecContext(ctx, query, invID)
@@ -110,7 +110,7 @@ func (repo *Repository) GetWinnersIDs(ctx context.Context, invID uuid.UUID, winn
 
 	rows, err := repo.db.QueryContext(ctx, `
 		SELECT user_id
-		FROM user2investigation
+		FROM jurors
 		WHERE investigation_id = $1 AND vote = $2`,
 		invID, winner,
 	)
@@ -136,7 +136,7 @@ func (repo *Repository) GetWinnersIDs(ctx context.Context, invID uuid.UUID, winn
 
 func (repo *Repository) UpdateWinnersResult(ctx context.Context, invID uuid.UUID, ids []uuid.UUID) error {
 	queryCorrect := `
-		UPDATE user2investigation
+		UPDATE jurors
 		SET result = $1
 		WHERE investigation_id = $2 AND user_id = ANY($3)
 	`
@@ -146,7 +146,7 @@ func (repo *Repository) UpdateWinnersResult(ctx context.Context, invID uuid.UUID
 	}
 
 	queryIncorrect := `
-		UPDATE user2investigation
+		UPDATE jurors
 		SET result = $1
 		WHERE investigation_id = $2 AND user_id != ALL($3)
 	`

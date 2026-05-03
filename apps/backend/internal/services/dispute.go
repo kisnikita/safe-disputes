@@ -28,20 +28,20 @@ type DisputeCreator interface {
 	UpdateDisputeNextDeadline(ctx context.Context, disputeID uuid.UUID, nextDeadline time.Time) error
 }
 
-type DisputeParticipantCreator interface {
-	InsertDisputeParticipant(ctx context.Context, disputeParticipant models.DisputeParticipant) error
+type ParticipantCreator interface {
+	InsertParticipant(ctx context.Context, participant models.Participant) error
 }
 
 type OpponentGetter interface {
 	GetOpponentID(ctx context.Context, disputeID uuid.UUID, actorID uuid.UUID) (uuid.UUID, error)
 }
 
-type DisputeParticipantGetter interface {
-	GetDisputeParticipant(ctx context.Context, disputeID uuid.UUID, userID uuid.UUID) (models.DisputeParticipant, error)
+type ParticipantGetter interface {
+	GetParticipant(ctx context.Context, disputeID uuid.UUID, userID uuid.UUID) (models.Participant, error)
 }
 
-type DisputeParticipantUpdater interface {
-	UpdateDisputeParticipant(ctx context.Context, opts models.DisputeParticipantUpdateOpts) error
+type ParticipantUpdater interface {
+	UpdateParticipant(ctx context.Context, opts models.ParticipantUpdateOpts) error
 }
 
 type MessageSender interface {
@@ -58,9 +58,9 @@ type DisputeService struct {
 	disputeCreator            DisputeCreator
 	disputeFinder             DisputeFinder
 	disputeReadFinder         DisputeReadFinder
-	disputeParticipantCreator DisputeParticipantCreator
-	disputeParticipantGetter  DisputeParticipantGetter
-	disputeParticipantUpdater DisputeParticipantUpdater
+	participantCreator ParticipantCreator
+	participantGetter  ParticipantGetter
+	participantUpdater ParticipantUpdater
 	opponentGetter            OpponentGetter
 	userFinder                UserFinder
 	msgSender                 MessageSender
@@ -86,9 +86,9 @@ func NewDisputeService(repo *repository.Repository, log log.Logger, msgSender Me
 		disputeCreator:            repo,
 		disputeFinder:             repo,
 		disputeReadFinder:         repo,
-		disputeParticipantCreator: repo,
-		disputeParticipantGetter:  repo,
-		disputeParticipantUpdater: repo,
+		participantCreator: repo,
+		participantGetter:  repo,
+		participantUpdater: repo,
 		opponentGetter:            repo,
 		userFinder:                repo,
 		msgSender:                 msgSender,
@@ -121,18 +121,18 @@ func (s DisputeService) CreateDispute(ctx context.Context, req models.CreateDisp
 		return fmt.Errorf("failed to create dispute: %w", err)
 	}
 
-	disputeParticipantOpponent := models.NewDisputeParticipant(opponent.ID, dispute.ID, models.DisputesResultNew)
-	if err = s.disputeParticipantCreator.InsertDisputeParticipant(ctx, disputeParticipantOpponent); err != nil {
-		return fmt.Errorf("failed to create dispute_participants for opponent: %w", err)
+	participantOpponent := models.NewParticipant(opponent.ID, dispute.ID, models.DisputesResultNew)
+	if err = s.participantCreator.InsertParticipant(ctx, participantOpponent); err != nil {
+		return fmt.Errorf("failed to create participants for opponent: %w", err)
 	}
 
 	actor, err := s.userFinder.GetUserByUsername(ctx, actorUsername)
 	if err != nil {
 		return fmt.Errorf("failed to get actor user: %w", err)
 	}
-	disputeParticipantCreator := models.NewDisputeParticipant(actor.ID, dispute.ID, models.DisputesResultSent)
-	if err = s.disputeParticipantCreator.InsertDisputeParticipant(ctx, disputeParticipantCreator); err != nil {
-		return fmt.Errorf("failed to create dispute_participants for actor: %w", err)
+	participantCreator := models.NewParticipant(actor.ID, dispute.ID, models.DisputesResultSent)
+	if err = s.participantCreator.InsertParticipant(ctx, participantCreator); err != nil {
+		return fmt.Errorf("failed to create participants for actor: %w", err)
 	}
 
 	if opponent.NotificationEnabled {
@@ -216,23 +216,23 @@ func (s DisputeService) AcceptDispute(ctx context.Context, disputeID string, acc
 		return fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, acceptor.ID)
+	participant, err := s.participantGetter.GetParticipant(ctx, disputeUUID, acceptor.ID)
 	if err != nil {
 		return err
 	}
 
-	if disputeParticipant.Status != models.DisputesStatusNew {
-		return fmt.Errorf("user2duspite %s is not in new status", disputeParticipant.ID)
+	if participant.Status != models.DisputesStatusNew {
+		return fmt.Errorf("user2duspite %s is not in new status", participant.ID)
 	}
 
 	status := models.DisputesStatusCurrent
 	result := models.DisputesResultProcessed
-	opts := models.DisputeParticipantUpdateOpts{
-		ID:     disputeParticipant.ID,
+	opts := models.ParticipantUpdateOpts{
+		ID:     participant.ID,
 		Status: &status,
 		Result: &result,
 	}
-	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+	if err = s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update rejector dispute status: %w", err)
 	}
 
@@ -242,12 +242,12 @@ func (s DisputeService) AcceptDispute(ctx context.Context, disputeID string, acc
 		return fmt.Errorf("failed to get opponent ID: %w", err)
 	}
 
-	disputeParticipantOp, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, opID)
+	participantOp, err := s.participantGetter.GetParticipant(ctx, disputeUUID, opID)
 	if err != nil {
 		return err
 	}
-	opts.ID = disputeParticipantOp.ID
-	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+	opts.ID = participantOp.ID
+	if err = s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update opponent dispute status: %w", err)
 	}
 
@@ -286,23 +286,23 @@ func (s DisputeService) RejectDispute(ctx context.Context, disputeID string, rej
 		return fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, acceptor.ID)
+	participant, err := s.participantGetter.GetParticipant(ctx, disputeUUID, acceptor.ID)
 	if err != nil {
 		return err
 	}
 
-	if disputeParticipant.Status != models.DisputesStatusNew {
-		return fmt.Errorf("user2duspite %s is not in new status", disputeParticipant.ID)
+	if participant.Status != models.DisputesStatusNew {
+		return fmt.Errorf("user2duspite %s is not in new status", participant.ID)
 	}
 
 	status := models.DisputesStatusPassed
 	result := models.DisputesResultRejected
-	opts := models.DisputeParticipantUpdateOpts{
-		ID:     disputeParticipant.ID,
+	opts := models.ParticipantUpdateOpts{
+		ID:     participant.ID,
 		Status: &status,
 		Result: &result,
 	}
-	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+	if err = s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update rejector dispute status: %w", err)
 	}
 
@@ -312,14 +312,14 @@ func (s DisputeService) RejectDispute(ctx context.Context, disputeID string, rej
 		return fmt.Errorf("failed to get opponent ID: %w", err)
 	}
 
-	disputeParticipantOp, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, opID)
+	participantOp, err := s.participantGetter.GetParticipant(ctx, disputeUUID, opID)
 	if err != nil {
 		return err
 	}
-	opts.ID = disputeParticipantOp.ID
+	opts.ID = participantOp.ID
 	tr := true
 	opts.Claim = &tr
-	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+	if err = s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update opponent dispute status: %w", err)
 	}
 
@@ -355,21 +355,21 @@ func (s DisputeService) ClaimDispute(ctx context.Context, disputeID string, clai
 		return fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, claimer.ID)
+	participant, err := s.participantGetter.GetParticipant(ctx, disputeUUID, claimer.ID)
 	if err != nil {
 		return err
 	}
 
-	if disputeParticipant.Status != models.DisputesStatusPassed {
-		return fmt.Errorf("user2duspite %s is not in current status", disputeParticipant.ID)
+	if participant.Status != models.DisputesStatusPassed {
+		return fmt.Errorf("user2duspite %s is not in current status", participant.ID)
 	}
 
 	fl := false
-	opts := models.DisputeParticipantUpdateOpts{
-		ID:    disputeParticipant.ID,
+	opts := models.ParticipantUpdateOpts{
+		ID:    participant.ID,
 		Claim: &fl,
 	}
-	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+	if err = s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update claimer dispute status: %w", err)
 	}
 	return nil
@@ -387,7 +387,7 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 		return fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, voter.ID)
+	participant, err := s.participantGetter.GetParticipant(ctx, disputeUUID, voter.ID)
 	if err != nil {
 		return err
 	}
@@ -402,7 +402,7 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 		return fmt.Errorf("failed to get opponent user: %w", err)
 	}
 
-	disputeParticipantOp, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, opID)
+	participantOp, err := s.participantGetter.GetParticipant(ctx, disputeUUID, opID)
 	if err != nil {
 		return err
 	}
@@ -412,17 +412,17 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 		return fmt.Errorf("failed to get dispute: %w", err)
 	}
 
-	var opts models.DisputeParticipantUpdateOpts
+	var opts models.ParticipantUpdateOpts
 	tr := true
 	status := models.DisputesStatusPassed
 
 	// --- Opponent not voted yet ---
-	if disputeParticipantOp.Result == models.DisputesResultProcessed {
-		opts.ID = disputeParticipant.ID
+	if participantOp.Result == models.DisputesResultProcessed {
+		opts.ID = participant.ID
 		opts.Vote = &win
 		res := models.DisputesResultAnswered
 		opts.Result = &res
-		err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts)
+		err := s.participantUpdater.UpdateParticipant(ctx, opts)
 		if err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
@@ -432,18 +432,18 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	// -- Opponent already voted ---
 
 	// -- draw --
-	if !disputeParticipantOp.Vote && !win {
+	if !participantOp.Vote && !win {
 		res := models.DisputesResultDraw
-		opts.ID = disputeParticipantOp.ID
+		opts.ID = participantOp.ID
 		opts.Result = &res
 		opts.Status = &status
 		opts.Claim = &tr
-		err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts)
+		err := s.participantUpdater.UpdateParticipant(ctx, opts)
 		if err != nil {
 			return fmt.Errorf("failed to update opponent dispute status: %w", err)
 		}
-		opts.ID = disputeParticipant.ID
-		if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+		opts.ID = participant.ID
+		if err = s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 
@@ -458,21 +458,21 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	}
 
 	// -- win --
-	if !disputeParticipantOp.Vote && win {
+	if !participantOp.Vote && win {
 		res := models.DisputesResultLose
-		opts.ID = disputeParticipantOp.ID
+		opts.ID = participantOp.ID
 		opts.Result = &res
 		opts.Status = &status
-		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+		if err := s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update opponent dispute status: %w", err)
 		}
 
 		res = models.DisputesResultWin
-		opts.ID = disputeParticipant.ID
+		opts.ID = participant.ID
 		opts.Result = &res
 		opts.Claim = &tr
 		opts.Vote = &win
-		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+		if err := s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 		if opponent.NotificationEnabled {
@@ -485,20 +485,20 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	}
 
 	// -- lose --
-	if disputeParticipantOp.Vote && !win {
+	if participantOp.Vote && !win {
 		res := models.DisputesResultLose
-		opts.ID = disputeParticipant.ID
+		opts.ID = participant.ID
 		opts.Result = &res
 		opts.Status = &status
-		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+		if err := s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 
 		res = models.DisputesResultWin
-		opts.ID = disputeParticipantOp.ID
+		opts.ID = participantOp.ID
 		opts.Result = &res
 		opts.Claim = &tr
-		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+		if err := s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update opponent dispute status: %w", err)
 		}
 		if opponent.NotificationEnabled {
@@ -512,17 +512,17 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	}
 
 	// -- investigation --
-	if disputeParticipantOp.Vote && win {
+	if participantOp.Vote && win {
 		res := models.DisputesResultEvidence
-		opts.ID = disputeParticipant.ID
+		opts.ID = participant.ID
 		opts.Vote = &win
 		opts.Result = &res
-		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+		if err := s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 
-		opts.ID = disputeParticipantOp.ID
-		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
+		opts.ID = participantOp.ID
+		if err := s.participantUpdater.UpdateParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 		nextDeadline := minDisputeDeadline(time.Now().Add(24*time.Hour), dispute.EndsAt)

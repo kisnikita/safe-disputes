@@ -98,9 +98,9 @@ func (repo *Repository) ListDisputeReads(
 			opp_user.photo_url,
 			self.result, self.vote, self.claim
 		FROM disputes d
-		JOIN dispute_participants self ON self.dispute_id = d.id
+		JOIN participants self ON self.dispute_id = d.id
 		JOIN users me ON me.id = self.user_id
-		JOIN dispute_participants opp ON opp.dispute_id = d.id AND opp.user_id <> self.user_id
+		JOIN participants opp ON opp.dispute_id = d.id AND opp.user_id <> self.user_id
 		JOIN users opp_user ON opp_user.id = opp.user_id
 		%s
 		ORDER BY d.created_at DESC
@@ -156,7 +156,7 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 			d.image_data, d.image_type, d.ends_at, d.next_deadline,
 			d.contract_address
 		FROM disputes d
-		JOIN dispute_participants u ON d.id = u.dispute_id
+		JOIN participants u ON d.id = u.dispute_id
 		WHERE d.id = $1 AND u.user_id = $2`,
 		disputeID, actorID,
 	).Scan(
@@ -197,9 +197,9 @@ func (repo *Repository) GetDisputeReadByID(
 			opp_user.photo_url,
 			self.result, self.vote, self.claim
 		FROM disputes d
-		JOIN dispute_participants self ON self.dispute_id = d.id
+		JOIN participants self ON self.dispute_id = d.id
 		JOIN users me ON me.id = self.user_id
-		JOIN dispute_participants opp ON opp.dispute_id = d.id AND opp.user_id <> self.user_id
+		JOIN participants opp ON opp.dispute_id = d.id AND opp.user_id <> self.user_id
 		JOIN users opp_user ON opp_user.id = opp.user_id
 		WHERE d.id = $1 AND me.username = $2
 	`, disputeID, actorUsername).Scan(

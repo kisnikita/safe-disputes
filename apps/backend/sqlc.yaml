@@ -39,20 +39,16 @@ sql:
             go_type: 
               type: "InvestigationStatus"
 
-          - column: "user2investigation.result"
+          - column: "jurors.result"
             go_type: 
               type: "InvestigationResult"
 
-          - column: "dispute_participants.result"
+          - column: "participants.result"
             go_type: 
               type: "Result"
               
-          - column: "dispute_participants.status"
+          - column: "participants.status"
             go_type: 
               type: "Status"
-        rename:
-          investigation: InvestigationDB
-          user2investigation: User2Investigation
-
 
         

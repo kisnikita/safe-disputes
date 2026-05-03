@@ -14,14 +14,14 @@ import (
 type fakeDisputeRepo struct {
 	usersByUsername map[string]models.User
 	usersByID       map[uuid.UUID]models.User
-	disputeParticipantByUser       map[uuid.UUID]models.DisputeParticipant
+	participantByUser       map[uuid.UUID]models.Participant
 	dispute         models.Dispute
 	opponentID      uuid.UUID
 
 	insertDisputeCalls int
 	insertDPCalls     int
-	insertedDP        []models.DisputeParticipant
-	updatedDP         []models.DisputeParticipantUpdateOpts
+	insertedDP        []models.Participant
+	updatedDP         []models.ParticipantUpdateOpts
 	updatedDeadlines   []time.Time
 }
 
@@ -60,22 +60,22 @@ func (f *fakeDisputeRepo) UpdateDisputeNextDeadline(_ context.Context, _ uuid.UU
 	f.updatedDeadlines = append(f.updatedDeadlines, nextDeadline)
 	return nil
 }
-func (f *fakeDisputeRepo) InsertDisputeParticipant(_ context.Context, disputeParticipant models.DisputeParticipant) error {
+func (f *fakeDisputeRepo) InsertParticipant(_ context.Context, participant models.Participant) error {
 	f.insertDPCalls++
-	f.insertedDP = append(f.insertedDP, disputeParticipant)
+	f.insertedDP = append(f.insertedDP, participant)
 	return nil
 }
 func (f *fakeDisputeRepo) GetOpponentID(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error) {
 	return f.opponentID, nil
 }
-func (f *fakeDisputeRepo) GetDisputeParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.DisputeParticipant, error) {
-	disputeParticipant, ok := f.disputeParticipantByUser[userID]
+func (f *fakeDisputeRepo) GetParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.Participant, error) {
+	participant, ok := f.participantByUser[userID]
 	if !ok {
-		return models.DisputeParticipant{}, errors.New("disputeParticipant not found")
+		return models.Participant{}, errors.New("participant not found")
 	}
-	return disputeParticipant, nil
+	return participant, nil
 }
-func (f *fakeDisputeRepo) UpdateDisputeParticipant(_ context.Context, opts models.DisputeParticipantUpdateOpts) error {
+func (f *fakeDisputeRepo) UpdateParticipant(_ context.Context, opts models.ParticipantUpdateOpts) error {
 	f.updatedDP = append(f.updatedDP, opts)
 	return nil
 }
@@ -121,7 +121,7 @@ func TestDisputeServiceCreateDispute(t *testing.T) {
 	svc := DisputeService{
 		logger:         noopLogger{},
 		disputeCreator: repo,
-		disputeParticipantCreator:     repo,
+		participantCreator:     repo,
 		userFinder:     repo,
 		msgSender:      sender,
 		txMonitor:      txMonitor,
@@ -146,7 +146,7 @@ func TestDisputeServiceCreateDispute(t *testing.T) {
 		t.Fatalf("expected 1 dispute insert, got %d", repo.insertDisputeCalls)
 	}
 	if repo.insertDPCalls != 2 {
-		t.Fatalf("expected 2 disputeParticipant inserts, got %d", repo.insertDPCalls)
+		t.Fatalf("expected 2 participant inserts, got %d", repo.insertDPCalls)
 	}
 	if sender.calls != 1 || sender.chatIDs[0] != 777 {
 		t.Fatalf("expected message to chat 777, got calls=%d chats=%v", sender.calls, sender.chatIDs)
@@ -164,7 +164,7 @@ func TestDisputeServiceCreateDisputeIgnoresOpponentSettings(t *testing.T) {
 		logger:         noopLogger{},
 		disputeCreator: repo,
 		userFinder:     repo,
-		disputeParticipantCreator:     repo,
+		participantCreator:     repo,
 		msgSender:      &fakeMessageSender{},
 		txMonitor:      &fakeTxMonitor{},
 	}
@@ -194,7 +194,7 @@ func TestDisputeServiceCreateDisputeTxFailed(t *testing.T) {
 		logger:         noopLogger{},
 		disputeCreator: repo,
 		userFinder:     repo,
-		disputeParticipantCreator:     repo,
+		participantCreator:     repo,
 		msgSender:      &fakeMessageSender{},
 		txMonitor:      &fakeTxMonitor{err: ErrTxFailed},
 	}
@@ -256,7 +256,7 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 		repo := &fakeDisputeRepo{
 			usersByUsername: map[string]models.User{"alice": voter},
 			usersByID:       map[uuid.UUID]models.User{opponent.ID: opponent},
-			disputeParticipantByUser: map[uuid.UUID]models.DisputeParticipant{
+			participantByUser: map[uuid.UUID]models.Participant{
 				voter.ID:    {ID: uuid.New(), Status: models.DisputesStatusCurrent},
 				opponent.ID: {ID: uuid.New(), Result: models.DisputesResultProcessed},
 			},
@@ -264,7 +264,7 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 			opponentID: opponent.ID,
 		}
 		sender := &fakeMessageSender{}
-		svc := DisputeService{logger: noopLogger{}, userFinder: repo, disputeParticipantGetter: repo, disputeParticipantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
+		svc := DisputeService{logger: noopLogger{}, userFinder: repo, participantGetter: repo, participantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
 
 		err := svc.VoteDispute(context.Background(), disputeID.String(), "alice", true)
 		if err != nil {
@@ -282,7 +282,7 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 		repo := &fakeDisputeRepo{
 			usersByUsername: map[string]models.User{"alice": voter},
 			usersByID:       map[uuid.UUID]models.User{opponent.ID: opponent},
-			disputeParticipantByUser: map[uuid.UUID]models.DisputeParticipant{
+			participantByUser: map[uuid.UUID]models.Participant{
 				voter.ID:    {ID: uuid.New(), Status: models.DisputesStatusCurrent},
 				opponent.ID: {ID: uuid.New(), Vote: false, Result: models.DisputesResultAnswered},
 			},
@@ -290,7 +290,7 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 			opponentID: opponent.ID,
 		}
 		sender := &fakeMessageSender{}
-		svc := DisputeService{logger: noopLogger{}, userFinder: repo, disputeParticipantGetter: repo, disputeParticipantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
+		svc := DisputeService{logger: noopLogger{}, userFinder: repo, participantGetter: repo, participantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
 
 		err := svc.VoteDispute(context.Background(), disputeID.String(), "alice", false)
 		if err != nil {
@@ -312,7 +312,7 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 		repo := &fakeDisputeRepo{
 			usersByUsername: map[string]models.User{"alice": voter},
 			usersByID:       map[uuid.UUID]models.User{opponent.ID: opponent},
-			disputeParticipantByUser: map[uuid.UUID]models.DisputeParticipant{
+			participantByUser: map[uuid.UUID]models.Participant{
 				voter.ID:    {ID: uuid.New(), Status: models.DisputesStatusCurrent},
 				opponent.ID: {ID: uuid.New(), Vote: true, Result: models.DisputesResultAnswered},
 			},
@@ -323,8 +323,8 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 		svc := DisputeService{
 			logger:         noopLogger{},
 			userFinder:     repo,
-			disputeParticipantGetter:      repo,
-			disputeParticipantUpdater:     repo,
+			participantGetter:      repo,
+			participantUpdater:     repo,
 			opponentGetter: repo,
 			disputeFinder:  repo,
 			disputeCreator: repo,

@@ -29,32 +29,27 @@ func (repo *Repository) InsertInvestigation(ctx context.Context, investigation m
 	return nil
 }
 
-func (repo *Repository) ListInvestigations(
-	ctx context.Context,
+func (repo *Repository) ListInvestigationReads(ctx context.Context, actorUsername string, 
 	opts models.InvestigationListOpts,
-) ([]models.Investigation, error) {
+) ([]models.InvestigationRead, error) {
 	const maxLimit = 100
 
-	// --- Dynamic WHERE clauses and parameters ---
 	var (
 		clauses []string
 		args    []interface{}
 		idx     = 1
 	)
 
-	// Filter by creator (user_id in user2investigation)
-	clauses = append(clauses, fmt.Sprintf("u.user_id = $%d", idx))
-	args = append(args, opts.UserID)
+	clauses = append(clauses, fmt.Sprintf("me.username = $%d", idx))
+	args = append(args, actorUsername)
 	idx++
 
-	// Filter by status (column u.status)
 	if opts.Status != nil {
 		clauses = append(clauses, fmt.Sprintf("i.status = $%d", idx))
 		args = append(args, *opts.Status)
 		idx++
 	}
 
-	// Cursor-based pagination: fetch only older records by created_at
 	if opts.Cursor != "" {
 		t, err := time.Parse(time.RFC3339Nano, opts.Cursor)
 		if err != nil {
@@ -70,46 +65,48 @@ func (repo *Repository) ListInvestigations(
 		whereSQL = "WHERE " + strings.Join(clauses, " AND ")
 	}
 
-	// Limit +1 for nextCursor calculation
 	limit := opts.Limit
 	if limit <= 0 || limit > maxLimit {
 		limit = maxLimit
 	}
 	args = append(args, limit+1)
 
-	// --- Build final SQL: JOIN INVESTIGATIONS i and USER2INVESTIGATION u ---
 	query := fmt.Sprintf(`
-        SELECT
-          i.id, i.dispute_id, i.title,
-          i.status, i.created_at, i.ends_at,
-        u.result, u.vote
-        FROM investigations i
-        JOIN user2investigation u ON i.id = u.investigation_id
-        %s
-        ORDER BY i.created_at DESC
-        LIMIT $%d
-    `, whereSQL, idx)
+		SELECT
+			i.id, i.dispute_id, i.total, i.p1, i.p2, i.draw, i.status, i.created_at, i.ends_at, i.title,
+			u.result, u.vote
+		FROM investigations i
+		JOIN jurors u ON i.id = u.investigation_id
+		JOIN users me ON me.id = u.user_id
+		%s
+		ORDER BY i.created_at DESC
+		LIMIT $%d
+	`, whereSQL, idx)
 
 	rows, err := repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute ListInvestigations query: %w", err)
+		return nil, fmt.Errorf("failed to execute ListInvestigationReads query: %w", err)
 	}
 	defer rows.Close()
 
-	var investigations []models.Investigation
+	var investigations []models.InvestigationRead
 	for rows.Next() {
-		var i models.Investigation
+		var i models.InvestigationRead
 		if err := rows.Scan(
 			&i.ID,
 			&i.DisputeID,
-			&i.Title,
+			&i.Total,
+			&i.P1,
+			&i.P2,
+			&i.Draw,
 			&i.Status,
 			&i.CreatedAt,
 			&i.EndsAt,
+			&i.Title,
 			&i.Result,
 			&i.Vote,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan investigation row: %w", err)
+			return nil, fmt.Errorf("failed to scan investigation read row: %w", err)
 		}
 		investigations = append(investigations, i)
 	}
@@ -126,9 +123,8 @@ func (repo *Repository) GetInvestigation(ctx context.Context, invID, userID uuid
 		  i.id, i.dispute_id, i.title,
 		  i.total, i.p1, i.p2, i.draw,
 		  i.status, i.created_at, i.ends_at,
-		  u.result, u.vote
 		FROM investigations i
-		JOIN user2investigation u ON i.id = u.investigation_id
+		JOIN jurors u ON i.id = u.investigation_id
 		WHERE i.id = $1 AND u.user_id = $2
 	`
 
@@ -146,10 +142,43 @@ func (repo *Repository) GetInvestigation(ctx context.Context, invID, userID uuid
 		&investigation.Status,
 		&investigation.CreatedAt,
 		&investigation.EndsAt,
+	); err != nil {
+		return models.Investigation{}, fmt.Errorf("failed to scan investigation: %w", err)
+	}
+
+	return investigation, nil
+}
+
+func (repo *Repository) GetInvestigationRead(ctx context.Context, id uuid.UUID, actorUsername string,
+) (models.InvestigationRead, error) {
+	query := `
+		SELECT
+		  i.id, i.dispute_id, i.total, i.p1, i.p2, i.draw, i.status, i.created_at, i.ends_at, i.title,
+		  u.result, u.vote
+		FROM investigations i
+		JOIN jurors u ON i.id = u.investigation_id
+		JOIN users me ON me.id = u.user_id
+		WHERE i.id = $1 AND me.username = $2
+	`
+
+	row := repo.db.QueryRowContext(ctx, query, id, actorUsername)
+
+	var investigation models.InvestigationRead
+	if err := row.Scan(
+		&investigation.ID,
+		&investigation.DisputeID,
+		&investigation.Total,
+		&investigation.P1,
+		&investigation.P2,
+		&investigation.Draw,
+		&investigation.Status,
+		&investigation.CreatedAt,
+		&investigation.EndsAt,
+		&investigation.Title,
 		&investigation.Result,
 		&investigation.Vote,
 	); err != nil {
-		return models.Investigation{}, fmt.Errorf("failed to scan investigation: %w", err)
+		return models.InvestigationRead{}, fmt.Errorf("failed to scan investigation read: %w", err)
 	}
 
 	return investigation, nil

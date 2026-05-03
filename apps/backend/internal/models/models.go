@@ -25,16 +25,6 @@ type Dispute struct {
 	AmountNano      int64     `db:"amount_nano" json:"amountNano"`
 }
 
-type DisputeParticipant struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	UserID    uuid.UUID `db:"user_id" json:"userID"`
-	DisputeID uuid.UUID `db:"dispute_id" json:"disputeID"`
-	Vote      bool      `db:"vote" json:"vote"`
-	Result    Result    `db:"result" json:"result"`
-	Status    Status    `db:"status" json:"status"`
-	Claim     bool      `db:"claim" json:"claim"`
-}
-
 type Evidence struct {
 	ID          uuid.UUID `db:"id" json:"id"`
 	DisputeID   uuid.UUID `db:"dispute_id" json:"disputeID"`
@@ -46,7 +36,7 @@ type Evidence struct {
 	UpdatedAt   time.Time `db:"updated_at" json:"updatedAt"`
 }
 
-type InvestigationDB struct {
+type Investigation struct {
 	ID        uuid.UUID           `db:"id" json:"id"`
 	DisputeID uuid.UUID           `db:"dispute_id" json:"disputeID"`
 	Total     int                 `db:"total" json:"total"`
@@ -57,6 +47,24 @@ type InvestigationDB struct {
 	CreatedAt time.Time           `db:"created_at" json:"createdAt"`
 	EndsAt    time.Time           `db:"ends_at" json:"endsAt"`
 	Title     string              `db:"title" json:"title"`
+}
+
+type Juror struct {
+	ID              uuid.UUID           `db:"id" json:"id"`
+	UserID          uuid.UUID           `db:"user_id" json:"userID"`
+	InvestigationID uuid.UUID           `db:"investigation_id" json:"investigationID"`
+	Vote            string              `db:"vote" json:"vote"`
+	Result          InvestigationResult `db:"result" json:"result"`
+}
+
+type Participant struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	UserID    uuid.UUID `db:"user_id" json:"userID"`
+	DisputeID uuid.UUID `db:"dispute_id" json:"disputeID"`
+	Vote      bool      `db:"vote" json:"vote"`
+	Result    Result    `db:"result" json:"result"`
+	Status    Status    `db:"status" json:"status"`
+	Claim     bool      `db:"claim" json:"claim"`
 }
 
 type User struct {
@@ -70,12 +78,4 @@ type User struct {
 	PhotoUrl                 *string   `db:"photo_url" json:"photoUrl"`
 	MinimumDisputeAmountNano int64     `db:"minimum_dispute_amount_nano" json:"minimumDisputeAmountNano"`
 	InvestigationReadiness   bool      `db:"investigation_readiness" json:"investigationReadiness"`
-}
-
-type User2Investigation struct {
-	ID              uuid.UUID           `db:"id" json:"id"`
-	UserID          uuid.UUID           `db:"user_id" json:"userID"`
-	InvestigationID uuid.UUID           `db:"investigation_id" json:"investigationID"`
-	Vote            string              `db:"vote" json:"vote"`
-	Result          InvestigationResult `db:"result" json:"result"`
 }

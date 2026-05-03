@@ -22,7 +22,7 @@ type EvidenceGetter interface {
 }
 
 type EvidenceBroadcaster interface {
-	BroadcastInvestigation(ctx context.Context, u2i models.User2Investigation, p1, p2 uuid.UUID) ([]uuid.UUID, error)
+	BroadcastInvestigation(ctx context.Context, u2i models.Juror, p1, p2 uuid.UUID) ([]uuid.UUID, error)
 }
 
 type EvidenceService struct {
@@ -32,8 +32,8 @@ type EvidenceService struct {
 	evidenceChecker      EvidenceChecker
 	evidenceGetter       EvidenceGetter
 	userFinder           UserFinder
-	disputeParticipantUpdater           DisputeParticipantUpdater
-	disputeParticipantGetter            DisputeParticipantGetter
+	participantUpdater           ParticipantUpdater
+	participantGetter            ParticipantGetter
 	opponentGetter       OpponentGetter
 	investigationCreator InvestigationCreator
 	evidenceBroadcaster  EvidenceBroadcaster
@@ -55,8 +55,8 @@ func NewEvidenceService(repo *repository.Repository, log log.Logger, msgSender M
 		evidenceChecker:      repo,
 		evidenceGetter:       repo,
 		userFinder:           repo,
-		disputeParticipantUpdater:           repo,
-		disputeParticipantGetter:            repo,
+		participantUpdater:           repo,
+		participantGetter:            repo,
 		opponentGetter:       repo,
 		investigationCreator: repo,
 		evidenceBroadcaster:  repo,
@@ -84,9 +84,9 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 
 	evidence := models.NewEvidence(disputeUUID, user.ID, opts.Description, opts.ImageData, opts.ImageType)
 
-	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, user.ID)
+	participant, err := s.participantGetter.GetParticipant(ctx, disputeUUID, user.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get dispute_participants: %w", err)
+		return fmt.Errorf("failed to get participants: %w", err)
 	}
 
 	isFirst, err := s.evidenceChecker.IsFirstEvidence(ctx, opts.DisputeID)
@@ -100,12 +100,12 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 			return fmt.Errorf("failed to insert first evidence: %w", err)
 		}
 		result := models.DisputesResultEvidenceAnswered
-		optsDP := models.DisputeParticipantUpdateOpts{
-			ID:     disputeParticipant.ID,
+		optsDP := models.ParticipantUpdateOpts{
+			ID:     participant.ID,
 			Result: &result,
 		}
-		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, optsDP); err != nil {
-			return fmt.Errorf("failed to update dispute_participants result: %w", err)
+		if err := s.participantUpdater.UpdateParticipant(ctx, optsDP); err != nil {
+			return fmt.Errorf("failed to update participants result: %w", err)
 		}
 		return nil
 	}
@@ -118,25 +118,25 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 	}
 
 	result := models.DisputesResultInspected
-	optsDP := models.DisputeParticipantUpdateOpts{
-		ID:     disputeParticipant.ID,
+	optsDP := models.ParticipantUpdateOpts{
+		ID:     participant.ID,
 		Result: &result,
 	}
-	if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, optsDP); err != nil {
-		return fmt.Errorf("failed to update dispute_participants result: %w", err)
+	if err := s.participantUpdater.UpdateParticipant(ctx, optsDP); err != nil {
+		return fmt.Errorf("failed to update participants result: %w", err)
 	}
 
 	opID, err := s.opponentGetter.GetOpponentID(ctx, disputeUUID, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get opponent ID: %w", err)
 	}
-	disputeParticipantOp, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, opID)
+	participantOp, err := s.participantGetter.GetParticipant(ctx, disputeUUID, opID)
 	if err != nil {
-		return fmt.Errorf("failed to get opponent dispute_participants: %w", err)
+		return fmt.Errorf("failed to get opponent participants: %w", err)
 	}
-	optsDP.ID = disputeParticipantOp.ID
-	if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, optsDP); err != nil {
-		return fmt.Errorf("failed to update dispute_participants result: %w", err)
+	optsDP.ID = participantOp.ID
+	if err := s.participantUpdater.UpdateParticipant(ctx, optsDP); err != nil {
+		return fmt.Errorf("failed to update participants result: %w", err)
 	}
 
 	// --- CREATE INVESTIGATION ---
@@ -152,7 +152,7 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 		return fmt.Errorf("failed to insert opts: %w", err)
 	}
 
-	u2i := models.NewUser2Investigation(investigation.ID, uuid.Nil)
+	u2i := models.NewJuror(investigation.ID, uuid.Nil)
 	userIDs, err := s.evidenceBroadcaster.BroadcastInvestigation(ctx, u2i, user.ID, opID)
 	if err != nil {
 		return fmt.Errorf("failed to broadcast investigation: %w", err)

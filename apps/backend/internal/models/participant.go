@@ -26,7 +26,7 @@ const (
 	DisputesResultDraw             Result = "draw"
 )
 
-type DisputeParticipantUpdateOpts struct {
+type ParticipantUpdateOpts struct {
 	ID     uuid.UUID `json:"id"`
 	Status *Status   `json:"status"`
 	Result *Result   `json:"result"`
@@ -34,8 +34,8 @@ type DisputeParticipantUpdateOpts struct {
 	Claim  *bool     `json:"claim"`
 }
 
-func NewDisputeParticipant(userID, disputeID uuid.UUID, result Result) DisputeParticipant {
-	return DisputeParticipant{
+func NewParticipant(userID, disputeID uuid.UUID, result Result) Participant {
+	return Participant{
 		ID:        uuid.New(),
 		UserID:    userID,
 		DisputeID: disputeID,

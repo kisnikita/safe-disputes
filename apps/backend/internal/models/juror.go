@@ -11,15 +11,15 @@ const (
 	InvestigationResultInCorrect InvestigationResult = "incorrect"
 )
 
-type U2IUpdateOpts struct {
+type JurorUpdateOpts struct {
 	ID     uuid.UUID
 	UserID uuid.UUID
 	Vote   *string
 	Result *InvestigationResult
 }
 
-func NewUser2Investigation(investigationID, userID uuid.UUID) User2Investigation {
-	return User2Investigation{
+func NewJuror(investigationID, userID uuid.UUID) Juror {
+	return Juror{
 		ID:              uuid.New(),
 		InvestigationID: investigationID,
 		UserID:          userID,

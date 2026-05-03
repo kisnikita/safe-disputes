@@ -10,8 +10,8 @@ import (
 
 type fakeEvidenceDeps struct {
 	user         models.User
-	disputeParticipantSelf      models.DisputeParticipant
-	disputeParticipantOpponent  models.DisputeParticipant
+	participantSelf      models.Participant
+	participantOpponent  models.Participant
 	opponentID   uuid.UUID
 	totalUsers   int
 	dispute      models.Dispute
@@ -21,7 +21,7 @@ type fakeEvidenceDeps struct {
 
 	insertEvidenceCalls      int
 	insertInvestigationCalls int
-	updatedDP               []models.DisputeParticipantUpdateOpts
+	updatedDP               []models.ParticipantUpdateOpts
 }
 
 func (f *fakeEvidenceDeps) InsertEvidence(context.Context, models.Evidence) error {
@@ -32,7 +32,7 @@ func (f *fakeEvidenceDeps) IsFirstEvidence(context.Context, string) (bool, error
 func (f *fakeEvidenceDeps) GetEvidences(context.Context, uuid.UUID) ([]models.Evidence, error) {
 	return nil, nil
 }
-func (f *fakeEvidenceDeps) BroadcastInvestigation(context.Context, models.User2Investigation, uuid.UUID, uuid.UUID) ([]uuid.UUID, error) {
+func (f *fakeEvidenceDeps) BroadcastInvestigation(context.Context, models.Juror, uuid.UUID, uuid.UUID) ([]uuid.UUID, error) {
 	return f.broadcastIDs, nil
 }
 func (f *fakeEvidenceDeps) GetUserByID(context.Context, uuid.UUID) (models.User, error) { return models.User{}, nil }
@@ -47,15 +47,15 @@ func (f *fakeEvidenceDeps) GetUsers(context.Context, []uuid.UUID) ([]models.User
 func (f *fakeEvidenceDeps) GetTopUsers(context.Context, int) ([]models.User, error) { return nil, nil }
 func (f *fakeEvidenceDeps) UpdateUser(context.Context, models.UserUpdateOpts) error  { return nil }
 func (f *fakeEvidenceDeps) EarnWinnerRating(context.Context, []uuid.UUID) error      { return nil }
-func (f *fakeEvidenceDeps) UpdateDisputeParticipant(_ context.Context, opts models.DisputeParticipantUpdateOpts) error {
+func (f *fakeEvidenceDeps) UpdateParticipant(_ context.Context, opts models.ParticipantUpdateOpts) error {
 	f.updatedDP = append(f.updatedDP, opts)
 	return nil
 }
-func (f *fakeEvidenceDeps) GetDisputeParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.DisputeParticipant, error) {
+func (f *fakeEvidenceDeps) GetParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.Participant, error) {
 	if userID == f.user.ID {
-		return f.disputeParticipantSelf, nil
+		return f.participantSelf, nil
 	}
-	return f.disputeParticipantOpponent, nil
+	return f.participantOpponent, nil
 }
 func (f *fakeEvidenceDeps) GetOpponentID(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error) {
 	return f.opponentID, nil
@@ -79,7 +79,7 @@ func TestEvidenceServiceProvideEvidenceFirst(t *testing.T) {
 	deps := &fakeEvidenceDeps{
 		isFirst:    true,
 		user:       models.User{ID: userID, Username: "alice"},
-		disputeParticipantSelf:    models.DisputeParticipant{ID: uuid.New()},
+		participantSelf:    models.Participant{ID: uuid.New()},
 		dispute:    models.Dispute{ID: uuid.New(), Title: "D1"},
 		totalUsers: 10,
 	}
@@ -88,8 +88,8 @@ func TestEvidenceServiceProvideEvidenceFirst(t *testing.T) {
 		evidenceCreator: deps,
 		evidenceChecker: deps,
 		userFinder:      deps,
-		disputeParticipantUpdater:      deps,
-		disputeParticipantGetter:       deps,
+		participantUpdater:      deps,
+		participantGetter:       deps,
 	}
 
 	err := svc.ProvideEvidence(context.Background(), models.EvidenceOpts{DisputeID: uuid.NewString(), Username: "alice"})
@@ -100,7 +100,7 @@ func TestEvidenceServiceProvideEvidenceFirst(t *testing.T) {
 		t.Fatalf("expected 1 insert evidence, got %d", deps.insertEvidenceCalls)
 	}
 	if len(deps.updatedDP) != 1 {
-		t.Fatalf("expected 1 disputeParticipant update, got %d", len(deps.updatedDP))
+		t.Fatalf("expected 1 participant update, got %d", len(deps.updatedDP))
 	}
 	if deps.insertInvestigationCalls != 0 {
 		t.Fatalf("expected no investigation insert, got %d", deps.insertInvestigationCalls)
@@ -113,8 +113,8 @@ func TestEvidenceServiceProvideEvidenceSecond(t *testing.T) {
 	deps := &fakeEvidenceDeps{
 		isFirst:      false,
 		user:         models.User{ID: userID, Username: "alice"},
-		disputeParticipantSelf:      models.DisputeParticipant{ID: uuid.New()},
-		disputeParticipantOpponent:  models.DisputeParticipant{ID: uuid.New()},
+		participantSelf:      models.Participant{ID: uuid.New()},
+		participantOpponent:  models.Participant{ID: uuid.New()},
 		opponentID:   opID,
 		totalUsers:   12,
 		dispute:      models.Dispute{ID: uuid.New(), Title: "D2"},
@@ -130,8 +130,8 @@ func TestEvidenceServiceProvideEvidenceSecond(t *testing.T) {
 		evidenceCreator:      deps,
 		evidenceChecker:      deps,
 		userFinder:           deps,
-		disputeParticipantUpdater:           deps,
-		disputeParticipantGetter:            deps,
+		participantUpdater:           deps,
+		participantGetter:            deps,
 		opponentGetter:       deps,
 		investigationCreator: deps,
 		evidenceBroadcaster:  deps,
@@ -147,7 +147,7 @@ func TestEvidenceServiceProvideEvidenceSecond(t *testing.T) {
 		t.Fatalf("expected 1 evidence insert, got %d", deps.insertEvidenceCalls)
 	}
 	if len(deps.updatedDP) != 2 {
-		t.Fatalf("expected 2 disputeParticipant updates, got %d", len(deps.updatedDP))
+		t.Fatalf("expected 2 participant updates, got %d", len(deps.updatedDP))
 	}
 	if deps.insertInvestigationCalls != 1 {
 		t.Fatalf("expected 1 investigation insert, got %d", deps.insertInvestigationCalls)

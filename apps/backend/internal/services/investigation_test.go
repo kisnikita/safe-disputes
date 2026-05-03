@@ -10,18 +10,21 @@ import (
 
 type fakeInvestigationDeps struct {
 	user             models.User
-	u2i              models.User2Investigation
+	participant      models.Juror
 	investigation    models.Investigation
 	winners          []uuid.UUID
 	disputeUsers     []models.User
-	disputeParticipantByUser        map[uuid.UUID]models.DisputeParticipant
+	participantByUser        map[uuid.UUID]models.Participant
 	dispute          models.Dispute
-	listResult       []models.Investigation
+	listResult       []models.InvestigationRead
+	getResult        models.InvestigationRead
 	listReceivedOpts models.InvestigationListOpts
+	listActorUsername string
+	getActorUsername  string
 
-	updatedU2I      []models.U2IUpdateOpts
+	updatedParticipants []models.JurorUpdateOpts
 	updatedInv      []models.InvestigationUpdateOpts
-	updatedDP      []models.DisputeParticipantUpdateOpts
+	updatedDP      []models.ParticipantUpdateOpts
 	deleteNoVoteCnt int
 	earnWinnerCnt   int
 	updateWinnerCnt int
@@ -32,7 +35,16 @@ func (f *fakeInvestigationDeps) InsertInvestigation(context.Context, models.Inve
 }
 func (f *fakeInvestigationDeps) ListInvestigations(_ context.Context, opts models.InvestigationListOpts) ([]models.Investigation, error) {
 	f.listReceivedOpts = opts
+	return nil, nil
+}
+func (f *fakeInvestigationDeps) ListInvestigationReads(_ context.Context, actorUsername string, opts models.InvestigationListOpts) ([]models.InvestigationRead, error) {
+	f.listReceivedOpts = opts
+	f.listActorUsername = actorUsername
 	return f.listResult, nil
+}
+func (f *fakeInvestigationDeps) GetInvestigationRead(_ context.Context, _ uuid.UUID, actorUsername string) (models.InvestigationRead, error) {
+	f.getActorUsername = actorUsername
+	return f.getResult, nil
 }
 func (f *fakeInvestigationDeps) GetInvestigation(context.Context, uuid.UUID, uuid.UUID) (models.Investigation, error) {
 	return f.investigation, nil
@@ -45,8 +57,8 @@ func (f *fakeInvestigationDeps) DeleteUsersWithoutVote(context.Context, uuid.UUI
 	f.deleteNoVoteCnt++
 	return nil
 }
-func (f *fakeInvestigationDeps) GetUser2Investigation(context.Context, uuid.UUID, uuid.UUID) (models.User2Investigation, error) {
-	return f.u2i, nil
+func (f *fakeInvestigationDeps) GetJuror(context.Context, uuid.UUID, uuid.UUID) (models.Juror, error) {
+	return f.participant, nil
 }
 func (f *fakeInvestigationDeps) GetWinnersIDs(context.Context, uuid.UUID, string) ([]uuid.UUID, error) {
 	return f.winners, nil
@@ -54,8 +66,8 @@ func (f *fakeInvestigationDeps) GetWinnersIDs(context.Context, uuid.UUID, string
 func (f *fakeInvestigationDeps) GetDisputesUsers(context.Context, uuid.UUID) ([]models.User, error) {
 	return f.disputeUsers, nil
 }
-func (f *fakeInvestigationDeps) UpdateUser2Investigation(_ context.Context, opts models.U2IUpdateOpts) error {
-	f.updatedU2I = append(f.updatedU2I, opts)
+func (f *fakeInvestigationDeps) UpdateJuror(_ context.Context, opts models.JurorUpdateOpts) error {
+	f.updatedParticipants = append(f.updatedParticipants, opts)
 	return nil
 }
 func (f *fakeInvestigationDeps) UpdateWinnersResult(context.Context, uuid.UUID, []uuid.UUID) error {
@@ -86,12 +98,12 @@ func (f *fakeInvestigationDeps) EarnWinnerRating(context.Context, []uuid.UUID) e
 	f.earnWinnerCnt++
 	return nil
 }
-func (f *fakeInvestigationDeps) UpdateDisputeParticipant(_ context.Context, opts models.DisputeParticipantUpdateOpts) error {
+func (f *fakeInvestigationDeps) UpdateParticipant(_ context.Context, opts models.ParticipantUpdateOpts) error {
 	f.updatedDP = append(f.updatedDP, opts)
 	return nil
 }
-func (f *fakeInvestigationDeps) GetDisputeParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.DisputeParticipant, error) {
-	return f.disputeParticipantByUser[userID], nil
+func (f *fakeInvestigationDeps) GetParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.Participant, error) {
+	return f.participantByUser[userID], nil
 }
 func (f *fakeInvestigationDeps) GetDisputeByID(context.Context, uuid.UUID, uuid.UUID) (models.Dispute, error) {
 	return f.dispute, nil
@@ -107,9 +119,9 @@ func TestInvestigationServiceListInvestigation(t *testing.T) {
 	userID := uuid.New()
 	deps := &fakeInvestigationDeps{
 		user:       models.User{ID: userID, Username: "alice"},
-		listResult: []models.Investigation{{InvestigationDB: models.InvestigationDB{ID: uuid.New()}}},
+		listResult: []models.InvestigationRead{{ID: uuid.New().String()}},
 	}
-	svc := InvestigationService{logger: noopLogger{}, userFinder: deps, investigationFinder: deps}
+	svc := InvestigationService{logger: noopLogger{}, investigationReadFinder: deps}
 
 	res, err := svc.ListInvestigation(context.Background(), models.InvestigationListOpts{Limit: 5}, "alice")
 	if err != nil {
@@ -118,14 +130,14 @@ func TestInvestigationServiceListInvestigation(t *testing.T) {
 	if len(res) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(res))
 	}
-	if deps.listReceivedOpts.UserID != userID {
-		t.Fatalf("expected user id to be propagated")
+	if deps.listActorUsername != "alice" {
+		t.Fatalf("expected actor username to be propagated")
 	}
 }
 
 func TestInvestigationServiceGetInvestigationInvalidID(t *testing.T) {
 	deps := &fakeInvestigationDeps{user: models.User{ID: uuid.New(), Username: "alice"}}
-	svc := InvestigationService{logger: noopLogger{}, userFinder: deps, investigationFinder: deps}
+	svc := InvestigationService{logger: noopLogger{}, investigationReadFinder: deps}
 
 	_, err := svc.GetInvestigation(context.Background(), "bad-id", "alice")
 	if err == nil {
@@ -138,14 +150,14 @@ func TestInvestigationServiceVoteInvestigationNonFinal(t *testing.T) {
 	invID := uuid.New()
 	deps := &fakeInvestigationDeps{
 		user:          models.User{ID: userID, Username: "alice", Rating: 3},
-		u2i:           models.User2Investigation{ID: uuid.New()},
-		investigation: models.Investigation{InvestigationDB: models.InvestigationDB{ID: invID, DisputeID: uuid.New(), Total: 3, P1: 1, P2: 0, Draw: 0}},
+		participant:   models.Juror{ID: uuid.New()},
+		investigation: models.Investigation{ID: invID, DisputeID: uuid.New(), Total: 3, P1: 1, P2: 0, Draw: 0},
 	}
 	svc := InvestigationService{
 		logger:               noopLogger{},
 		userFinder:           deps,
-		u2iFinder:            deps,
-		u2iUpdater:           deps,
+		jurorFinder:  deps,
+		jurorUpdater: deps,
 		userUpdater:          deps,
 		investigationFinder:  deps,
 		investigationUpdater: deps,
@@ -155,8 +167,8 @@ func TestInvestigationServiceVoteInvestigationNonFinal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(deps.updatedU2I) != 1 {
-		t.Fatalf("expected 1 u2i update, got %d", len(deps.updatedU2I))
+	if len(deps.updatedParticipants) != 1 {
+		t.Fatalf("expected 1 participant update, got %d", len(deps.updatedParticipants))
 	}
 	if len(deps.updatedInv) != 1 {
 		t.Fatalf("expected 1 investigation update, got %d", len(deps.updatedInv))
@@ -173,11 +185,11 @@ func TestInvestigationServiceVoteInvestigationDrawFinal(t *testing.T) {
 	disputeID := uuid.New()
 	deps := &fakeInvestigationDeps{
 		user:          user1,
-		u2i:           models.User2Investigation{ID: uuid.New()},
-		investigation: models.Investigation{InvestigationDB: models.InvestigationDB{ID: invID, DisputeID: disputeID, Total: 1, P1: 0, P2: 0, Draw: 0}},
+		participant:   models.Juror{ID: uuid.New()},
+		investigation: models.Investigation{ID: invID, DisputeID: disputeID, Total: 1, P1: 0, P2: 0, Draw: 0},
 		winners:       []uuid.UUID{user1.ID},
 		disputeUsers:  []models.User{user1, user2},
-		disputeParticipantByUser: map[uuid.UUID]models.DisputeParticipant{
+		participantByUser: map[uuid.UUID]models.Participant{
 			user1.ID: {ID: uuid.New()},
 			user2.ID: {ID: uuid.New()},
 		},
@@ -188,13 +200,13 @@ func TestInvestigationServiceVoteInvestigationDrawFinal(t *testing.T) {
 		logger:               noopLogger{},
 		userFinder:           deps,
 		userUpdater:          deps,
-		u2iFinder:            deps,
-		u2iUpdater:           deps,
+		jurorFinder:  deps,
+		jurorUpdater: deps,
 		investigationFinder:  deps,
 		investigationUpdater: deps,
 		investigationDeleter: deps,
-		disputeParticipantGetter:            deps,
-		disputeParticipantUpdater:           deps,
+		participantGetter:            deps,
+		participantUpdater:           deps,
 		disputeFinder:        deps,
 		msgSender:            sender,
 	}
@@ -210,7 +222,7 @@ func TestInvestigationServiceVoteInvestigationDrawFinal(t *testing.T) {
 		t.Fatalf("expected delete users without vote once, got %d", deps.deleteNoVoteCnt)
 	}
 	if len(deps.updatedDP) != 2 {
-		t.Fatalf("expected 2 disputeParticipant updates, got %d", len(deps.updatedDP))
+		t.Fatalf("expected 2 participant updates, got %d", len(deps.updatedDP))
 	}
 	if sender.calls != 2 {
 		t.Fatalf("expected 2 messages for draw, got %d", sender.calls)

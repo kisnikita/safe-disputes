@@ -14,7 +14,7 @@ import (
 func TestListInvestigationsInvalidCursor(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{})
 	status := models.InvestigationStatusCurrent
-	_, err := repo.ListInvestigations(context.Background(), models.InvestigationListOpts{Status: &status, Cursor: "bad"})
+	_, err := repo.ListInvestigationReads(context.Background(), "", models.InvestigationListOpts{Status: &status, Cursor: "bad"})
 	if err == nil || !strings.Contains(err.Error(), "invalid cursor format") {
 		t.Fatalf("expected cursor error, got %v", err)
 	}
@@ -27,7 +27,7 @@ func TestGetInvestigation(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
 			return newRows(
-				[]string{"id", "dispute_id", "title", "total", "p1", "p2", "draw", "status", "created_at", "ends_at", "result", "vote"},
+				[]string{"id", "dispute_id", "title", "total", "p1", "p2", "draw", "status", "created_at", "ends_at"},
 				[]driver.Value{
 					invID.String(),
 					disputeID.String(),
@@ -39,8 +39,6 @@ func TestGetInvestigation(t *testing.T) {
 					string(models.InvestigationStatusCurrent),
 					now,
 					now,
-					string(models.InvestigationResultSent),
-					"p1",
 				},
 			), nil
 		},

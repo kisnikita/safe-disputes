@@ -1,8 +1,9 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type InvestigationStatus string
@@ -12,10 +13,19 @@ const (
 	InvestigationStatusPassed  InvestigationStatus = "passed"
 )
 
-type Investigation struct {
-	InvestigationDB
-	Result InvestigationResult `db:"result" json:"result"`
-	Vote   string              `db:"vote" json:"vote"`
+type InvestigationRead struct {
+	ID        string              `json:"id"`
+	DisputeID string              `json:"disputeID"`
+	Total     int                 `json:"total"`
+	P1        int                 `json:"p1"`
+	P2        int                 `json:"p2"`
+	Draw      int                 `json:"draw"`
+	Status    InvestigationStatus `json:"status"`
+	CreatedAt time.Time           `json:"createdAt"`
+	EndsAt    time.Time           `json:"endsAt"`
+	Title     string              `json:"title"`
+	Result    InvestigationResult `json:"result"`
+	Vote      string              `json:"vote"`
 }
 
 type InvestigationListOpts struct {
@@ -36,13 +46,11 @@ type InvestigationUpdateOpts struct {
 
 func NewInvestigation(disputeID uuid.UUID, total int, title string) Investigation {
 	return Investigation{
-		InvestigationDB: InvestigationDB{
-			ID:        uuid.New(),
-			DisputeID: disputeID,
-			Total:     total,
-			Status:    InvestigationStatusCurrent,
-			EndsAt:    time.Now().Add(3 * time.Hour),
-			Title:     title,
-		},
+		ID:        uuid.New(),
+		DisputeID: disputeID,
+		Total:     total,
+		Status:    InvestigationStatusCurrent,
+		EndsAt:    time.Now().Add(3 * time.Hour),
+		Title:     title,
 	}
 }
