@@ -1,19 +1,33 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-type Dispute struct {
-	DisputeDB
-	Opponent string  `json:"opponent"`
-	PhotoUrl *string `json:"photoUrl"`
-	Result   Result  `db:"result" json:"result"`
-	Vote     bool    `db:"vote" json:"vote"`   // true for "win", false for "lose"
-	Claim    bool    `db:"claim" json:"claim"` // true if user has claimed the dispute
+var ErrValidation = errors.New("validation error")
+
+type DisputeRead struct {
+	ID              string    `json:"id"`
+	Title           string  `json:"title"`
+	Description     string  `json:"description"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+	Cryptocurrency  string  `json:"cryptocurrency"`
+	AmountNano      int64   `json:"amountNano"`
+	ImageData       []byte  `json:"imageData"`
+	ImageType       *string `json:"imageType"`
+	ContractAddress string  `json:"contractAddress"`
+	EndsAt          time.Time `json:"endsAt"`
+	NextDeadline    time.Time `json:"nextDeadline"`
+	Opponent        string  `json:"opponent"`
+	PhotoUrl        *string `json:"photoUrl"`
+	Result          Result  `json:"result"`
+	Vote            bool    `json:"vote"` // true for "win", false for "lose"
+	Claim           bool    `json:"claim"` // true if user has claimed the dispute
 }
 
 type DisputeListOpts struct {
@@ -39,14 +53,14 @@ type CreateDisputeReq struct {
 func NewDispute(opts CreateDisputeReq) (Dispute, error) {
 	amountNano, err := ParsePositiveNano(opts.AmountNano)
 	if err != nil {
-		return Dispute{}, fmt.Errorf("invalid amount: %w", err)
+		return Dispute{}, fmt.Errorf("%w: %w", ErrValidation, err)
 	}
 	endsAt, err := time.Parse(time.RFC3339, opts.EndsAt)
 	if err != nil {
-		return Dispute{}, err
+		return Dispute{}, fmt.Errorf("%w: %w", ErrValidation, err)
 	}
 	if !endsAt.After(time.Now()) {
-		return Dispute{}, fmt.Errorf("endsAt must be in the future")
+		return Dispute{}, fmt.Errorf("%w: endsAt must be in the future", ErrValidation)
 	}
 
 	createdAt := time.Now()
@@ -56,20 +70,17 @@ func NewDispute(opts CreateDisputeReq) (Dispute, error) {
 		nextDeadline = endsAt
 	}
 	d := Dispute{
-		DisputeDB: DisputeDB{
-			ID:              uuid.New(),
-			Title:           opts.Title,
-			Description:     opts.Description,
-			CreatedAt:       createdAt,
-			UpdatedAt:       createdAt,
-			Cryptocurrency:  "TON",
-			AmountNano:      amountNano,
-			ImageData:       opts.ImageData,
-			ContractAddress: opts.ContractAddress,
-			EndsAt:          endsAt,
-			NextDeadline:    nextDeadline,
-		},
-		Opponent: opts.Opponent,
+		ID:              uuid.New(),
+		Title:           opts.Title,
+		Description:     opts.Description,
+		CreatedAt:       createdAt,
+		UpdatedAt:       createdAt,
+		Cryptocurrency:  "TON",
+		AmountNano:      amountNano,
+		ImageData:       opts.ImageData,
+		ContractAddress: opts.ContractAddress,
+		EndsAt:          endsAt,
+		NextDeadline:    nextDeadline,
 	}
 	if opts.ImageType != "" {
 		d.ImageType = &opts.ImageType

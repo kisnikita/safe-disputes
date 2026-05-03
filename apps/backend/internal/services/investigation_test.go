@@ -14,14 +14,14 @@ type fakeInvestigationDeps struct {
 	investigation    models.Investigation
 	winners          []uuid.UUID
 	disputeUsers     []models.User
-	u2dByUser        map[uuid.UUID]models.User2Dispute
+	disputeParticipantByUser        map[uuid.UUID]models.DisputeParticipant
 	dispute          models.Dispute
 	listResult       []models.Investigation
 	listReceivedOpts models.InvestigationListOpts
 
 	updatedU2I      []models.U2IUpdateOpts
 	updatedInv      []models.InvestigationUpdateOpts
-	updatedU2D      []models.U2DUpdateOpts
+	updatedDP      []models.DisputeParticipantUpdateOpts
 	deleteNoVoteCnt int
 	earnWinnerCnt   int
 	updateWinnerCnt int
@@ -86,12 +86,12 @@ func (f *fakeInvestigationDeps) EarnWinnerRating(context.Context, []uuid.UUID) e
 	f.earnWinnerCnt++
 	return nil
 }
-func (f *fakeInvestigationDeps) UpdateUser2Dispute(_ context.Context, opts models.U2DUpdateOpts) error {
-	f.updatedU2D = append(f.updatedU2D, opts)
+func (f *fakeInvestigationDeps) UpdateDisputeParticipant(_ context.Context, opts models.DisputeParticipantUpdateOpts) error {
+	f.updatedDP = append(f.updatedDP, opts)
 	return nil
 }
-func (f *fakeInvestigationDeps) GetUser2Dispute(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.User2Dispute, error) {
-	return f.u2dByUser[userID], nil
+func (f *fakeInvestigationDeps) GetDisputeParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.DisputeParticipant, error) {
+	return f.disputeParticipantByUser[userID], nil
 }
 func (f *fakeInvestigationDeps) GetDisputeByID(context.Context, uuid.UUID, uuid.UUID) (models.Dispute, error) {
 	return f.dispute, nil
@@ -177,11 +177,11 @@ func TestInvestigationServiceVoteInvestigationDrawFinal(t *testing.T) {
 		investigation: models.Investigation{InvestigationDB: models.InvestigationDB{ID: invID, DisputeID: disputeID, Total: 1, P1: 0, P2: 0, Draw: 0}},
 		winners:       []uuid.UUID{user1.ID},
 		disputeUsers:  []models.User{user1, user2},
-		u2dByUser: map[uuid.UUID]models.User2Dispute{
+		disputeParticipantByUser: map[uuid.UUID]models.DisputeParticipant{
 			user1.ID: {ID: uuid.New()},
 			user2.ID: {ID: uuid.New()},
 		},
-		dispute: models.Dispute{DisputeDB: models.DisputeDB{ID: disputeID, Title: "INV"}},
+		dispute: models.Dispute{ID: disputeID, Title: "INV"},
 	}
 	sender := &fakeMessageSender{}
 	svc := InvestigationService{
@@ -193,8 +193,8 @@ func TestInvestigationServiceVoteInvestigationDrawFinal(t *testing.T) {
 		investigationFinder:  deps,
 		investigationUpdater: deps,
 		investigationDeleter: deps,
-		u2dGetter:            deps,
-		u2dUpdater:           deps,
+		disputeParticipantGetter:            deps,
+		disputeParticipantUpdater:           deps,
 		disputeFinder:        deps,
 		msgSender:            sender,
 	}
@@ -209,8 +209,8 @@ func TestInvestigationServiceVoteInvestigationDrawFinal(t *testing.T) {
 	if deps.deleteNoVoteCnt != 1 {
 		t.Fatalf("expected delete users without vote once, got %d", deps.deleteNoVoteCnt)
 	}
-	if len(deps.updatedU2D) != 2 {
-		t.Fatalf("expected 2 u2d updates, got %d", len(deps.updatedU2D))
+	if len(deps.updatedDP) != 2 {
+		t.Fatalf("expected 2 disputeParticipant updates, got %d", len(deps.updatedDP))
 	}
 	if sender.calls != 2 {
 		t.Fatalf("expected 2 messages for draw, got %d", sender.calls)

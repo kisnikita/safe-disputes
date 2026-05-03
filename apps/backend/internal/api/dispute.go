@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,19 +16,19 @@ import (
 )
 
 type DisputePrechecker interface {
-	PrecheckCreateDispute(ctx context.Context, opponent string, amountNano int64, creatorUsername string) error
+	PrecheckCreateDispute(ctx context.Context, opponent string, amountNano int64, actorUsername string) error
 }
 
 type DisputeCreator interface {
-	CreateDispute(ctx context.Context, dispute models.Dispute, creatorUsername, boc string) error
+	CreateDispute(ctx context.Context, req models.CreateDisputeReq, actorUsername string) error
 }
 
 type DisputeLister interface {
-	ListDisputes(ctx context.Context, opts models.DisputeListOpts, creatorUsername string) ([]models.Dispute, error)
+	ListDisputes(ctx context.Context, opts models.DisputeListOpts, actorUsername string) ([]models.DisputeRead, error)
 }
 
 type DisputeGetter interface {
-	GetDispute(ctx context.Context, disputeID string, creatorUsername string) (models.Dispute, error)
+	GetDispute(ctx context.Context, disputeID string, actorUsername string) (models.DisputeRead, error)
 	GetDisputeForEvidence(ctx context.Context, disputeID string) (models.Dispute, error)
 }
 
@@ -59,14 +58,8 @@ func PrecheckDispute(repo *repository.Repository, log log.Logger, sender service
 
 func precheckDispute(log log.Logger, prechecker DisputePrechecker) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-		creator, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -86,14 +79,14 @@ func precheckDispute(log log.Logger, prechecker DisputePrechecker) gin.HandlerFu
 			return
 		}
 
-		err = prechecker.PrecheckCreateDispute(c, req.Opponent, amountNano, creator)
+		err = prechecker.PrecheckCreateDispute(c, req.Opponent, amountNano, actorUsername)
 		switch {
 		case errors.Is(err, services.ErrUserNotFound):
 			log.Error("opponent not found", zap.String("opponent", req.Opponent), zap.Error(err))
 			c.JSON(http.StatusNotFound, gin.H{"error": "opponent not found"})
 			return
 		case errors.Is(err, services.ErrSelfOpponent):
-			log.Error("creator and opponent must be different", zap.String("creator", creator), zap.String("opponent", req.Opponent), zap.Error(err))
+			log.Error("creator and opponent must be different", zap.String("actor", actorUsername), zap.String("opponent", req.Opponent), zap.Error(err))
 			c.JSON(http.StatusConflict, gin.H{"error": "creator and opponent must be different"})
 			return
 		case errors.Is(err, services.ErrMinimalAmount):
@@ -128,66 +121,47 @@ func CreateDispute(repo *repository.Repository, log log.Logger, sender services.
 func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFunc {
 	log = log.With(zap.String("handler", "CreateDispute"))
 	return func(c *gin.Context) {
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		creator, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
 		var req models.CreateDisputeReq
-		if err := c.ShouldBind(&req); err != nil {
+		err := c.ShouldBind(&req)
+		if err != nil {
 			log.Error("invalid request body", zap.Error(err))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 			return
 		}
 		log.Info("CreateDispute params", zap.Any("params", req))
 
-		// читаем файл из multipart
-		if fileHeader, err := c.FormFile("image"); err == nil {
-			file, err := fileHeader.Open()
-			if err != nil {
-				c.JSON(500, gin.H{"error": "cannot open uploaded file"})
-				return
-			}
-			defer file.Close()
 
-			// считываем всё в []byte
-			buf, err := io.ReadAll(file)
-			if err != nil {
-				c.JSON(500, gin.H{"error": "cannot read uploaded file"})
-				return
-			}
-			req.ImageData = buf
-			req.ImageType = fileHeader.Header.Get("Content-Type") // например "image/jpeg"
+		if req.ImageData, req.ImageType, err = getFile(c, "image"); err != nil {
+			log.Error("failed to get file", zap.Error(err))
+			c.JSON(500, gin.H{"error": "cannot open uploaded file"})
+			return 
 		}
 
-		dispute, err := models.NewDispute(req)
-		if err != nil {
-			log.Error("invalid dispute payload", zap.Error(err))
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-			return
-		}
-		err = disputeCreator.CreateDispute(c, dispute, creator, req.Boc)
+		err = disputeCreator.CreateDispute(c, req, actorUsername)
 		switch {
+		case errors.Is(err, models.ErrValidation):
+			log.Error("failed to validate dispute", zap.Error(err))
+			c.JSON(http.StatusBadRequest, gin.H{"error": "validation failed"})
+			return
 		case errors.Is(err, services.ErrInvalidBOC):
-			log.Error("invalid transaction boc", zap.String("creator", creator), zap.Error(err))
+			log.Error("invalid transaction boc", zap.String("actor", actorUsername), zap.Error(err))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid transaction boc"})
 			return
 		case errors.Is(err, services.ErrTxNotFinalized):
-			log.Error("transaction not finalized in time", zap.String("creator", creator), zap.Error(err))
+			log.Error("transaction not finalized in time", zap.String("actor", actorUsername), zap.Error(err))
 			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "transaction not finalized in time"})
 			return
 		case errors.Is(err, services.ErrTxFailed):
-			log.Error("transaction failed", zap.String("creator", creator), zap.Error(err))
+			log.Error("transaction failed", zap.String("actor", actorUsername), zap.Error(err))
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		case errors.Is(err, services.ErrTxMonitorUnavailable):
-			log.Error("transaction monitor unavailable", zap.String("creator", creator), zap.Error(err))
+			log.Error("transaction monitor unavailable", zap.String("actor", actorUsername), zap.Error(err))
 			c.JSON(http.StatusBadGateway, gin.H{"error": "transaction monitor unavailable"})
 			return
 		case err != nil:
@@ -211,19 +185,11 @@ func ListDisputes(repo *repository.Repository, log log.Logger, sender services.M
 
 func listDisputes(log log.Logger, lister DisputeLister) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		creator, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
-		// --- parse query params ---
 		statusStr := c.DefaultQuery("status", "current")
 		status := models.Status(statusStr)
 
@@ -244,7 +210,7 @@ func listDisputes(log log.Logger, lister DisputeLister) gin.HandlerFunc {
 			}
 		}
 
-		cursor := c.Query("cursor") // RFC3339 timestamp or empty
+		cursor := c.Query("cursor")
 
 		opts := models.DisputeListOpts{
 			Status: &status,
@@ -253,8 +219,7 @@ func listDisputes(log log.Logger, lister DisputeLister) gin.HandlerFunc {
 			Cursor: cursor,
 		}
 
-		// --- fetch from repo ---
-		disputes, err := lister.ListDisputes(c, opts, creator)
+		disputes, err := lister.ListDisputes(c, opts, actorUsername)
 		if err != nil {
 			log.Error("ListDisputes failed", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -263,16 +228,13 @@ func listDisputes(log log.Logger, lister DisputeLister) gin.HandlerFunc {
 
 		log.Info("ListDisputes cnt", zap.Int("count", len(disputes)))
 
-		// --- prepare pagination response ---
 		var nextCursor *string
 		if len(disputes) > limit {
-			// берем CreatedAt из (limit)-го индекса (0-based)
 			ts := disputes[limit].CreatedAt.Format(time.RFC3339Nano)
 			nextCursor = &ts
 			disputes = disputes[:limit]
 		}
 
-		// --- map to DTO if needed (here возвращаем модели напрямую) ---
 		c.JSON(http.StatusOK, gin.H{
 			"data":       disputes,
 			"nextCursor": nextCursor,
@@ -291,14 +253,8 @@ func GetDispute(repo *repository.Repository, log log.Logger, sender services.Mes
 func getDispute(log log.Logger, getter DisputeGetter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		creator, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -308,7 +264,7 @@ func getDispute(log log.Logger, getter DisputeGetter) gin.HandlerFunc {
 			return
 		}
 
-		dispute, err := getter.GetDispute(c, disputeID, creator)
+		dispute, err := getter.GetDispute(c, disputeID, actorUsername)
 		if err != nil {
 			log.Error("GetDispute failed", zap.String("id", disputeID), zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -329,15 +285,8 @@ func AcceptDispute(repo *repository.Repository, log log.Logger, sender services.
 
 func acceptDispute(log log.Logger, acceptor DisputeAcceptor) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		acceptorUsername, ok := u.(string)
+		acceptorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -368,15 +317,8 @@ func RejectDispute(repo *repository.Repository, log log.Logger, sender services.
 
 func rejectDispute(log log.Logger, rejector DisputeRejector) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		acceptorUsername, ok := u.(string)
+		acceptorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -407,15 +349,8 @@ func ClaimDispute(repo *repository.Repository, log log.Logger, sender services.M
 
 func claimDispute(log log.Logger, claimer DisputeClaimer) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		username, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -425,7 +360,7 @@ func claimDispute(log log.Logger, claimer DisputeClaimer) gin.HandlerFunc {
 			return
 		}
 
-		err := claimer.ClaimDispute(c, disputeID, username)
+		err := claimer.ClaimDispute(c, disputeID, actorUsername)
 		if err != nil {
 			log.Error("ClaimDispute failed", zap.String("id", disputeID), zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -446,15 +381,8 @@ func VoteDispute(repo *repository.Repository, log log.Logger, sender services.Me
 
 func voteDispute(log log.Logger, voter DisputeVoter) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		username, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -463,7 +391,6 @@ func voteDispute(log log.Logger, voter DisputeVoter) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "dispute ID is required"})
 			return
 		}
-		// --- parse request body ---
 		var body struct {
 			Vote bool `json:"vote"`
 		}
@@ -472,7 +399,7 @@ func voteDispute(log log.Logger, voter DisputeVoter) gin.HandlerFunc {
 			return
 		}
 
-		err := voter.VoteDispute(c, disputeID, username, body.Vote)
+		err := voter.VoteDispute(c, disputeID, actorUsername, body.Vote)
 		if err != nil {
 			log.Error("ClaimDispute failed", zap.String("id", disputeID), zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type DisputeDB struct {
+type Dispute struct {
 	ID              uuid.UUID `db:"id" json:"id"`
 	Title           string    `db:"title" json:"title"`
 	Description     string    `db:"description" json:"description"`
@@ -23,6 +23,16 @@ type DisputeDB struct {
 	EndsAt          time.Time `db:"ends_at" json:"endsAt"`
 	NextDeadline    time.Time `db:"next_deadline" json:"nextDeadline"`
 	AmountNano      int64     `db:"amount_nano" json:"amountNano"`
+}
+
+type DisputeParticipant struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	UserID    uuid.UUID `db:"user_id" json:"userID"`
+	DisputeID uuid.UUID `db:"dispute_id" json:"disputeID"`
+	Vote      bool      `db:"vote" json:"vote"`
+	Result    Result    `db:"result" json:"result"`
+	Status    Status    `db:"status" json:"status"`
+	Claim     bool      `db:"claim" json:"claim"`
 }
 
 type Evidence struct {
@@ -60,16 +70,6 @@ type User struct {
 	PhotoUrl                 *string   `db:"photo_url" json:"photoUrl"`
 	MinimumDisputeAmountNano int64     `db:"minimum_dispute_amount_nano" json:"minimumDisputeAmountNano"`
 	InvestigationReadiness   bool      `db:"investigation_readiness" json:"investigationReadiness"`
-}
-
-type User2Dispute struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	UserID    uuid.UUID `db:"user_id" json:"userID"`
-	DisputeID uuid.UUID `db:"dispute_id" json:"disputeID"`
-	Vote      bool      `db:"vote" json:"vote"`
-	Result    Result    `db:"result" json:"result"`
-	Status    Status    `db:"status" json:"status"`
-	Claim     bool      `db:"claim" json:"claim"`
 }
 
 type User2Investigation struct {

@@ -15,4 +15,5 @@ var (
 	ErrTxFailed             = errors.New("transaction failed")
 	ErrTxNotFinalized       = errors.New("transaction not finalized in time")
 	ErrTxMonitorUnavailable = errors.New("transaction monitor unavailable")
+	ErrValidation			= errors.New("failed to validate")
 )

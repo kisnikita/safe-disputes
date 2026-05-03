@@ -1,9 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -17,19 +19,38 @@ import (
 	"github.com/kisnikita/safe-disputes/backend/internal/services"
 )
 
+func newMultipartRequest(t *testing.T, method, target string, values url.Values) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	for k, vv := range values {
+		for _, v := range vv {
+			if err := w.WriteField(k, v); err != nil {
+				t.Fatalf("write multipart field: %v", err)
+			}
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+	req := httptest.NewRequest(method, target, &body)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	return req
+}
+
 type fakeDisputeCreator struct {
 	err        error
 	called     bool
 	creator    string
 	boc        string
-	disputeArg models.Dispute
+	req        models.CreateDisputeReq
 }
 
-func (f *fakeDisputeCreator) CreateDispute(_ context.Context, dispute models.Dispute, creatorUsername, boc string) error {
+func (f *fakeDisputeCreator) CreateDispute(_ context.Context, req models.CreateDisputeReq, actorUsername string) error {
 	f.called = true
-	f.creator = creatorUsername
-	f.boc = boc
-	f.disputeArg = dispute
+	f.creator = actorUsername
+	f.boc = req.Boc
+	f.req = req
 	return f.err
 }
 
@@ -51,13 +72,13 @@ func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponen
 
 type fakeDisputeLister struct {
 	err      error
-	disputes []models.Dispute
+	disputes []models.DisputeRead
 	called   bool
 	opts     models.DisputeListOpts
 	creator  string
 }
 
-func (f *fakeDisputeLister) ListDisputes(_ context.Context, opts models.DisputeListOpts, creatorUsername string) ([]models.Dispute, error) {
+func (f *fakeDisputeLister) ListDisputes(_ context.Context, opts models.DisputeListOpts, creatorUsername string) ([]models.DisputeRead, error) {
 	f.called = true
 	f.opts = opts
 	f.creator = creatorUsername
@@ -69,16 +90,17 @@ func (f *fakeDisputeLister) ListDisputes(_ context.Context, opts models.DisputeL
 
 type fakeDisputeGetter struct {
 	err            error
-	dispute        models.Dispute
+	dispute        models.DisputeRead
+	disputeRaw     models.Dispute
 	calledID       string
 	calledUsername string
 }
 
-func (f *fakeDisputeGetter) GetDispute(_ context.Context, disputeID string, creatorUsername string) (models.Dispute, error) {
+func (f *fakeDisputeGetter) GetDispute(_ context.Context, disputeID string, creatorUsername string) (models.DisputeRead, error) {
 	f.calledID = disputeID
 	f.calledUsername = creatorUsername
 	if f.err != nil {
-		return models.Dispute{}, f.err
+		return models.DisputeRead{}, f.err
 	}
 	return f.dispute, nil
 }
@@ -87,7 +109,7 @@ func (f *fakeDisputeGetter) GetDisputeForEvidence(_ context.Context, disputeID s
 	if f.err != nil {
 		return models.Dispute{}, f.err
 	}
-	return f.dispute, nil
+	return f.disputeRaw, nil
 }
 
 type fakeDisputeVoter struct {
@@ -125,8 +147,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
 
-		req := httptest.NewRequest(http.MethodPost, "/disputes", strings.NewReader(form.Encode()))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req := newMultipartRequest(t, http.MethodPost, "/disputes", form)
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 
@@ -139,8 +160,8 @@ func TestCreateDispute(t *testing.T) {
 		if creator.creator != "alice" {
 			t.Fatalf("expected creator alice, got %q", creator.creator)
 		}
-		if creator.disputeArg.AmountNano != 100_000_000_000 {
-			t.Fatalf("expected amountNano 100000000000, got %d", creator.disputeArg.AmountNano)
+		if creator.req.AmountNano != "100000000000" {
+			t.Fatalf("expected amountNano 100000000000, got %s", creator.req.AmountNano)
 		}
 		if creator.boc == "" {
 			t.Fatal("expected boc to be passed")
@@ -148,7 +169,7 @@ func TestCreateDispute(t *testing.T) {
 	})
 
 	t.Run("invalid past endsAt returns bad request", func(t *testing.T) {
-		creator := &fakeDisputeCreator{}
+		creator := &fakeDisputeCreator{err: models.ErrValidation}
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
 			c.Set("username", "alice")
@@ -165,16 +186,15 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
 
-		req := httptest.NewRequest(http.MethodPost, "/disputes", strings.NewReader(form.Encode()))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req := newMultipartRequest(t, http.MethodPost, "/disputes", form)
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusBadRequest {
 			t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
 		}
-		if creator.called {
-			t.Fatal("expected CreateDispute not to be called")
+		if !creator.called {
+			t.Fatal("expected CreateDispute to be called")
 		}
 	})
 
@@ -196,8 +216,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
 
-		req := httptest.NewRequest(http.MethodPost, "/disputes", strings.NewReader(form.Encode()))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req := newMultipartRequest(t, http.MethodPost, "/disputes", form)
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 
@@ -300,9 +319,9 @@ func TestListDisputes(t *testing.T) {
 	t.Run("returns paginated response", func(t *testing.T) {
 		t1 := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
 		t2 := time.Date(2026, 3, 1, 11, 0, 0, 123, time.UTC)
-		lister := &fakeDisputeLister{disputes: []models.Dispute{
-			{DisputeDB: models.DisputeDB{ID: uuid.New(), Title: "d1", CreatedAt: t1}},
-			{DisputeDB: models.DisputeDB{ID: uuid.New(), Title: "d2", CreatedAt: t2}},
+		lister := &fakeDisputeLister{disputes: []models.DisputeRead{
+			{ID: uuid.New().String(), Title: "d1", CreatedAt: t1},
+			{ID: uuid.New().String(), Title: "d2", CreatedAt: t2},
 		}}
 		r := gin.New()
 		r.Use(func(c *gin.Context) {

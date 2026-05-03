@@ -14,9 +14,13 @@ import (
 )
 
 type DisputeFinder interface {
-	GetDisputeByID(ctx context.Context, disputeID uuid.UUID, creatorID uuid.UUID) (models.Dispute, error)
-	ListDisputes(ctx context.Context, opts models.DisputeListOpts) ([]models.Dispute, error)
+	GetDisputeByID(ctx context.Context, disputeID uuid.UUID, actorID uuid.UUID) (models.Dispute, error)
 	GetDisputeForEvidence(ctx context.Context, disputeID uuid.UUID) (models.Dispute, error)
+}
+
+type DisputeReadFinder interface {
+	ListDisputeReads(ctx context.Context, actorUsername string, opts models.DisputeListOpts) ([]models.DisputeRead, error)
+	GetDisputeReadByID(ctx context.Context, disputeID uuid.UUID, actorUsername string) (models.DisputeRead, error)
 }
 
 type DisputeCreator interface {
@@ -24,20 +28,20 @@ type DisputeCreator interface {
 	UpdateDisputeNextDeadline(ctx context.Context, disputeID uuid.UUID, nextDeadline time.Time) error
 }
 
-type User2DisputeCreator interface {
-	InsertUser2Dispute(ctx context.Context, u2d models.User2Dispute) error
+type DisputeParticipantCreator interface {
+	InsertDisputeParticipant(ctx context.Context, disputeParticipant models.DisputeParticipant) error
 }
 
 type OpponentGetter interface {
-	GetOpponentID(ctx context.Context, disputeID uuid.UUID, creatorID uuid.UUID) (uuid.UUID, error)
+	GetOpponentID(ctx context.Context, disputeID uuid.UUID, actorID uuid.UUID) (uuid.UUID, error)
 }
 
-type User2DisputeGetter interface {
-	GetUser2Dispute(ctx context.Context, disputeID uuid.UUID, userID uuid.UUID) (models.User2Dispute, error)
+type DisputeParticipantGetter interface {
+	GetDisputeParticipant(ctx context.Context, disputeID uuid.UUID, userID uuid.UUID) (models.DisputeParticipant, error)
 }
 
-type User2DisputeUpdater interface {
-	UpdateUser2Dispute(ctx context.Context, opts models.U2DUpdateOpts) error
+type DisputeParticipantUpdater interface {
+	UpdateDisputeParticipant(ctx context.Context, opts models.DisputeParticipantUpdateOpts) error
 }
 
 type MessageSender interface {
@@ -51,15 +55,16 @@ type TransactionMonitor interface {
 type DisputeService struct {
 	logger log.Logger
 
-	disputeCreator DisputeCreator
-	disputeFinder  DisputeFinder
-	u2dCreator     User2DisputeCreator
-	u2dGetter      User2DisputeGetter
-	u2dUpdater     User2DisputeUpdater
-	opponentGetter OpponentGetter
-	userFinder     UserFinder
-	msgSender      MessageSender
-	txMonitor      TransactionMonitor
+	disputeCreator            DisputeCreator
+	disputeFinder             DisputeFinder
+	disputeReadFinder         DisputeReadFinder
+	disputeParticipantCreator DisputeParticipantCreator
+	disputeParticipantGetter  DisputeParticipantGetter
+	disputeParticipantUpdater DisputeParticipantUpdater
+	opponentGetter            OpponentGetter
+	userFinder                UserFinder
+	msgSender                 MessageSender
+	txMonitor                 TransactionMonitor
 }
 
 func minDisputeDeadline(base, endsAt time.Time) time.Time {
@@ -77,15 +82,16 @@ func NewDisputeService(repo *repository.Repository, log log.Logger, msgSender Me
 		return DisputeService{}, fmt.Errorf("logger is nil")
 	}
 	return DisputeService{
-		logger:         log,
-		disputeCreator: repo,
-		disputeFinder:  repo,
-		u2dCreator:     repo,
-		u2dGetter:      repo,
-		u2dUpdater:     repo,
-		opponentGetter: repo,
-		userFinder:     repo,
-		msgSender:      msgSender,
+		logger:                    log,
+		disputeCreator:            repo,
+		disputeFinder:             repo,
+		disputeReadFinder:         repo,
+		disputeParticipantCreator: repo,
+		disputeParticipantGetter:  repo,
+		disputeParticipantUpdater: repo,
+		opponentGetter:            repo,
+		userFinder:                repo,
+		msgSender:                 msgSender,
 	}, nil
 }
 
@@ -94,56 +100,46 @@ func (s DisputeService) WithTransactionMonitor(txMonitor TransactionMonitor) Dis
 	return s
 }
 
-func (s DisputeService) CreateDispute(ctx context.Context, dispute models.Dispute, creatorUsername, boc string) error {
-	if dispute.Title == "" || dispute.Description == "" || dispute.Opponent == "" ||
-		dispute.AmountNano <= 0 || dispute.ContractAddress == "" {
-		return fmt.Errorf("invalid data for disute creation")
-	}
-	if boc == "" {
-		return fmt.Errorf("boc is required: %w", ErrInvalidBOC)
-	}
-
+func (s DisputeService) CreateDispute(ctx context.Context, req models.CreateDisputeReq, actorUsername string) error {
 	if s.txMonitor == nil {
 		return fmt.Errorf("%w: tx monitor is not configured", ErrTxMonitorUnavailable)
 	}
-	if err := s.txMonitor.WaitForSuccess(ctx, boc); err != nil {
+	if err := s.txMonitor.WaitForSuccess(ctx, req.Boc); err != nil {
 		return err
 	}
 
-	opponent, err := s.userFinder.GetUserByUsername(ctx, dispute.Opponent)
+	opponent, err := s.userFinder.GetUserByUsername(ctx, req.Opponent)
 	if err != nil {
 		return fmt.Errorf("failed to check if opponent exists: %w", ErrUserNotFound)
 	}
 
-	err = s.disputeCreator.InsertDispute(ctx, dispute)
+	dispute, err := models.NewDispute(req)
 	if err != nil {
+		return fmt.Errorf("failed to build dispute model %w", err)
+	}
+	if err = s.disputeCreator.InsertDispute(ctx, dispute); err != nil {
 		return fmt.Errorf("failed to create dispute: %w", err)
 	}
 
-	u2dOpponent := models.NewUser2Dispute(opponent.ID, dispute.ID, models.DisputesStatusNew, models.DisputesResultNew)
-	err = s.u2dCreator.InsertUser2Dispute(ctx, u2dOpponent)
-	if err != nil {
-		return fmt.Errorf("failed to create user2dispute for opponent: %w", err)
+	disputeParticipantOpponent := models.NewDisputeParticipant(opponent.ID, dispute.ID, models.DisputesResultNew)
+	if err = s.disputeParticipantCreator.InsertDisputeParticipant(ctx, disputeParticipantOpponent); err != nil {
+		return fmt.Errorf("failed to create dispute_participants for opponent: %w", err)
 	}
 
-	creator, err := s.userFinder.GetUserByUsername(ctx, creatorUsername)
+	actor, err := s.userFinder.GetUserByUsername(ctx, actorUsername)
 	if err != nil {
-		return fmt.Errorf("failed to get creator user: %w", err)
+		return fmt.Errorf("failed to get actor user: %w", err)
 	}
-	u2dCreator := models.NewUser2Dispute(creator.ID, dispute.ID, models.DisputesStatusNew, models.DisputesResultSent)
-	err = s.u2dCreator.InsertUser2Dispute(ctx, u2dCreator)
-	if err != nil {
-		return fmt.Errorf("failed to create user2dispute for creator: %w", err)
+	disputeParticipantCreator := models.NewDisputeParticipant(actor.ID, dispute.ID, models.DisputesResultSent)
+	if err = s.disputeParticipantCreator.InsertDisputeParticipant(ctx, disputeParticipantCreator); err != nil {
+		return fmt.Errorf("failed to create dispute_participants for actor: %w", err)
 	}
 
 	if opponent.NotificationEnabled {
-		hoursLeft := int(math.Ceil(time.Until(dispute.NextDeadline).Hours()))
-		if hoursLeft < 1 {
-			hoursLeft = 1
-		}
+		hoursLeft := max(int(math.Ceil(time.Until(dispute.NextDeadline).Hours())), 1)
 		if err = s.msgSender.SendMessage(opponent.ChatID,
 			fmt.Sprintf("У вас новое пари от %s. Примите его в течение %d часов",
-				creator.Username, hoursLeft)); err != nil {
+				actor.Username, hoursLeft)); err != nil {
 			return err
 		}
 	}
@@ -154,13 +150,13 @@ func (s DisputeService) PrecheckCreateDispute(
 	ctx context.Context,
 	opponent string,
 	amountNano int64,
-	creatorUsername string,
+	actorUsername string,
 ) error {
 	if opponent == "" || amountNano <= 0 {
 		return fmt.Errorf("invalid data for disute precheck")
 	}
 
-	if creatorUsername == opponent {
+	if actorUsername == opponent {
 		return fmt.Errorf("creator and opponent must be different: %w", ErrSelfOpponent)
 	}
 
@@ -180,70 +176,31 @@ func (s DisputeService) PrecheckCreateDispute(
 	return nil
 }
 
-func (s DisputeService) ListDisputes(ctx context.Context, opts models.DisputeListOpts, creatorUsername string,
-) ([]models.Dispute, error) {
-
-	creator, err := s.userFinder.GetUserByUsername(ctx, creatorUsername)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get creator user: %w", err)
-	}
-
-	opts.Creator = creator.ID
-
-	disputes, err := s.disputeFinder.ListDisputes(ctx, opts)
+func (s DisputeService) ListDisputes(ctx context.Context, opts models.DisputeListOpts, actorUsername string,
+) ([]models.DisputeRead, error) {
+	disputes, err := s.disputeReadFinder.ListDisputeReads(ctx, actorUsername, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list disputes: %w", err)
 	}
 
 	if len(disputes) == 0 {
-		s.logger.Info("no disputes found", zap.String("creator", creator.Username))
-		return []models.Dispute{}, nil
+		s.logger.Info("no disputes found", zap.String("actor", actorUsername))
+		return []models.DisputeRead{}, nil
 	}
-
-	for i := range disputes {
-		opponentID, err := s.opponentGetter.GetOpponentID(ctx, disputes[i].ID, creator.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get opponent for dispute %s: %w", disputes[i].ID, err)
-		}
-		opponent, err := s.userFinder.GetUserByID(ctx, opponentID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get opponent user: %w", err)
-		}
-		disputes[i].Opponent = opponent.Username
-		disputes[i].PhotoUrl = opponent.PhotoUrl
-	}
-
 	return disputes, nil
 }
 
-func (s DisputeService) GetDispute(ctx context.Context, disputeID string, creatorUsername string,
-) (models.Dispute, error) {
-	creator, err := s.userFinder.GetUserByUsername(ctx, creatorUsername)
-	if err != nil {
-		return models.Dispute{}, fmt.Errorf("failed to get creator user: %w", err)
-	}
-
+func (s DisputeService) GetDispute(ctx context.Context, disputeID string, actorUsername string,
+) (models.DisputeRead, error) {
 	disputeUUID, err := uuid.Parse(disputeID)
 	if err != nil {
-		return models.Dispute{}, fmt.Errorf("invalid dispute ID format: %w", err)
+		return models.DisputeRead{}, fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	dispute, err := s.disputeFinder.GetDisputeByID(ctx, disputeUUID, creator.ID)
+	dispute, err := s.disputeReadFinder.GetDisputeReadByID(ctx, disputeUUID, actorUsername)
 	if err != nil {
-		return models.Dispute{}, fmt.Errorf("failed to get dispute: %w", err)
+		return models.DisputeRead{}, fmt.Errorf("failed to get dispute: %w", err)
 	}
-
-	opponentID, err := s.opponentGetter.GetOpponentID(ctx, dispute.ID, creator.ID)
-	if err != nil {
-		return models.Dispute{}, fmt.Errorf("failed to get opponent for dispute %s: %w", dispute.ID, err)
-	}
-	opponent, err := s.userFinder.GetUserByID(ctx, opponentID)
-	if err != nil {
-		return models.Dispute{}, fmt.Errorf("failed to get opponent user: %w", err)
-	}
-	dispute.Opponent = opponent.Username
-	dispute.PhotoUrl = opponent.PhotoUrl
-
 	return dispute, nil
 }
 
@@ -259,23 +216,23 @@ func (s DisputeService) AcceptDispute(ctx context.Context, disputeID string, acc
 		return fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	u2d, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, acceptor.ID)
+	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, acceptor.ID)
 	if err != nil {
 		return err
 	}
 
-	if u2d.Status != models.DisputesStatusNew {
-		return fmt.Errorf("user2duspite %s is not in new status", u2d.ID)
+	if disputeParticipant.Status != models.DisputesStatusNew {
+		return fmt.Errorf("user2duspite %s is not in new status", disputeParticipant.ID)
 	}
 
 	status := models.DisputesStatusCurrent
 	result := models.DisputesResultProcessed
-	opts := models.U2DUpdateOpts{
-		ID:     u2d.ID,
+	opts := models.DisputeParticipantUpdateOpts{
+		ID:     disputeParticipant.ID,
 		Status: &status,
 		Result: &result,
 	}
-	if err = s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update rejector dispute status: %w", err)
 	}
 
@@ -285,12 +242,12 @@ func (s DisputeService) AcceptDispute(ctx context.Context, disputeID string, acc
 		return fmt.Errorf("failed to get opponent ID: %w", err)
 	}
 
-	u2dOp, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, opID)
+	disputeParticipantOp, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, opID)
 	if err != nil {
 		return err
 	}
-	opts.ID = u2dOp.ID
-	if err = s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+	opts.ID = disputeParticipantOp.ID
+	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update opponent dispute status: %w", err)
 	}
 
@@ -329,23 +286,23 @@ func (s DisputeService) RejectDispute(ctx context.Context, disputeID string, rej
 		return fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	u2d, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, acceptor.ID)
+	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, acceptor.ID)
 	if err != nil {
 		return err
 	}
 
-	if u2d.Status != models.DisputesStatusNew {
-		return fmt.Errorf("user2duspite %s is not in new status", u2d.ID)
+	if disputeParticipant.Status != models.DisputesStatusNew {
+		return fmt.Errorf("user2duspite %s is not in new status", disputeParticipant.ID)
 	}
 
 	status := models.DisputesStatusPassed
 	result := models.DisputesResultRejected
-	opts := models.U2DUpdateOpts{
-		ID:     u2d.ID,
+	opts := models.DisputeParticipantUpdateOpts{
+		ID:     disputeParticipant.ID,
 		Status: &status,
 		Result: &result,
 	}
-	if err = s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update rejector dispute status: %w", err)
 	}
 
@@ -355,14 +312,14 @@ func (s DisputeService) RejectDispute(ctx context.Context, disputeID string, rej
 		return fmt.Errorf("failed to get opponent ID: %w", err)
 	}
 
-	u2dOp, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, opID)
+	disputeParticipantOp, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, opID)
 	if err != nil {
 		return err
 	}
-	opts.ID = u2dOp.ID
+	opts.ID = disputeParticipantOp.ID
 	tr := true
 	opts.Claim = &tr
-	if err = s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update opponent dispute status: %w", err)
 	}
 
@@ -398,21 +355,21 @@ func (s DisputeService) ClaimDispute(ctx context.Context, disputeID string, clai
 		return fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	u2d, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, claimer.ID)
+	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, claimer.ID)
 	if err != nil {
 		return err
 	}
 
-	if u2d.Status != models.DisputesStatusPassed {
-		return fmt.Errorf("user2duspite %s is not in current status", u2d.ID)
+	if disputeParticipant.Status != models.DisputesStatusPassed {
+		return fmt.Errorf("user2duspite %s is not in current status", disputeParticipant.ID)
 	}
 
 	fl := false
-	opts := models.U2DUpdateOpts{
-		ID:    u2d.ID,
+	opts := models.DisputeParticipantUpdateOpts{
+		ID:    disputeParticipant.ID,
 		Claim: &fl,
 	}
-	if err = s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+	if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 		return fmt.Errorf("failed to update claimer dispute status: %w", err)
 	}
 	return nil
@@ -430,7 +387,7 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 		return fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	u2d, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, voter.ID)
+	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, voter.ID)
 	if err != nil {
 		return err
 	}
@@ -445,7 +402,7 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 		return fmt.Errorf("failed to get opponent user: %w", err)
 	}
 
-	u2dOp, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, opID)
+	disputeParticipantOp, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, opID)
 	if err != nil {
 		return err
 	}
@@ -455,17 +412,17 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 		return fmt.Errorf("failed to get dispute: %w", err)
 	}
 
-	var opts models.U2DUpdateOpts
+	var opts models.DisputeParticipantUpdateOpts
 	tr := true
 	status := models.DisputesStatusPassed
 
 	// --- Opponent not voted yet ---
-	if u2dOp.Result == models.DisputesResultProcessed {
-		opts.ID = u2d.ID
+	if disputeParticipantOp.Result == models.DisputesResultProcessed {
+		opts.ID = disputeParticipant.ID
 		opts.Vote = &win
 		res := models.DisputesResultAnswered
 		opts.Result = &res
-		err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts)
+		err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts)
 		if err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
@@ -475,18 +432,18 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	// -- Opponent already voted ---
 
 	// -- draw --
-	if !u2dOp.Vote && !win {
+	if !disputeParticipantOp.Vote && !win {
 		res := models.DisputesResultDraw
-		opts.ID = u2dOp.ID
+		opts.ID = disputeParticipantOp.ID
 		opts.Result = &res
 		opts.Status = &status
 		opts.Claim = &tr
-		err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts)
+		err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts)
 		if err != nil {
 			return fmt.Errorf("failed to update opponent dispute status: %w", err)
 		}
-		opts.ID = u2d.ID
-		if err = s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+		opts.ID = disputeParticipant.ID
+		if err = s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 
@@ -501,21 +458,21 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	}
 
 	// -- win --
-	if !u2dOp.Vote && win {
+	if !disputeParticipantOp.Vote && win {
 		res := models.DisputesResultLose
-		opts.ID = u2dOp.ID
+		opts.ID = disputeParticipantOp.ID
 		opts.Result = &res
 		opts.Status = &status
-		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update opponent dispute status: %w", err)
 		}
 
 		res = models.DisputesResultWin
-		opts.ID = u2d.ID
+		opts.ID = disputeParticipant.ID
 		opts.Result = &res
 		opts.Claim = &tr
 		opts.Vote = &win
-		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 		if opponent.NotificationEnabled {
@@ -528,20 +485,20 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	}
 
 	// -- lose --
-	if u2dOp.Vote && !win {
+	if disputeParticipantOp.Vote && !win {
 		res := models.DisputesResultLose
-		opts.ID = u2d.ID
+		opts.ID = disputeParticipant.ID
 		opts.Result = &res
 		opts.Status = &status
-		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 
 		res = models.DisputesResultWin
-		opts.ID = u2dOp.ID
+		opts.ID = disputeParticipantOp.ID
 		opts.Result = &res
 		opts.Claim = &tr
-		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update opponent dispute status: %w", err)
 		}
 		if opponent.NotificationEnabled {
@@ -555,17 +512,17 @@ func (s DisputeService) VoteDispute(ctx context.Context, disputeID string, claim
 	}
 
 	// -- investigation --
-	if u2dOp.Vote && win {
+	if disputeParticipantOp.Vote && win {
 		res := models.DisputesResultEvidence
-		opts.ID = u2d.ID
+		opts.ID = disputeParticipant.ID
 		opts.Vote = &win
 		opts.Result = &res
-		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 
-		opts.ID = u2dOp.ID
-		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, opts); err != nil {
+		opts.ID = disputeParticipantOp.ID
+		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, opts); err != nil {
 			return fmt.Errorf("failed to update voter dispute status: %w", err)
 		}
 		nextDeadline := minDisputeDeadline(time.Now().Add(24*time.Hour), dispute.EndsAt)

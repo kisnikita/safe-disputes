@@ -36,39 +36,35 @@ func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Disput
 	return nil
 }
 
-func (repo *Repository) ListDisputes(
+func (repo *Repository) ListDisputeReads(
 	ctx context.Context,
+	actorUsername string,
 	opts models.DisputeListOpts,
-) ([]models.Dispute, error) {
+) ([]models.DisputeRead, error) {
 	const maxLimit = 100
 
-	// --- динамические WHERE-клаузулы и параметры ---
 	var (
 		clauses []string
 		args    []interface{}
 		idx     = 1
 	)
 
-	// Обязательно фильтруем по creator (user_id в user2dispute)
-	clauses = append(clauses, fmt.Sprintf("u.user_id = $%d", idx))
-	args = append(args, opts.Creator)
+	clauses = append(clauses, fmt.Sprintf("me.username = $%d", idx))
+	args = append(args, actorUsername)
 	idx++
 
-	// Фильтрация по статусу (столбец u.status)
 	if opts.Status != nil {
-		clauses = append(clauses, fmt.Sprintf("u.status = $%d", idx))
+		clauses = append(clauses, fmt.Sprintf("self.status = $%d", idx))
 		args = append(args, *opts.Status)
 		idx++
 	}
 
-	// Фильтрация по результату (столбец u.result)
 	if opts.Result != nil {
-		clauses = append(clauses, fmt.Sprintf("u.result = $%d", idx))
+		clauses = append(clauses, fmt.Sprintf("self.vote = $%d", idx))
 		args = append(args, *opts.Result)
 		idx++
 	}
 
-	// Cursor-based pagination: берем только более старые записи по created_at
 	if opts.Cursor != "" {
 		t, err := time.Parse(time.RFC3339Nano, opts.Cursor)
 		if err != nil {
@@ -84,37 +80,42 @@ func (repo *Repository) ListDisputes(
 		whereSQL = "WHERE " + strings.Join(clauses, " AND ")
 	}
 
-	// Лимит +1 для расчёта nextCursor
 	limit := opts.Limit
 	if limit <= 0 || limit > maxLimit {
 		limit = maxLimit
 	}
 	args = append(args, limit+1)
 
-	// --- Собираем итоговый SQL: JOIN DISPUTES d и USER2DISPUTE u ---
 	query := fmt.Sprintf(`
-        SELECT
-          d.id, d.title, d.description,
-        d.created_at, d.updated_at,
-          d.cryptocurrency, d.amount_nano,
-          d.image_data, d.image_type, d.ends_at, d.next_deadline,
-          u.result, u.claim
-        FROM disputes d
-        JOIN user2dispute u ON d.id = u.dispute_id
-        %s
-        ORDER BY d.created_at DESC
-        LIMIT $%d
-    `, whereSQL, idx)
+		SELECT
+			d.id, d.title, d.description,
+			d.created_at, d.updated_at,
+			d.cryptocurrency, d.amount_nano,
+			d.image_data, d.image_type,
+			d.contract_address,
+			d.ends_at, d.next_deadline,
+			opp_user.username AS opponent,
+			opp_user.photo_url,
+			self.result, self.vote, self.claim
+		FROM disputes d
+		JOIN dispute_participants self ON self.dispute_id = d.id
+		JOIN users me ON me.id = self.user_id
+		JOIN dispute_participants opp ON opp.dispute_id = d.id AND opp.user_id <> self.user_id
+		JOIN users opp_user ON opp_user.id = opp.user_id
+		%s
+		ORDER BY d.created_at DESC
+		LIMIT $%d
+	`, whereSQL, idx)
 
 	rows, err := repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute ListDisputes query: %w", err)
+		return nil, fmt.Errorf("failed to execute ListDisputeReads query: %w", err)
 	}
 	defer rows.Close()
 
-	var disputes []models.Dispute
+	var disputes []models.DisputeRead
 	for rows.Next() {
-		var d models.Dispute
+		var d models.DisputeRead
 		if err := rows.Scan(
 			&d.ID,
 			&d.Title,
@@ -125,12 +126,16 @@ func (repo *Repository) ListDisputes(
 			&d.AmountNano,
 			&d.ImageData,
 			&d.ImageType,
+			&d.ContractAddress,
 			&d.EndsAt,
 			&d.NextDeadline,
+			&d.Opponent,
+			&d.PhotoUrl,
 			&d.Result,
+			&d.Vote,
 			&d.Claim,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan dispute row: %w", err)
+			return nil, fmt.Errorf("failed to scan dispute read row: %w", err)
 		}
 		disputes = append(disputes, d)
 	}
@@ -141,7 +146,7 @@ func (repo *Repository) ListDisputes(
 	return disputes, nil
 }
 
-func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID, creatorID uuid.UUID) (models.Dispute, error) {
+func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID, actorID uuid.UUID) (models.Dispute, error) {
 	var d models.Dispute
 	err := repo.db.QueryRowContext(ctx, `
 		SELECT 
@@ -149,12 +154,11 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 			d.created_at, d.updated_at, 
 			d.cryptocurrency, d.amount_nano, 
 			d.image_data, d.image_type, d.ends_at, d.next_deadline,
-			u.result, u.claim, u.vote,
 			d.contract_address
 		FROM disputes d
-		JOIN user2dispute u ON d.id = u.dispute_id
+		JOIN dispute_participants u ON d.id = u.dispute_id
 		WHERE d.id = $1 AND u.user_id = $2`,
-		disputeID, creatorID,
+		disputeID, actorID,
 	).Scan(
 		&d.ID,
 		&d.Title,
@@ -167,13 +171,58 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 		&d.ImageType,
 		&d.EndsAt,
 		&d.NextDeadline,
-		&d.Result,
-		&d.Claim,
-		&d.Vote,
 		&d.ContractAddress,
 	)
 	if err != nil {
 		return models.Dispute{}, fmt.Errorf("failed to get dispute by ID: %w", err)
+	}
+	return d, nil
+}
+
+func (repo *Repository) GetDisputeReadByID(
+	ctx context.Context,
+	disputeID uuid.UUID,
+	actorUsername string,
+) (models.DisputeRead, error) {
+	var d models.DisputeRead
+	err := repo.db.QueryRowContext(ctx, `
+		SELECT
+			d.id, d.title, d.description,
+			d.created_at, d.updated_at,
+			d.cryptocurrency, d.amount_nano,
+			d.image_data, d.image_type,
+			d.contract_address,
+			d.ends_at, d.next_deadline,
+			opp_user.username AS opponent,
+			opp_user.photo_url,
+			self.result, self.vote, self.claim
+		FROM disputes d
+		JOIN dispute_participants self ON self.dispute_id = d.id
+		JOIN users me ON me.id = self.user_id
+		JOIN dispute_participants opp ON opp.dispute_id = d.id AND opp.user_id <> self.user_id
+		JOIN users opp_user ON opp_user.id = opp.user_id
+		WHERE d.id = $1 AND me.username = $2
+	`, disputeID, actorUsername).Scan(
+		&d.ID,
+		&d.Title,
+		&d.Description,
+		&d.CreatedAt,
+		&d.UpdatedAt,
+		&d.Cryptocurrency,
+		&d.AmountNano,
+		&d.ImageData,
+		&d.ImageType,
+		&d.ContractAddress,
+		&d.EndsAt,
+		&d.NextDeadline,
+		&d.Opponent,
+		&d.PhotoUrl,
+		&d.Result,
+		&d.Vote,
+		&d.Claim,
+	)
+	if err != nil {
+		return models.DisputeRead{}, fmt.Errorf("failed to get dispute read by ID: %w", err)
 	}
 	return d, nil
 }

@@ -1,11 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -62,8 +63,16 @@ func TestEvidenceDispute(t *testing.T) {
 		})
 		r.POST("/disputes/:id/evidence", evidenceDispute(noopLogger{}, evidencer))
 
-		req := httptest.NewRequest(http.MethodPost, "/disputes/123/evidence", strings.NewReader("description=test evidence"))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			var body bytes.Buffer
+			w := multipart.NewWriter(&body)
+			if err := w.WriteField("description", "test evidence"); err != nil {
+				t.Fatalf("write field: %v", err)
+			}
+			if err := w.Close(); err != nil {
+				t.Fatalf("close multipart: %v", err)
+			}
+			req := httptest.NewRequest(http.MethodPost, "/disputes/123/evidence", &body)
+			req.Header.Set("Content-Type", w.FormDataContentType())
 		rr := httptest.NewRecorder()
 		r.ServeHTTP(rr, req)
 

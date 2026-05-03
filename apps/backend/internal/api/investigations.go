@@ -36,14 +36,8 @@ func ListInvestigations(repo *repository.Repository, log log.Logger, sender serv
 func listInvestigations(log log.Logger, lister InvestigationLister) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		creator, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -67,7 +61,7 @@ func listInvestigations(log log.Logger, lister InvestigationLister) gin.HandlerF
 		}
 
 		// --- fetch from repo ---
-		investigations, err := lister.ListInvestigation(c, opts, creator)
+		investigations, err := lister.ListInvestigation(c, opts, actorUsername)
 		if err != nil {
 			log.Error("ListInvestigations failed", zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -104,14 +98,8 @@ func GetInvestigation(repo *repository.Repository, log log.Logger, sender servic
 func getInvestigations(log log.Logger, getter InvestigationGetter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		user, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -121,7 +109,7 @@ func getInvestigations(log log.Logger, getter InvestigationGetter) gin.HandlerFu
 			return
 		}
 
-		inv, err := getter.GetInvestigation(c, invID, user)
+		inv, err := getter.GetInvestigation(c, invID, actorUsername)
 		if err != nil {
 			log.Error("GetInvestigation failed", zap.String("id", invID), zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -143,14 +131,8 @@ func VoteInvestigation(repo *repository.Repository, log log.Logger, sender servi
 func voteInvestigations(log log.Logger, voter InvestigationVoter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		user, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -162,7 +144,7 @@ func voteInvestigations(log log.Logger, voter InvestigationVoter) gin.HandlerFun
 
 		vote := c.Query("vote")
 
-		err := voter.VoteInvestigation(c, invID, user, vote)
+		err := voter.VoteInvestigation(c, invID, actorUsername, vote)
 		if err != nil {
 			log.Error("GetInvestigation failed", zap.String("id", invID), zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

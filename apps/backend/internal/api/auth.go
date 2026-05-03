@@ -24,14 +24,8 @@ func TelegramAuth(repo *repository.Repository, log log.Logger) gin.HandlerFunc {
 
 func telegramAuth(log log.Logger, userSrv userCreator) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		username, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -47,9 +41,9 @@ func telegramAuth(log log.Logger, userSrv userCreator) gin.HandlerFunc {
 			}
 		}
 
-		err := userSrv.CreateIfNotExist(c, username, photoUrl)
+		err := userSrv.CreateIfNotExist(c, actorUsername, photoUrl)
 		if err != nil {
-			log.Error("failed to create user", zap.String("username", username), zap.Error(err))
+			log.Error("failed to create user", zap.String("username", actorUsername), zap.Error(err))
 			c.JSON(500, gin.H{"error": "internal server error"})
 			return
 		}

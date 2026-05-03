@@ -31,20 +31,14 @@ func GetMe(repo *repository.Repository, log log.Logger) gin.HandlerFunc {
 
 func getMe(log log.Logger, getter UserGetter) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		username, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
-		user, err := getter.GetByUsername(c.Request.Context(), username)
+		user, err := getter.GetByUsername(c.Request.Context(), actorUsername)
 		if err != nil {
-			log.Error("failed to get user", zap.String("username", username), zap.Error(err))
+			log.Error("failed to get user", zap.String("username", actorUsername), zap.Error(err))
 			c.JSON(500, gin.H{"error": "internal server error"})
 			return
 		}
@@ -63,14 +57,8 @@ func UpdateUser(repo *repository.Repository, log log.Logger) gin.HandlerFunc {
 
 func updateUser(log log.Logger, updater UserUpdater) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		username, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -96,7 +84,7 @@ func updateUser(log log.Logger, updater UserUpdater) gin.HandlerFunc {
 		}
 
 		opts := models.UserUpdateOpts{
-			Username:                 username,
+			Username:                 actorUsername,
 			NotificationEnabled:      req.NotificationEnabled,
 			DisputeReadiness:         req.DisputeReadiness,
 			InvestigationReadiness:   req.InvestigationReadiness,

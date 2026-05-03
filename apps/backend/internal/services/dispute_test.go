@@ -14,14 +14,14 @@ import (
 type fakeDisputeRepo struct {
 	usersByUsername map[string]models.User
 	usersByID       map[uuid.UUID]models.User
-	u2dByUser       map[uuid.UUID]models.User2Dispute
+	disputeParticipantByUser       map[uuid.UUID]models.DisputeParticipant
 	dispute         models.Dispute
 	opponentID      uuid.UUID
 
 	insertDisputeCalls int
-	insertU2DCalls     int
-	insertedU2D        []models.User2Dispute
-	updatedU2D         []models.U2DUpdateOpts
+	insertDPCalls     int
+	insertedDP        []models.DisputeParticipant
+	updatedDP         []models.DisputeParticipantUpdateOpts
 	updatedDeadlines   []time.Time
 }
 
@@ -43,6 +43,12 @@ func (f *fakeDisputeRepo) GetDisputeByID(context.Context, uuid.UUID, uuid.UUID) 
 func (f *fakeDisputeRepo) ListDisputes(context.Context, models.DisputeListOpts) ([]models.Dispute, error) {
 	return nil, nil
 }
+func (f *fakeDisputeRepo) ListDisputeReads(context.Context, string, models.DisputeListOpts) ([]models.DisputeRead, error) {
+	return nil, nil
+}
+func (f *fakeDisputeRepo) GetDisputeReadByID(context.Context, uuid.UUID, string) (models.DisputeRead, error) {
+	return models.DisputeRead{}, nil
+}
 func (f *fakeDisputeRepo) GetDisputeForEvidence(context.Context, uuid.UUID) (models.Dispute, error) {
 	return f.dispute, nil
 }
@@ -54,23 +60,23 @@ func (f *fakeDisputeRepo) UpdateDisputeNextDeadline(_ context.Context, _ uuid.UU
 	f.updatedDeadlines = append(f.updatedDeadlines, nextDeadline)
 	return nil
 }
-func (f *fakeDisputeRepo) InsertUser2Dispute(_ context.Context, u2d models.User2Dispute) error {
-	f.insertU2DCalls++
-	f.insertedU2D = append(f.insertedU2D, u2d)
+func (f *fakeDisputeRepo) InsertDisputeParticipant(_ context.Context, disputeParticipant models.DisputeParticipant) error {
+	f.insertDPCalls++
+	f.insertedDP = append(f.insertedDP, disputeParticipant)
 	return nil
 }
 func (f *fakeDisputeRepo) GetOpponentID(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error) {
 	return f.opponentID, nil
 }
-func (f *fakeDisputeRepo) GetUser2Dispute(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.User2Dispute, error) {
-	u2d, ok := f.u2dByUser[userID]
+func (f *fakeDisputeRepo) GetDisputeParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.DisputeParticipant, error) {
+	disputeParticipant, ok := f.disputeParticipantByUser[userID]
 	if !ok {
-		return models.User2Dispute{}, errors.New("u2d not found")
+		return models.DisputeParticipant{}, errors.New("disputeParticipant not found")
 	}
-	return u2d, nil
+	return disputeParticipant, nil
 }
-func (f *fakeDisputeRepo) UpdateUser2Dispute(_ context.Context, opts models.U2DUpdateOpts) error {
-	f.updatedU2D = append(f.updatedU2D, opts)
+func (f *fakeDisputeRepo) UpdateDisputeParticipant(_ context.Context, opts models.DisputeParticipantUpdateOpts) error {
+	f.updatedDP = append(f.updatedDP, opts)
 	return nil
 }
 func (f *fakeDisputeRepo) GetUserByID(_ context.Context, id uuid.UUID) (models.User, error) {
@@ -115,22 +121,21 @@ func TestDisputeServiceCreateDispute(t *testing.T) {
 	svc := DisputeService{
 		logger:         noopLogger{},
 		disputeCreator: repo,
-		u2dCreator:     repo,
+		disputeParticipantCreator:     repo,
 		userFinder:     repo,
 		msgSender:      sender,
 		txMonitor:      txMonitor,
 	}
 
-	err := svc.CreateDispute(context.Background(), models.Dispute{
-		DisputeDB: models.DisputeDB{
-			ID:              uuid.New(),
-			Title:           "test",
-			Description:     "desc",
-			AmountNano:      100 * models.NanoPerTON,
-			ContractAddress: "addr",
-		},
-		Opponent: "bob",
-	}, "alice", "boc")
+	err := svc.CreateDispute(context.Background(), models.CreateDisputeReq{
+		Title:           "test",
+		Description:     "desc",
+		Opponent:        "bob",
+		AmountNano:      "100000000000",
+		EndsAt:          time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339),
+		ContractAddress: "addr",
+		Boc:             "boc",
+	}, "alice")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -140,8 +145,8 @@ func TestDisputeServiceCreateDispute(t *testing.T) {
 	if repo.insertDisputeCalls != 1 {
 		t.Fatalf("expected 1 dispute insert, got %d", repo.insertDisputeCalls)
 	}
-	if repo.insertU2DCalls != 2 {
-		t.Fatalf("expected 2 u2d inserts, got %d", repo.insertU2DCalls)
+	if repo.insertDPCalls != 2 {
+		t.Fatalf("expected 2 disputeParticipant inserts, got %d", repo.insertDPCalls)
 	}
 	if sender.calls != 1 || sender.chatIDs[0] != 777 {
 		t.Fatalf("expected message to chat 777, got calls=%d chats=%v", sender.calls, sender.chatIDs)
@@ -159,21 +164,20 @@ func TestDisputeServiceCreateDisputeIgnoresOpponentSettings(t *testing.T) {
 		logger:         noopLogger{},
 		disputeCreator: repo,
 		userFinder:     repo,
-		u2dCreator:     repo,
+		disputeParticipantCreator:     repo,
 		msgSender:      &fakeMessageSender{},
 		txMonitor:      &fakeTxMonitor{},
 	}
 
-	err := svc.CreateDispute(context.Background(), models.Dispute{
-		DisputeDB: models.DisputeDB{
-			ID:              uuid.New(),
-			Title:           "t",
-			Description:     "d",
-			AmountNano:      100 * models.NanoPerTON,
-			ContractAddress: "addr",
-		},
-		Opponent: "bob",
-	}, "alice", "boc")
+	err := svc.CreateDispute(context.Background(), models.CreateDisputeReq{
+		Title:           "t",
+		Description:     "d",
+		Opponent:        "bob",
+		AmountNano:      "100000000000",
+		EndsAt:          time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339),
+		ContractAddress: "addr",
+		Boc:             "boc",
+	}, "alice")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -190,21 +194,20 @@ func TestDisputeServiceCreateDisputeTxFailed(t *testing.T) {
 		logger:         noopLogger{},
 		disputeCreator: repo,
 		userFinder:     repo,
-		u2dCreator:     repo,
+		disputeParticipantCreator:     repo,
 		msgSender:      &fakeMessageSender{},
 		txMonitor:      &fakeTxMonitor{err: ErrTxFailed},
 	}
 
-	err := svc.CreateDispute(context.Background(), models.Dispute{
-		DisputeDB: models.DisputeDB{
-			ID:              uuid.New(),
-			Title:           "t",
-			Description:     "d",
-			AmountNano:      100 * models.NanoPerTON,
-			ContractAddress: "addr",
-		},
-		Opponent: "bob",
-	}, "alice", "boc")
+	err := svc.CreateDispute(context.Background(), models.CreateDisputeReq{
+		Title:           "t",
+		Description:     "d",
+		Opponent:        "bob",
+		AmountNano:      "100000000000",
+		EndsAt:          time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339),
+		ContractAddress: "addr",
+		Boc:             "boc",
+	}, "alice")
 	if !errors.Is(err, ErrTxFailed) {
 		t.Fatalf("expected ErrTxFailed, got %v", err)
 	}
@@ -253,22 +256,22 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 		repo := &fakeDisputeRepo{
 			usersByUsername: map[string]models.User{"alice": voter},
 			usersByID:       map[uuid.UUID]models.User{opponent.ID: opponent},
-			u2dByUser: map[uuid.UUID]models.User2Dispute{
+			disputeParticipantByUser: map[uuid.UUID]models.DisputeParticipant{
 				voter.ID:    {ID: uuid.New(), Status: models.DisputesStatusCurrent},
 				opponent.ID: {ID: uuid.New(), Result: models.DisputesResultProcessed},
 			},
-			dispute:    models.Dispute{DisputeDB: models.DisputeDB{ID: disputeID, Title: "D1"}},
+				dispute:    models.Dispute{ID: disputeID, Title: "D1"},
 			opponentID: opponent.ID,
 		}
 		sender := &fakeMessageSender{}
-		svc := DisputeService{logger: noopLogger{}, userFinder: repo, u2dGetter: repo, u2dUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
+		svc := DisputeService{logger: noopLogger{}, userFinder: repo, disputeParticipantGetter: repo, disputeParticipantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
 
 		err := svc.VoteDispute(context.Background(), disputeID.String(), "alice", true)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(repo.updatedU2D) != 1 {
-			t.Fatalf("expected 1 update, got %d", len(repo.updatedU2D))
+		if len(repo.updatedDP) != 1 {
+			t.Fatalf("expected 1 update, got %d", len(repo.updatedDP))
 		}
 		if sender.calls != 0 {
 			t.Fatalf("expected no messages, got %d", sender.calls)
@@ -279,22 +282,22 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 		repo := &fakeDisputeRepo{
 			usersByUsername: map[string]models.User{"alice": voter},
 			usersByID:       map[uuid.UUID]models.User{opponent.ID: opponent},
-			u2dByUser: map[uuid.UUID]models.User2Dispute{
+			disputeParticipantByUser: map[uuid.UUID]models.DisputeParticipant{
 				voter.ID:    {ID: uuid.New(), Status: models.DisputesStatusCurrent},
 				opponent.ID: {ID: uuid.New(), Vote: false, Result: models.DisputesResultAnswered},
 			},
-			dispute:    models.Dispute{DisputeDB: models.DisputeDB{ID: disputeID, Title: "D2"}},
+				dispute:    models.Dispute{ID: disputeID, Title: "D2"},
 			opponentID: opponent.ID,
 		}
 		sender := &fakeMessageSender{}
-		svc := DisputeService{logger: noopLogger{}, userFinder: repo, u2dGetter: repo, u2dUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
+		svc := DisputeService{logger: noopLogger{}, userFinder: repo, disputeParticipantGetter: repo, disputeParticipantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
 
 		err := svc.VoteDispute(context.Background(), disputeID.String(), "alice", false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(repo.updatedU2D) != 2 {
-			t.Fatalf("expected 2 updates, got %d", len(repo.updatedU2D))
+		if len(repo.updatedDP) != 2 {
+			t.Fatalf("expected 2 updates, got %d", len(repo.updatedDP))
 		}
 		if sender.calls != 1 {
 			t.Fatalf("expected 1 message, got %d", sender.calls)
@@ -309,25 +312,19 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 		repo := &fakeDisputeRepo{
 			usersByUsername: map[string]models.User{"alice": voter},
 			usersByID:       map[uuid.UUID]models.User{opponent.ID: opponent},
-			u2dByUser: map[uuid.UUID]models.User2Dispute{
+			disputeParticipantByUser: map[uuid.UUID]models.DisputeParticipant{
 				voter.ID:    {ID: uuid.New(), Status: models.DisputesStatusCurrent},
 				opponent.ID: {ID: uuid.New(), Vote: true, Result: models.DisputesResultAnswered},
 			},
-			dispute: models.Dispute{
-				DisputeDB: models.DisputeDB{
-					ID:     disputeID,
-					Title:  "D3",
-					EndsAt: soonEndsAt,
-				},
-			},
+				dispute:    models.Dispute{ID: disputeID, Title: "D3", EndsAt: soonEndsAt},
 			opponentID: opponent.ID,
 		}
 		sender := &fakeMessageSender{}
 		svc := DisputeService{
 			logger:         noopLogger{},
 			userFinder:     repo,
-			u2dGetter:      repo,
-			u2dUpdater:     repo,
+			disputeParticipantGetter:      repo,
+			disputeParticipantUpdater:     repo,
 			opponentGetter: repo,
 			disputeFinder:  repo,
 			disputeCreator: repo,

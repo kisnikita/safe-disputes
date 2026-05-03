@@ -32,8 +32,8 @@ type EvidenceService struct {
 	evidenceChecker      EvidenceChecker
 	evidenceGetter       EvidenceGetter
 	userFinder           UserFinder
-	u2dUpdater           User2DisputeUpdater
-	u2dGetter            User2DisputeGetter
+	disputeParticipantUpdater           DisputeParticipantUpdater
+	disputeParticipantGetter            DisputeParticipantGetter
 	opponentGetter       OpponentGetter
 	investigationCreator InvestigationCreator
 	evidenceBroadcaster  EvidenceBroadcaster
@@ -55,8 +55,8 @@ func NewEvidenceService(repo *repository.Repository, log log.Logger, msgSender M
 		evidenceChecker:      repo,
 		evidenceGetter:       repo,
 		userFinder:           repo,
-		u2dUpdater:           repo,
-		u2dGetter:            repo,
+		disputeParticipantUpdater:           repo,
+		disputeParticipantGetter:            repo,
 		opponentGetter:       repo,
 		investigationCreator: repo,
 		evidenceBroadcaster:  repo,
@@ -84,9 +84,9 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 
 	evidence := models.NewEvidence(disputeUUID, user.ID, opts.Description, opts.ImageData, opts.ImageType)
 
-	u2d, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, user.ID)
+	disputeParticipant, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, user.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get user2dispute: %w", err)
+		return fmt.Errorf("failed to get dispute_participants: %w", err)
 	}
 
 	isFirst, err := s.evidenceChecker.IsFirstEvidence(ctx, opts.DisputeID)
@@ -100,12 +100,12 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 			return fmt.Errorf("failed to insert first evidence: %w", err)
 		}
 		result := models.DisputesResultEvidenceAnswered
-		optsU2D := models.U2DUpdateOpts{
-			ID:     u2d.ID,
+		optsDP := models.DisputeParticipantUpdateOpts{
+			ID:     disputeParticipant.ID,
 			Result: &result,
 		}
-		if err := s.u2dUpdater.UpdateUser2Dispute(ctx, optsU2D); err != nil {
-			return fmt.Errorf("failed to update user2dispute result: %w", err)
+		if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, optsDP); err != nil {
+			return fmt.Errorf("failed to update dispute_participants result: %w", err)
 		}
 		return nil
 	}
@@ -118,25 +118,25 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 	}
 
 	result := models.DisputesResultInspected
-	optsU2D := models.U2DUpdateOpts{
-		ID:     u2d.ID,
+	optsDP := models.DisputeParticipantUpdateOpts{
+		ID:     disputeParticipant.ID,
 		Result: &result,
 	}
-	if err := s.u2dUpdater.UpdateUser2Dispute(ctx, optsU2D); err != nil {
-		return fmt.Errorf("failed to update user2dispute result: %w", err)
+	if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, optsDP); err != nil {
+		return fmt.Errorf("failed to update dispute_participants result: %w", err)
 	}
 
 	opID, err := s.opponentGetter.GetOpponentID(ctx, disputeUUID, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get opponent ID: %w", err)
 	}
-	u2dOp, err := s.u2dGetter.GetUser2Dispute(ctx, disputeUUID, opID)
+	disputeParticipantOp, err := s.disputeParticipantGetter.GetDisputeParticipant(ctx, disputeUUID, opID)
 	if err != nil {
-		return fmt.Errorf("failed to get opponent user2dispute: %w", err)
+		return fmt.Errorf("failed to get opponent dispute_participants: %w", err)
 	}
-	optsU2D.ID = u2dOp.ID
-	if err := s.u2dUpdater.UpdateUser2Dispute(ctx, optsU2D); err != nil {
-		return fmt.Errorf("failed to update user2dispute result: %w", err)
+	optsDP.ID = disputeParticipantOp.ID
+	if err := s.disputeParticipantUpdater.UpdateDisputeParticipant(ctx, optsDP); err != nil {
+		return fmt.Errorf("failed to update dispute_participants result: %w", err)
 	}
 
 	// --- CREATE INVESTIGATION ---

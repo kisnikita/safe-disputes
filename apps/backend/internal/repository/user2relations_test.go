@@ -27,7 +27,7 @@ func TestGetOpponentID(t *testing.T) {
 	}
 }
 
-func TestUpdateUser2Dispute(t *testing.T) {
+func TestUpdateDisputeParticipant(t *testing.T) {
 	execCalls := 0
 	repo := newTestRepo(t, &stubDB{
 		execFn: func(string, []driver.NamedValue) (driver.Result, error) {
@@ -36,7 +36,7 @@ func TestUpdateUser2Dispute(t *testing.T) {
 		},
 	})
 
-	err := repo.UpdateUser2Dispute(context.Background(), models.U2DUpdateOpts{ID: uuid.New()})
+	err := repo.UpdateDisputeParticipant(context.Background(), models.DisputeParticipantUpdateOpts{ID: uuid.New()})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

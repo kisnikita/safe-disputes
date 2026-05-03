@@ -8,7 +8,6 @@ import (
 	"github.com/kisnikita/safe-disputes/backend/internal/services"
 	"github.com/kisnikita/safe-disputes/backend/pkg/log"
 	"go.uber.org/zap"
-	"io"
 	"net/http"
 )
 
@@ -30,15 +29,8 @@ func EvidenceDispute(repo *repository.Repository, log log.Logger, sender service
 
 func evidenceDispute(log log.Logger, evidencer DisputeEvidencer) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// --- auth ---
-		u, exist := c.Get("username")
-		if !exist {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			return
-		}
-		username, ok := u.(string)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
-			c.JSON(400, gin.H{"error": "invalid username"})
 			return
 		}
 
@@ -47,40 +39,28 @@ func evidenceDispute(log log.Logger, evidencer DisputeEvidencer) gin.HandlerFunc
 			c.JSON(http.StatusBadRequest, gin.H{"error": "dispute ID is required"})
 			return
 		}
-		// --- parse request body ---
 		description := c.PostForm("description")
-
-		var imageData []byte
-		var imageType string
-
-		// читаем файл из multipart
-		if fileHeader, err := c.FormFile("evidence"); err == nil {
-			file, err := fileHeader.Open()
-			if err != nil {
-				c.JSON(500, gin.H{"error": "cannot open uploaded file"})
-				return
-			}
-			defer file.Close()
-
-			buf, err := io.ReadAll(file)
-			if err != nil {
-				c.JSON(500, gin.H{"error": "cannot read uploaded file"})
-				return
-			}
-			imageData = buf
-			imageType = fileHeader.Header.Get("Content-Type")
+		if description == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "description is required"})
+			return
 		}
+
+		data, extension, err := getFile(c, "evidence")
+		if err != nil {
+			log.Error("failed to get file", zap.Error(err))
+			c.JSON(500, gin.H{"error": "cannot open uploaded file"})
+			return 
+		} 
 
 		req := models.EvidenceOpts{
 			DisputeID:   disputeID,
-			Username:    username,
+			Username:    actorUsername,
 			Description: description,
-			ImageData:   imageData,
-			ImageType:   imageType,
+			ImageData:   data,
+			ImageType:   extension,
 		}
 
-		err := evidencer.ProvideEvidence(c, req)
-		if err != nil {
+		if err := evidencer.ProvideEvidence(c, req); err != nil {
 			log.Error("ProvideEvidence failed", zap.String("id", disputeID), zap.Error(err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return

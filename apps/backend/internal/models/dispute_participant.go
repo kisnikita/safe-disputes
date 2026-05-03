@@ -26,7 +26,7 @@ const (
 	DisputesResultDraw             Result = "draw"
 )
 
-type U2DUpdateOpts struct {
+type DisputeParticipantUpdateOpts struct {
 	ID     uuid.UUID `json:"id"`
 	Status *Status   `json:"status"`
 	Result *Result   `json:"result"`
@@ -34,12 +34,12 @@ type U2DUpdateOpts struct {
 	Claim  *bool     `json:"claim"`
 }
 
-func NewUser2Dispute(userID, disputeID uuid.UUID, status Status, result Result) User2Dispute {
-	return User2Dispute{
+func NewDisputeParticipant(userID, disputeID uuid.UUID, result Result) DisputeParticipant {
+	return DisputeParticipant{
 		ID:        uuid.New(),
 		UserID:    userID,
 		DisputeID: disputeID,
-		Status:    status,
+		Status:    DisputesStatusNew,
 		Result:    result,
 		Vote:      false, // Vote will be set when the user votes on the dispute
 	}
