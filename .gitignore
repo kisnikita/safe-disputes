@@ -27,3 +27,5 @@ blockchain/temp/
 task-tracker.md
 
 apps/web/dist
+
+Makefile

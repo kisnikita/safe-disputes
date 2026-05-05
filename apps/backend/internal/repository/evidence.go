@@ -9,11 +9,10 @@ import (
 
 func (repo *Repository) InsertEvidence(ctx context.Context, evidence models.Evidence) error {
 	_, err := repo.db.ExecContext(ctx, `
-	INSERT INTO evidence (id, user_id, dispute_id, description, image_data, image_type) 
-	VALUES ($1, $2, $3, $4, $5, $6)`,
+	INSERT INTO evidences (id, participant_id, description, image_data, image_type) 
+	VALUES ($1, $2, $3, $4, $5)`,
 		evidence.ID,
-		evidence.UserID,
-		evidence.DisputeID,
+		evidence.ParticipantID,
 		evidence.Description,
 		evidence.ImageData,
 		evidence.ImageType,
@@ -27,7 +26,10 @@ func (repo *Repository) InsertEvidence(ctx context.Context, evidence models.Evid
 func (repo *Repository) IsFirstEvidence(ctx context.Context, disputeID string) (bool, error) {
 	var count int
 	err := repo.db.QueryRowContext(ctx, `
-	SELECT COUNT(*) FROM evidence WHERE dispute_id = $1`, disputeID).Scan(&count)
+	SELECT COUNT(*)
+	FROM evidences e
+	JOIN participants p ON p.id = e.participant_id
+	WHERE p.dispute_id = $1`, disputeID).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("failed to count evidence: %w", err)
 	}
@@ -37,8 +39,10 @@ func (repo *Repository) IsFirstEvidence(ctx context.Context, disputeID string) (
 func (repo *Repository) GetEvidences(ctx context.Context, disputeID uuid.UUID) ([]models.Evidence, error) {
 	var evidences []models.Evidence
 	rows, err := repo.db.QueryContext(ctx, `
-	SELECT id, user_id, dispute_id, description, image_data, image_type 
-	FROM evidence WHERE dispute_id = $1
+	SELECT e.id, e.participant_id, e.description, e.image_data, e.image_type
+	FROM evidences e
+	JOIN participants p ON p.id = e.participant_id
+	WHERE p.dispute_id = $1
 	ORDER BY created_at`, disputeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query evidences: %w", err)
@@ -47,7 +51,7 @@ func (repo *Repository) GetEvidences(ctx context.Context, disputeID uuid.UUID) (
 
 	for rows.Next() {
 		var e models.Evidence
-		if err := rows.Scan(&e.ID, &e.UserID, &e.DisputeID, &e.Description, &e.ImageData, &e.ImageType); err != nil {
+		if err := rows.Scan(&e.ID, &e.ParticipantID, &e.Description, &e.ImageData, &e.ImageType); err != nil {
 			return nil, fmt.Errorf("failed to scan evidence: %w", err)
 		}
 		evidences = append(evidences, e)

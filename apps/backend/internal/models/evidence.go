@@ -10,13 +10,12 @@ type EvidenceOpts struct {
 	ImageType   string
 }
 
-func NewEvidence(disputeID, userID uuid.UUID, description string, imageData []byte, imageType string) Evidence {
+func NewEvidence(participantID uuid.UUID, description string, imageData []byte, imageType string) Evidence {
 	e := Evidence{
-		ID:          uuid.New(),
-		DisputeID:   disputeID,
-		UserID:      userID,
-		Description: description,
-		ImageData:   imageData,
+		ID:            uuid.New(),
+		ParticipantID: participantID,
+		Description:   description,
+		ImageData:     imageData,
 	}
 	if imageType != "" {
 		e.ImageType = &imageType

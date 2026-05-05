@@ -161,7 +161,7 @@ func (repo *Repository) UpdateWinnersResult(ctx context.Context, invID uuid.UUID
 func (repo *Repository) GetDisputesUsers(ctx context.Context, invID uuid.UUID) ([]models.User, error) {
 	query := `
   SELECT u.id, u.username, u.chat_id, u.notification_enabled, u.rating
-  FROM evidence e
+  FROM evidences e
   JOIN users u ON e.user_id = u.id
   WHERE e.dispute_id IN (
     SELECT dispute_id

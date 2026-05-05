@@ -26,14 +26,12 @@ type Dispute struct {
 }
 
 type Evidence struct {
-	ID          uuid.UUID `db:"id" json:"id"`
-	DisputeID   uuid.UUID `db:"dispute_id" json:"disputeID"`
-	UserID      uuid.UUID `db:"user_id" json:"userID"`
-	Description string    `db:"description" json:"description"`
-	ImageData   []byte    `db:"image_data" json:"imageData"`
-	ImageType   *string   `db:"image_type" json:"imageType"`
-	CreatedAt   time.Time `db:"created_at" json:"createdAt"`
-	UpdatedAt   time.Time `db:"updated_at" json:"updatedAt"`
+	ID            uuid.UUID `db:"id" json:"id"`
+	Description   string    `db:"description" json:"description"`
+	ImageData     []byte    `db:"image_data" json:"imageData"`
+	ImageType     *string   `db:"image_type" json:"imageType"`
+	CreatedAt     time.Time `db:"created_at" json:"createdAt"`
+	ParticipantID uuid.UUID `db:"participant_id" json:"participantID"`
 }
 
 type Investigation struct {

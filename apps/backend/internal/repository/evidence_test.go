@@ -30,9 +30,9 @@ func TestGetEvidences(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
 			return newRows(
-				[]string{"id", "user_id", "dispute_id", "description", "image_data", "image_type"},
-				[]driver.Value{uuid.NewString(), uuid.NewString(), dID.String(), "one", []byte{1}, "image/png"},
-				[]driver.Value{uuid.NewString(), uuid.NewString(), dID.String(), "two", []byte{2}, "image/jpeg"},
+				[]string{"id", "participant_id", "description", "image_data", "image_type"},
+				[]driver.Value{uuid.NewString(), uuid.NewString(), "one", []byte{1}, "image/png"},
+				[]driver.Value{uuid.NewString(), uuid.NewString(), "two", []byte{2}, "image/jpeg"},
 			), nil
 		},
 	})
@@ -55,7 +55,7 @@ func TestInsertEvidence(t *testing.T) {
 		},
 	})
 
-	err := repo.InsertEvidence(context.Background(), models.Evidence{ID: uuid.New(), UserID: uuid.New(), DisputeID: uuid.New(), Description: "x"})
+	err := repo.InsertEvidence(context.Background(), models.Evidence{ID: uuid.New(), ParticipantID: uuid.New(), Description: "x"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

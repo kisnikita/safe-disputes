@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 ALTER TABLE IF EXISTS user2investigation RENAME TO jurors;
-ALTER INDEX IF EXISTS user2investigation_pkey RENAME TO jurors_pkey;
+ALTER TABLE jurors ADD CONSTRAINT jurors_pkey PRIMARY KEY (id);
 
 DO $$
 BEGIN
@@ -47,6 +47,6 @@ BEGIN
 END
 $$;
 
-ALTER INDEX IF EXISTS jurors_pkey RENAME TO user2investigation_pkey;
 ALTER TABLE IF EXISTS jurors RENAME TO user2investigation;
+ALTER TABLE user2investigation DROP CONSTRAINT IF EXISTS jurors_pkey;
 -- +goose StatementEnd

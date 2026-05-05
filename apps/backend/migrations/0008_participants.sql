@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 ALTER TABLE user2dispute RENAME TO participants;
-ALTER INDEX IF EXISTS user2dispute_pkey RENAME TO participants_pkey;
+ALTER TABLE participants ADD CONSTRAINT participants_pkey PRIMARY KEY (id);
 
 DO $$
 BEGIN
@@ -51,6 +51,6 @@ BEGIN
 END
 $$;
 
-ALTER INDEX IF EXISTS participants_pkey RENAME TO user2dispute_pkey;
 ALTER TABLE IF EXISTS participants RENAME TO user2dispute;
+ALTER TABLE user2dispute DROP CONSTRAINT IF EXISTS participants_pkey;
 -- +goose StatementEnd

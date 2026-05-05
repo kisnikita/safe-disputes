@@ -82,12 +82,11 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 		return fmt.Errorf("failed to get user by username: %w", err)
 	}
 
-	evidence := models.NewEvidence(disputeUUID, user.ID, opts.Description, opts.ImageData, opts.ImageType)
-
 	participant, err := s.participantGetter.GetParticipant(ctx, disputeUUID, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get participants: %w", err)
 	}
+	evidence := models.NewEvidence(participant.ID, opts.Description, opts.ImageData, opts.ImageType)
 
 	isFirst, err := s.evidenceChecker.IsFirstEvidence(ctx, opts.DisputeID)
 	if err != nil {
