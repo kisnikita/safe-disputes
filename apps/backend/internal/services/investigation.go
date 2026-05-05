@@ -20,8 +20,8 @@ type InvestigationFinder interface {
 }
 
 type InvestigationReadFinder interface {
-	ListInvestigationReads(ctx context.Context, actorUsername string, opts models.InvestigationListOpts) ([]models.InvestigationRead, error)
-	GetInvestigationRead(ctx context.Context, invID uuid.UUID, actorUsername string) (models.InvestigationRead, error)
+	ListInvestigationCards(ctx context.Context, actorUsername string, opts models.InvestigationListOpts) ([]models.InvestigationCard, error)
+	GetInvestigationDetails(ctx context.Context, invID uuid.UUID, actorUsername string) (models.InvestigationDetails, error)
 }
 
 type InvestigationUpdater interface {
@@ -87,30 +87,32 @@ func NewInvestigationService(repo *repository.Repository, log log.Logger, msgSen
 	}, nil
 }
 
-func (s InvestigationService) ListInvestigation(ctx context.Context, opts models.InvestigationListOpts, actorUsername string,
-) ([]models.InvestigationRead, error) {
-	investigations, err := s.investigationReadFinder.ListInvestigationReads(ctx, actorUsername, opts)
+func (s InvestigationService) ListInvestigation(ctx context.Context, opts models.InvestigationListOpts, 
+	actorUsername string,
+) ([]models.InvestigationCard, error) {
+	investigations, err := s.investigationReadFinder.ListInvestigationCards(ctx, actorUsername, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list investigations: %w", err)
 	}
 
 	if len(investigations) == 0 {
 		s.logger.Info("no investigations found", zap.String("actor", actorUsername))
-		return []models.InvestigationRead{}, nil
+		return []models.InvestigationCard{}, nil
 	}
 
 	return investigations, nil
 }
 
-func (s InvestigationService) GetInvestigation(ctx context.Context, id, actorUsername string) (models.InvestigationRead, error) {
+func (s InvestigationService) GetInvestigation(ctx context.Context, id, actorUsername string,
+) (models.InvestigationDetails, error) {
 	invUUID, err := uuid.Parse(id)
 	if err != nil {
-		return models.InvestigationRead{}, fmt.Errorf("invalid investigation ID format: %w", err)
+		return models.InvestigationDetails{}, fmt.Errorf("invalid investigation ID format: %w", err)
 	}
 
-	investigation, err := s.investigationReadFinder.GetInvestigationRead(ctx, invUUID, actorUsername)
+	investigation, err := s.investigationReadFinder.GetInvestigationDetails(ctx, invUUID, actorUsername)
 	if err != nil {
-		return models.InvestigationRead{}, fmt.Errorf("failed to get investigation: %w", err)
+		return models.InvestigationDetails{}, fmt.Errorf("failed to get investigation: %w", err)
 	}
 
 	return investigation, nil

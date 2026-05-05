@@ -15,12 +15,13 @@ import (
 
 type fakeInvestigationLister struct {
 	err   error
-	items []models.InvestigationRead
+	items []models.InvestigationCard
 	opts  models.InvestigationListOpts
 	user  string
 }
 
-func (f *fakeInvestigationLister) ListInvestigation(_ context.Context, opts models.InvestigationListOpts, username string) ([]models.InvestigationRead, error) {
+func (f *fakeInvestigationLister) ListInvestigation(_ context.Context, opts models.InvestigationListOpts, username string,
+) ([]models.InvestigationCard, error) {
 	f.opts = opts
 	f.user = username
 	if f.err != nil {
@@ -31,16 +32,16 @@ func (f *fakeInvestigationLister) ListInvestigation(_ context.Context, opts mode
 
 type fakeInvestigationGetter struct {
 	err  error
-	item models.InvestigationRead
+	item models.InvestigationDetails
 	id   string
 	user string
 }
 
-func (f *fakeInvestigationGetter) GetInvestigation(_ context.Context, id, username string) (models.InvestigationRead, error) {
+func (f *fakeInvestigationGetter) GetInvestigation(_ context.Context, id, username string,) (models.InvestigationDetails, error) {
 	f.id = id
 	f.user = username
 	if f.err != nil {
-		return models.InvestigationRead{}, f.err
+		return models.InvestigationDetails{}, f.err
 	}
 	return f.item, nil
 }
@@ -76,7 +77,7 @@ func TestListInvestigations(t *testing.T) {
 	t.Run("returns paginated response", func(t *testing.T) {
 		t1 := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
 		t2 := time.Date(2026, 3, 1, 10, 1, 0, 0, time.UTC)
-		lister := &fakeInvestigationLister{items: []models.InvestigationRead{
+		lister := &fakeInvestigationLister{items: []models.InvestigationCard{
 			{ID: uuid.New().String(), Title: "i1", CreatedAt: t1},
 			{ID: uuid.New().String(), Title: "i2", CreatedAt: t2},
 		}}

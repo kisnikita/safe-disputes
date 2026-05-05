@@ -36,11 +36,8 @@ func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Disput
 	return nil
 }
 
-func (repo *Repository) ListDisputeReads(
-	ctx context.Context,
-	actorUsername string,
-	opts models.DisputeListOpts,
-) ([]models.DisputeRead, error) {
+func (repo *Repository) ListDisputeCards(ctx context.Context, actorUsername string, opts models.DisputeListOpts,
+) ([]models.DisputeCard, error) {
 	const maxLimit = 100
 
 	var (
@@ -88,11 +85,8 @@ func (repo *Repository) ListDisputeReads(
 
 	query := fmt.Sprintf(`
 		SELECT
-			d.id, d.title, d.description,
-			d.created_at, d.updated_at,
-			d.cryptocurrency, d.amount_nano,
-			d.image_data, d.image_type,
-			d.contract_address,
+			d.id, d.title,
+			d.created_at, d.amount_nano,
 			d.ends_at, d.next_deadline,
 			opp_user.username AS opponent,
 			opp_user.photo_url,
@@ -109,24 +103,18 @@ func (repo *Repository) ListDisputeReads(
 
 	rows, err := repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute ListDisputeReads query: %w", err)
+		return nil, fmt.Errorf("failed to execute ListDisputeCards query: %w", err)
 	}
 	defer rows.Close()
 
-	var disputes []models.DisputeRead
+	var disputes []models.DisputeCard
 	for rows.Next() {
-		var d models.DisputeRead
+		var d models.DisputeCard
 		if err := rows.Scan(
 			&d.ID,
 			&d.Title,
-			&d.Description,
 			&d.CreatedAt,
-			&d.UpdatedAt,
-			&d.Cryptocurrency,
 			&d.AmountNano,
-			&d.ImageData,
-			&d.ImageType,
-			&d.ContractAddress,
 			&d.EndsAt,
 			&d.NextDeadline,
 			&d.Opponent,
@@ -146,7 +134,8 @@ func (repo *Repository) ListDisputeReads(
 	return disputes, nil
 }
 
-func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID, actorID uuid.UUID) (models.Dispute, error) {
+func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID, actorID uuid.UUID,
+) (models.Dispute, error) {
 	var d models.Dispute
 	err := repo.db.QueryRowContext(ctx, `
 		SELECT 
@@ -179,12 +168,9 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 	return d, nil
 }
 
-func (repo *Repository) GetDisputeReadByID(
-	ctx context.Context,
-	disputeID uuid.UUID,
-	actorUsername string,
-) (models.DisputeRead, error) {
-	var d models.DisputeRead
+func (repo *Repository) GetDisputeDetailsByID(ctx context.Context, disputeID uuid.UUID, actorUsername string,
+) (models.DisputeDetails, error) {
+	var d models.DisputeDetails
 	err := repo.db.QueryRowContext(ctx, `
 		SELECT
 			d.id, d.title, d.description,
@@ -222,7 +208,7 @@ func (repo *Repository) GetDisputeReadByID(
 		&d.Claim,
 	)
 	if err != nil {
-		return models.DisputeRead{}, fmt.Errorf("failed to get dispute read by ID: %w", err)
+		return models.DisputeDetails{}, fmt.Errorf("failed to get dispute details by ID: %w", err)
 	}
 	return d, nil
 }
@@ -251,7 +237,8 @@ func (repo *Repository) GetDisputeForEvidence(ctx context.Context, disputeID uui
 	return d, nil
 }
 
-func (repo *Repository) UpdateDisputeNextDeadline(ctx context.Context, disputeID uuid.UUID, nextDeadline time.Time) error {
+func (repo *Repository) UpdateDisputeNextDeadline(ctx context.Context, disputeID uuid.UUID, nextDeadline time.Time,
+) error {
 	_, err := repo.db.ExecContext(ctx, `
 		UPDATE disputes
 		SET next_deadline = $1, updated_at = CURRENT_TIMESTAMP

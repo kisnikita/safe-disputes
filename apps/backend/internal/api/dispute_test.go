@@ -62,7 +62,9 @@ type fakeDisputePrechecker struct {
 	creator  string
 }
 
-func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponent string, amountNano int64, creatorUsername string) error {
+func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponent string, amountNano int64, 
+	creatorUsername string,
+) error {
 	f.called = true
 	f.opponent = opponent
 	f.amount = amountNano
@@ -72,13 +74,14 @@ func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponen
 
 type fakeDisputeLister struct {
 	err      error
-	disputes []models.DisputeRead
+	disputes []models.DisputeCard
 	called   bool
 	opts     models.DisputeListOpts
 	creator  string
 }
 
-func (f *fakeDisputeLister) ListDisputes(_ context.Context, opts models.DisputeListOpts, creatorUsername string) ([]models.DisputeRead, error) {
+func (f *fakeDisputeLister) ListDisputes(_ context.Context, opts models.DisputeListOpts, creatorUsername string,
+) ([]models.DisputeCard, error) {
 	f.called = true
 	f.opts = opts
 	f.creator = creatorUsername
@@ -90,17 +93,18 @@ func (f *fakeDisputeLister) ListDisputes(_ context.Context, opts models.DisputeL
 
 type fakeDisputeGetter struct {
 	err            error
-	dispute        models.DisputeRead
+	dispute        models.DisputeDetails
 	disputeRaw     models.Dispute
 	calledID       string
 	calledUsername string
 }
 
-func (f *fakeDisputeGetter) GetDispute(_ context.Context, disputeID string, creatorUsername string) (models.DisputeRead, error) {
+func (f *fakeDisputeGetter) GetDispute(_ context.Context, disputeID string, creatorUsername string,
+) (models.DisputeDetails, error) {
 	f.calledID = disputeID
 	f.calledUsername = creatorUsername
 	if f.err != nil {
-		return models.DisputeRead{}, f.err
+		return models.DisputeDetails{}, f.err
 	}
 	return f.dispute, nil
 }
@@ -319,7 +323,7 @@ func TestListDisputes(t *testing.T) {
 	t.Run("returns paginated response", func(t *testing.T) {
 		t1 := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
 		t2 := time.Date(2026, 3, 1, 11, 0, 0, 123, time.UTC)
-		lister := &fakeDisputeLister{disputes: []models.DisputeRead{
+		lister := &fakeDisputeLister{disputes: []models.DisputeCard{
 			{ID: uuid.New().String(), Title: "d1", CreatedAt: t1},
 			{ID: uuid.New().String(), Title: "d2", CreatedAt: t2},
 		}}

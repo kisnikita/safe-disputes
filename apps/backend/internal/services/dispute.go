@@ -19,8 +19,8 @@ type DisputeFinder interface {
 }
 
 type DisputeReadFinder interface {
-	ListDisputeReads(ctx context.Context, actorUsername string, opts models.DisputeListOpts) ([]models.DisputeRead, error)
-	GetDisputeReadByID(ctx context.Context, disputeID uuid.UUID, actorUsername string) (models.DisputeRead, error)
+	ListDisputeCards(ctx context.Context, actorUsername string, opts models.DisputeListOpts) ([]models.DisputeCard, error)
+	GetDisputeDetailsByID(ctx context.Context, disputeID uuid.UUID, actorUsername string) (models.DisputeDetails, error)
 }
 
 type DisputeCreator interface {
@@ -146,10 +146,7 @@ func (s DisputeService) CreateDispute(ctx context.Context, req models.CreateDisp
 	return nil
 }
 
-func (s DisputeService) PrecheckCreateDispute(
-	ctx context.Context,
-	opponent string,
-	amountNano int64,
+func (s DisputeService) PrecheckCreateDispute(ctx context.Context, opponent string, amountNano int64, 
 	actorUsername string,
 ) error {
 	if opponent == "" || amountNano <= 0 {
@@ -177,29 +174,29 @@ func (s DisputeService) PrecheckCreateDispute(
 }
 
 func (s DisputeService) ListDisputes(ctx context.Context, opts models.DisputeListOpts, actorUsername string,
-) ([]models.DisputeRead, error) {
-	disputes, err := s.disputeReadFinder.ListDisputeReads(ctx, actorUsername, opts)
+) ([]models.DisputeCard, error) {
+	disputes, err := s.disputeReadFinder.ListDisputeCards(ctx, actorUsername, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list disputes: %w", err)
 	}
 
 	if len(disputes) == 0 {
 		s.logger.Info("no disputes found", zap.String("actor", actorUsername))
-		return []models.DisputeRead{}, nil
+		return []models.DisputeCard{}, nil
 	}
 	return disputes, nil
 }
 
 func (s DisputeService) GetDispute(ctx context.Context, disputeID string, actorUsername string,
-) (models.DisputeRead, error) {
+) (models.DisputeDetails, error) {
 	disputeUUID, err := uuid.Parse(disputeID)
 	if err != nil {
-		return models.DisputeRead{}, fmt.Errorf("invalid dispute ID format: %w", err)
+		return models.DisputeDetails{}, fmt.Errorf("invalid dispute ID format: %w", err)
 	}
 
-	dispute, err := s.disputeReadFinder.GetDisputeReadByID(ctx, disputeUUID, actorUsername)
+	dispute, err := s.disputeReadFinder.GetDisputeDetailsByID(ctx, disputeUUID, actorUsername)
 	if err != nil {
-		return models.DisputeRead{}, fmt.Errorf("failed to get dispute: %w", err)
+		return models.DisputeDetails{}, fmt.Errorf("failed to get dispute: %w", err)
 	}
 	return dispute, nil
 }

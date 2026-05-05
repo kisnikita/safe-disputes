@@ -16,8 +16,8 @@ type fakeInvestigationDeps struct {
 	disputeUsers     []models.User
 	participantByUser        map[uuid.UUID]models.Participant
 	dispute          models.Dispute
-	listResult       []models.InvestigationRead
-	getResult        models.InvestigationRead
+	listResult       []models.InvestigationCard
+	getResult        models.InvestigationDetails
 	listReceivedOpts models.InvestigationListOpts
 	listActorUsername string
 	getActorUsername  string
@@ -33,16 +33,19 @@ type fakeInvestigationDeps struct {
 func (f *fakeInvestigationDeps) InsertInvestigation(context.Context, models.Investigation) error {
 	return nil
 }
-func (f *fakeInvestigationDeps) ListInvestigations(_ context.Context, opts models.InvestigationListOpts) ([]models.Investigation, error) {
+func (f *fakeInvestigationDeps) ListInvestigations(_ context.Context, opts models.InvestigationListOpts,
+) ([]models.Investigation, error) {
 	f.listReceivedOpts = opts
 	return nil, nil
 }
-func (f *fakeInvestigationDeps) ListInvestigationReads(_ context.Context, actorUsername string, opts models.InvestigationListOpts) ([]models.InvestigationRead, error) {
+func (f *fakeInvestigationDeps) ListInvestigationCards(_ context.Context, actorUsername string, opts models.InvestigationListOpts,
+) ([]models.InvestigationCard, error) {
 	f.listReceivedOpts = opts
 	f.listActorUsername = actorUsername
 	return f.listResult, nil
 }
-func (f *fakeInvestigationDeps) GetInvestigationRead(_ context.Context, _ uuid.UUID, actorUsername string) (models.InvestigationRead, error) {
+func (f *fakeInvestigationDeps) GetInvestigationDetails(_ context.Context, _ uuid.UUID, actorUsername string,
+) (models.InvestigationDetails, error) {
 	f.getActorUsername = actorUsername
 	return f.getResult, nil
 }
@@ -102,7 +105,8 @@ func (f *fakeInvestigationDeps) UpdateParticipant(_ context.Context, opts models
 	f.updatedDP = append(f.updatedDP, opts)
 	return nil
 }
-func (f *fakeInvestigationDeps) GetParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.Participant, error) {
+func (f *fakeInvestigationDeps) GetParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID,
+) (models.Participant, error) {
 	return f.participantByUser[userID], nil
 }
 func (f *fakeInvestigationDeps) GetDisputeByID(context.Context, uuid.UUID, uuid.UUID) (models.Dispute, error) {
@@ -119,7 +123,7 @@ func TestInvestigationServiceListInvestigation(t *testing.T) {
 	userID := uuid.New()
 	deps := &fakeInvestigationDeps{
 		user:       models.User{ID: userID, Username: "alice"},
-		listResult: []models.InvestigationRead{{ID: uuid.New().String()}},
+		listResult: []models.InvestigationCard{{ID: uuid.New().String()}},
 	}
 	svc := InvestigationService{logger: noopLogger{}, investigationReadFinder: deps}
 

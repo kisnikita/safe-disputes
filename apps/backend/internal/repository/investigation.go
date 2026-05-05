@@ -29,9 +29,9 @@ func (repo *Repository) InsertInvestigation(ctx context.Context, investigation m
 	return nil
 }
 
-func (repo *Repository) ListInvestigationReads(ctx context.Context, actorUsername string, 
+func (repo *Repository) ListInvestigationCards(ctx context.Context, actorUsername string, 
 	opts models.InvestigationListOpts,
-) ([]models.InvestigationRead, error) {
+) ([]models.InvestigationCard, error) {
 	const maxLimit = 100
 
 	var (
@@ -73,7 +73,7 @@ func (repo *Repository) ListInvestigationReads(ctx context.Context, actorUsernam
 
 	query := fmt.Sprintf(`
 		SELECT
-			i.id, i.dispute_id, i.total, i.p1, i.p2, i.draw, i.status, i.created_at, i.ends_at, i.title,
+			i.id, i.dispute_id, i.status, i.created_at, i.ends_at, i.title,
 			u.result, u.vote
 		FROM investigations i
 		JOIN jurors u ON i.id = u.investigation_id
@@ -85,20 +85,16 @@ func (repo *Repository) ListInvestigationReads(ctx context.Context, actorUsernam
 
 	rows, err := repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute ListInvestigationReads query: %w", err)
+		return nil, fmt.Errorf("failed to execute ListInvestigationCards query: %w", err)
 	}
 	defer rows.Close()
 
-	var investigations []models.InvestigationRead
+	var investigations []models.InvestigationCard
 	for rows.Next() {
-		var i models.InvestigationRead
+		var i models.InvestigationCard
 		if err := rows.Scan(
 			&i.ID,
 			&i.DisputeID,
-			&i.Total,
-			&i.P1,
-			&i.P2,
-			&i.Draw,
 			&i.Status,
 			&i.CreatedAt,
 			&i.EndsAt,
@@ -149,8 +145,8 @@ func (repo *Repository) GetInvestigation(ctx context.Context, invID, userID uuid
 	return investigation, nil
 }
 
-func (repo *Repository) GetInvestigationRead(ctx context.Context, id uuid.UUID, actorUsername string,
-) (models.InvestigationRead, error) {
+func (repo *Repository) GetInvestigationDetails(ctx context.Context, id uuid.UUID, actorUsername string,
+) (models.InvestigationDetails, error) {
 	query := `
 		SELECT
 		  i.id, i.dispute_id, i.total, i.p1, i.p2, i.draw, i.status, i.created_at, i.ends_at, i.title,
@@ -163,7 +159,7 @@ func (repo *Repository) GetInvestigationRead(ctx context.Context, id uuid.UUID, 
 
 	row := repo.db.QueryRowContext(ctx, query, id, actorUsername)
 
-	var investigation models.InvestigationRead
+	var investigation models.InvestigationDetails
 	if err := row.Scan(
 		&investigation.ID,
 		&investigation.DisputeID,
@@ -178,7 +174,7 @@ func (repo *Repository) GetInvestigationRead(ctx context.Context, id uuid.UUID, 
 		&investigation.Result,
 		&investigation.Vote,
 	); err != nil {
-		return models.InvestigationRead{}, fmt.Errorf("failed to scan investigation read: %w", err)
+		return models.InvestigationDetails{}, fmt.Errorf("failed to scan investigation details: %w", err)
 	}
 
 	return investigation, nil

@@ -43,11 +43,12 @@ func (f *fakeDisputeRepo) GetDisputeByID(context.Context, uuid.UUID, uuid.UUID) 
 func (f *fakeDisputeRepo) ListDisputes(context.Context, models.DisputeListOpts) ([]models.Dispute, error) {
 	return nil, nil
 }
-func (f *fakeDisputeRepo) ListDisputeReads(context.Context, string, models.DisputeListOpts) ([]models.DisputeRead, error) {
+func (f *fakeDisputeRepo) ListDisputeCards(context.Context, string, models.DisputeListOpts,
+) ([]models.DisputeCard, error) {
 	return nil, nil
 }
-func (f *fakeDisputeRepo) GetDisputeReadByID(context.Context, uuid.UUID, string) (models.DisputeRead, error) {
-	return models.DisputeRead{}, nil
+func (f *fakeDisputeRepo) GetDisputeDetailsByID(context.Context, uuid.UUID, string) (models.DisputeDetails, error) {
+	return models.DisputeDetails{}, nil
 }
 func (f *fakeDisputeRepo) GetDisputeForEvidence(context.Context, uuid.UUID) (models.Dispute, error) {
 	return f.dispute, nil
@@ -239,7 +240,8 @@ func TestDisputeServicePrecheckCreateDisputeSelfOpponent(t *testing.T) {
 }
 
 func TestDisputeServiceGetDisputeInvalidID(t *testing.T) {
-	svc := DisputeService{logger: noopLogger{}, userFinder: &fakeDisputeRepo{usersByUsername: map[string]models.User{"alice": {ID: uuid.New(), Username: "alice"}}}}
+	svc := DisputeService{logger: noopLogger{}, userFinder: 
+	&fakeDisputeRepo{usersByUsername: map[string]models.User{"alice": {ID: uuid.New(), Username: "alice"}}}}
 
 	_, err := svc.GetDispute(context.Background(), "not-uuid", "alice")
 	if err == nil {
@@ -264,7 +266,8 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 			opponentID: opponent.ID,
 		}
 		sender := &fakeMessageSender{}
-		svc := DisputeService{logger: noopLogger{}, userFinder: repo, participantGetter: repo, participantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
+		svc := DisputeService{logger: noopLogger{}, userFinder: repo, participantGetter: repo, 
+		participantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
 
 		err := svc.VoteDispute(context.Background(), disputeID.String(), "alice", true)
 		if err != nil {
@@ -290,7 +293,8 @@ func TestDisputeServiceVoteDispute(t *testing.T) {
 			opponentID: opponent.ID,
 		}
 		sender := &fakeMessageSender{}
-		svc := DisputeService{logger: noopLogger{}, userFinder: repo, participantGetter: repo, participantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
+		svc := DisputeService{logger: noopLogger{}, userFinder: repo, participantGetter: repo, 
+		participantUpdater: repo, opponentGetter: repo, disputeFinder: repo, msgSender: sender}
 
 		err := svc.VoteDispute(context.Background(), disputeID.String(), "alice", false)
 		if err != nil {

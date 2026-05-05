@@ -14,7 +14,8 @@ import (
 func TestListInvestigationsInvalidCursor(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{})
 	status := models.InvestigationStatusCurrent
-	_, err := repo.ListInvestigationReads(context.Background(), "", models.InvestigationListOpts{Status: &status, Cursor: "bad"})
+	_, err := repo.ListInvestigationCards(context.Background(), "",
+		models.InvestigationListOpts{Status: &status, Cursor: "bad"})
 	if err == nil || !strings.Contains(err.Error(), "invalid cursor format") {
 		t.Fatalf("expected cursor error, got %v", err)
 	}

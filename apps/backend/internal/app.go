@@ -146,7 +146,8 @@ func updateChatID(log log.Logger, repo *repository.Repository, ch chan userChatD
 			u.NotificationEnabled = true
 			err := repo.InsertUser(ctx, u)
 			if err != nil {
-				log.Error("failed to insert new user", zap.String("username", userData.Username), zap.Int64("chatID", userData.ChatID), zap.Error(err))
+				log.Error("failed to insert new user", zap.String("username", userData.Username), 
+				zap.Int64("chatID", userData.ChatID), zap.Error(err))
 				continue
 			}
 			log.Info("new user inserted", zap.String("username", userData.Username), zap.Int64("chatID", userData.ChatID))
@@ -155,9 +156,11 @@ func updateChatID(log log.Logger, repo *repository.Repository, ch chan userChatD
 
 		err = repo.UpdateChatID(ctx, userData.ChatID, userData.Username)
 		if err != nil {
-			log.Error("failed to update chat ID", zap.String("username", userData.Username), zap.Int64("chatID", userData.ChatID), zap.Error(err))
+			log.Error("failed to update chat ID", zap.String("username", userData.Username), 
+			zap.Int64("chatID", userData.ChatID), zap.Error(err))
 		} else {
-			log.Info("chat ID updated successfully", zap.String("username", userData.Username), zap.Int64("chatID", userData.ChatID))
+			log.Info("chat ID updated successfully", zap.String("username", userData.Username), 
+			zap.Int64("chatID", userData.ChatID))
 		}
 	}
 }

@@ -13,19 +13,30 @@ const (
 	InvestigationStatusPassed  InvestigationStatus = "passed"
 )
 
-type InvestigationRead struct {
-	ID        string              `json:"id"`
-	DisputeID string              `json:"disputeID"`
-	Total     int                 `json:"total"`
-	P1        int                 `json:"p1"`
-	P2        int                 `json:"p2"`
-	Draw      int                 `json:"draw"`
-	Status    InvestigationStatus `json:"status"`
-	CreatedAt time.Time           `json:"createdAt"`
-	EndsAt    time.Time           `json:"endsAt"`
-	Title     string              `json:"title"`
-	Result    InvestigationResult `json:"result"`
-	Vote      string              `json:"vote"`
+type InvestigationCard struct {
+	ID        string              `db:"id"         json:"id"`
+	DisputeID string              `db:"dispute_id" json:"disputeID"`
+	Status    InvestigationStatus `db:"status"     json:"status"`
+	CreatedAt time.Time           `db:"created_at" json:"createdAt"`
+	EndsAt    time.Time           `db:"ends_at"    json:"endsAt"`
+	Title     string              `db:"title"      json:"title"`
+	Result    InvestigationResult `db:"result"     json:"result"`
+	Vote      string              `db:"vote"       json:"vote"`
+}
+
+type InvestigationDetails struct {
+	ID        string              `db:"id"         json:"id"`
+	DisputeID string              `db:"dispute_id" json:"disputeID"`
+	Total     int                 `db:"total"      json:"total"`
+	P1        int                 `db:"p1"         json:"p1"`
+	P2        int                 `db:"p2"         json:"p2"`
+	Draw      int                 `db:"draw"       json:"draw"`
+	Status    InvestigationStatus `db:"status"     json:"status"`
+	CreatedAt time.Time           `db:"created_at" json:"createdAt"`
+	EndsAt    time.Time           `db:"ends_at"    json:"endsAt"`
+	Title     string              `db:"title"      json:"title"`
+	Result    InvestigationResult `db:"result"     json:"result"`
+	Vote      string              `db:"vote"       json:"vote"`
 }
 
 type InvestigationListOpts struct {

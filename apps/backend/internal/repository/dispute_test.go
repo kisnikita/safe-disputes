@@ -17,8 +17,10 @@ func TestGetDisputeByID(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
 			return newRows(
-				[]string{"id", "title", "description", "created_at", "updated_at", "cryptocurrency", "amount_nano", "image_data", "image_type", "ends_at", "next_deadline", "contract_address"},
-				[]driver.Value{dID.String(), "t", "d", now, now, "TON", int64(100_000_000_000), []byte{1}, "image/png", now.Add(2 * time.Hour), now.Add(1 * time.Hour), "addr"},
+				[]string{"id", "title", "description", "created_at", "updated_at", "cryptocurrency", "amount_nano", 
+				"image_data", "image_type", "ends_at", "next_deadline", "contract_address"},
+				[]driver.Value{dID.String(), "t", "d", now, now, "TON", int64(100_000_000_000), 
+				[]byte{1}, "image/png", now.Add(2 * time.Hour), now.Add(1 * time.Hour), "addr"},
 			), nil
 		},
 	})

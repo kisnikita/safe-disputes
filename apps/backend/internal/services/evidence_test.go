@@ -32,7 +32,8 @@ func (f *fakeEvidenceDeps) IsFirstEvidence(context.Context, string) (bool, error
 func (f *fakeEvidenceDeps) GetEvidences(context.Context, uuid.UUID) ([]models.Evidence, error) {
 	return nil, nil
 }
-func (f *fakeEvidenceDeps) BroadcastInvestigation(context.Context, models.Juror, uuid.UUID, uuid.UUID) ([]uuid.UUID, error) {
+func (f *fakeEvidenceDeps) BroadcastInvestigation(context.Context, models.Juror, uuid.UUID, uuid.UUID,
+) ([]uuid.UUID, error) {
 	return f.broadcastIDs, nil
 }
 func (f *fakeEvidenceDeps) GetUserByID(context.Context, uuid.UUID) (models.User, error) { return models.User{}, nil }
@@ -51,7 +52,8 @@ func (f *fakeEvidenceDeps) UpdateParticipant(_ context.Context, opts models.Part
 	f.updatedDP = append(f.updatedDP, opts)
 	return nil
 }
-func (f *fakeEvidenceDeps) GetParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID) (models.Participant, error) {
+func (f *fakeEvidenceDeps) GetParticipant(_ context.Context, _ uuid.UUID, userID uuid.UUID,
+) (models.Participant, error) {
 	if userID == f.user.ID {
 		return f.participantSelf, nil
 	}

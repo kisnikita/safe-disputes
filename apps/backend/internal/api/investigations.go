@@ -14,11 +14,11 @@ import (
 )
 
 type InvestigationLister interface {
-	ListInvestigation(ctx context.Context, opts models.InvestigationListOpts, username string) ([]models.InvestigationRead, error)
+	ListInvestigation(ctx context.Context, opts models.InvestigationListOpts, username string) ([]models.InvestigationCard, error)
 }
 
 type InvestigationGetter interface {
-	GetInvestigation(ctx context.Context, id, username string) (models.InvestigationRead, error)
+	GetInvestigation(ctx context.Context, id, username string) (models.InvestigationDetails, error)
 }
 
 type InvestigationVoter interface {

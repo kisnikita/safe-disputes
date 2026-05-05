@@ -24,11 +24,11 @@ type DisputeCreator interface {
 }
 
 type DisputeLister interface {
-	ListDisputes(ctx context.Context, opts models.DisputeListOpts, actorUsername string) ([]models.DisputeRead, error)
+	ListDisputes(ctx context.Context, opts models.DisputeListOpts, actorUsername string) ([]models.DisputeCard, error)
 }
 
 type DisputeGetter interface {
-	GetDispute(ctx context.Context, disputeID string, actorUsername string) (models.DisputeRead, error)
+	GetDispute(ctx context.Context, disputeID string, actorUsername string) (models.DisputeDetails, error)
 	GetDisputeForEvidence(ctx context.Context, disputeID string) (models.Dispute, error)
 }
 
@@ -108,7 +108,7 @@ func precheckDispute(log log.Logger, prechecker DisputePrechecker) gin.HandlerFu
 }
 
 func CreateDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender,
-	txMonitor services.TransactionMonitor,
+txMonitor services.TransactionMonitor,
 ) gin.HandlerFunc {
 	disputeSrv, err := services.NewDisputeService(repo, log, sender)
 	if err != nil {

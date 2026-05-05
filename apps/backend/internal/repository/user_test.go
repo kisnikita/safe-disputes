@@ -14,7 +14,8 @@ import (
 func TestGetUserByUsernameNotFound(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
-			return newRows([]string{"id", "username", "photo_url", "created_at", "notification_enabled", "dispute_readiness", "investigation_readiness", "minimum_dispute_amount_nano", "rating", "chat_id"}), nil
+			return newRows([]string{"id", "username", "photo_url", "created_at", "notification_enabled", 
+			"dispute_readiness", "investigation_readiness", "minimum_dispute_amount_nano", "rating", "chat_id"}), nil
 		},
 	})
 
@@ -30,8 +31,10 @@ func TestGetUserByUsernameSuccess(t *testing.T) {
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
 			return newRows(
-				[]string{"id", "username", "photo_url", "created_at", "notification_enabled", "dispute_readiness", "investigation_readiness", "minimum_dispute_amount_nano", "rating", "chat_id"},
-				[]driver.Value{id.String(), "alice", "https://t.me/i/userpic/320/x.png", now, true, true, true, int64(100_000_000_000), 5, int64(123)},
+				[]string{"id", "username", "photo_url", "created_at", "notification_enabled", "dispute_readiness", 
+				"investigation_readiness", "minimum_dispute_amount_nano", "rating", "chat_id"},
+				[]driver.Value{id.String(), "alice", "https://t.me/i/userpic/320/x.png", now, true, true, 
+				true, int64(100_000_000_000), 5, int64(123)},
 			), nil
 		},
 	})

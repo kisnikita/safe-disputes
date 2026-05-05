@@ -38,7 +38,8 @@ func (repo *Repository) GetOpponentID(ctx context.Context, disputeID uuid.UUID, 
 	return opponentID, nil
 }
 
-func (repo *Repository) GetParticipant(ctx context.Context, disputeID uuid.UUID, userID uuid.UUID) (models.Participant, error) {
+func (repo *Repository) GetParticipant(ctx context.Context, disputeID uuid.UUID, userID uuid.UUID,
+) (models.Participant, error) {
 	var participant models.Participant
 	if err := repo.db.QueryRowContext(ctx, `
 	SELECT id, user_id, dispute_id, status, result, vote, claim

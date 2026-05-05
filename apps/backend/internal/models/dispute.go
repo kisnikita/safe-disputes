@@ -10,24 +10,38 @@ import (
 
 var ErrValidation = errors.New("validation error")
 
-type DisputeRead struct {
-	ID              string    `json:"id"`
-	Title           string  `json:"title"`
-	Description     string  `json:"description"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
-	Cryptocurrency  string  `json:"cryptocurrency"`
-	AmountNano      int64   `json:"amountNano"`
-	ImageData       []byte  `json:"imageData"`
-	ImageType       *string `json:"imageType"`
-	ContractAddress string  `json:"contractAddress"`
-	EndsAt          time.Time `json:"endsAt"`
-	NextDeadline    time.Time `json:"nextDeadline"`
-	Opponent        string  `json:"opponent"`
-	PhotoUrl        *string `json:"photoUrl"`
-	Result          Result  `json:"result"`
-	Vote            bool    `json:"vote"` // true for "win", false for "lose"
-	Claim           bool    `json:"claim"` // true if user has claimed the dispute
+type DisputeCard struct {
+	ID           string    `db:"id"            json:"id"`
+	Title        string    `db:"title"         json:"title"`
+	CreatedAt    time.Time `db:"created_at"    json:"createdAt"`
+	AmountNano   int64     `db:"amount_nano"   json:"amountNano"`
+	EndsAt       time.Time `db:"ends_at"       json:"endsAt"`
+	NextDeadline time.Time `db:"next_deadline" json:"nextDeadline"`
+	Opponent     string    `db:"opponent"      json:"opponent"`
+	PhotoUrl     *string   `db:"photo_url"     json:"photoUrl"`
+	Result       Result    `db:"result"        json:"result"`
+	Vote         bool      `db:"vote"          json:"vote"`  // true for "win", false for "lose"
+	Claim        bool      `db:"claim"         json:"claim"` // true if user has claimed the dispute
+}
+
+type DisputeDetails struct {
+	ID              string    `db:"id"               json:"id"`
+	Title           string    `db:"title"            json:"title"`
+	Description     string    `db:"description"      json:"description"`
+	CreatedAt       time.Time `db:"created_at"       json:"createdAt"`
+	UpdatedAt       time.Time `db:"updated_at"       json:"updatedAt"`
+	Cryptocurrency  string    `db:"cryptocurrency"   json:"cryptocurrency"`
+	AmountNano      int64     `db:"amount_nano"      json:"amountNano"`
+	ImageData       []byte    `db:"image_data"       json:"imageData"`
+	ImageType       *string   `db:"image_type"       json:"imageType"`
+	ContractAddress string    `db:"contract_address" json:"contractAddress"`
+	EndsAt          time.Time `db:"ends_at"          json:"endsAt"`
+	NextDeadline    time.Time `db:"next_deadline"    json:"nextDeadline"`
+	Opponent        string    `db:"opponent"         json:"opponent"`
+	PhotoUrl        *string   `db:"photo_url"        json:"photoUrl"`
+	Result          Result    `db:"result"           json:"result"`
+	Vote            bool      `db:"vote"             json:"vote"`  // true for "win", false for "lose"
+	Claim           bool      `db:"claim"            json:"claim"` // true if user has claimed the dispute
 }
 
 type DisputeListOpts struct {
@@ -39,13 +53,13 @@ type DisputeListOpts struct {
 }
 
 type CreateDisputeReq struct {
-	Title           string `form:"title" binding:"required"`
-	Description     string `form:"description" binding:"required"`
-	Opponent        string `form:"opponent" binding:"required"`
-	AmountNano      string `form:"amountNano" binding:"required"`
-	EndsAt          string `form:"endsAt" binding:"required"`
+	Title           string `form:"title"           binding:"required"`
+	Description     string `form:"description"     binding:"required"`
+	Opponent        string `form:"opponent"        binding:"required"`
+	AmountNano      string `form:"amountNano"      binding:"required"`
+	EndsAt          string `form:"endsAt"          binding:"required"`
 	ContractAddress string `form:"contractAddress" binding:"required"`
-	Boc             string `form:"boc" binding:"required"`
+	Boc             string `form:"boc"             binding:"required"`
 	ImageData       []byte
 	ImageType       string
 }
