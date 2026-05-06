@@ -1,10 +1,17 @@
 -- +goose Up
 -- +goose StatementBegin
 ALTER TABLE user2dispute RENAME TO participants;
-ALTER TABLE participants ADD CONSTRAINT participants_pkey PRIMARY KEY (id);
 
 DO $$
 BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'user2dispute_pkey'
+    ) THEN
+        ALTER TABLE participants
+            RENAME CONSTRAINT user2dispute_pkey TO participants_pkey;
+    END IF;
+
     IF EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'user2dispute_user_id_fkey'
@@ -35,6 +42,14 @@ DO $$
 BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_constraint
+        WHERE conname = 'participants_pkey'
+    ) THEN
+        ALTER TABLE participants
+            RENAME CONSTRAINT participants_pkey TO user2dispute_pkey;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint
         WHERE conname = 'participants_user_id_fkey'
     ) THEN
         ALTER TABLE participants
@@ -52,5 +67,4 @@ END
 $$;
 
 ALTER TABLE IF EXISTS participants RENAME TO user2dispute;
-ALTER TABLE user2dispute DROP CONSTRAINT IF EXISTS participants_pkey;
 -- +goose StatementEnd
