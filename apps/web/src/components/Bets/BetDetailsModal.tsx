@@ -62,6 +62,7 @@ export const BetDetailsModal: React.FC<Props> = ({
   const [isClosing, setIsClosing] = useState(false);
   const closeTimeoutRef = useRef<number | null>(null);
   const hasClosedRef = useRef(false);
+  const hasCompletedRef = useRef(false);
   const [bet, setBet] = useState<BetDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -210,6 +211,10 @@ export const BetDetailsModal: React.FC<Props> = ({
 
   const requestClose = () => {
     if (isClosing) return;
+    if (success && !hasCompletedRef.current) {
+      hasCompletedRef.current = true;
+      onCompleted();
+    }
     setIsClosing(true);
     setIsOpen(false);
     hasClosedRef.current = false;
@@ -263,7 +268,6 @@ export const BetDetailsModal: React.FC<Props> = ({
             <button
               className="bet-details-close-success-btn"
               onClick={() => {
-                onCompleted();
                 requestClose();
               }}
             >
