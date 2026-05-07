@@ -48,8 +48,7 @@ func StartApp() {
 	txMonitor, err := ton.NewTonAPIMonitor(logger, ton.MonitorConfig{
 		Token:        os.Getenv("TONAPI_TOKEN"),
 		Network:      os.Getenv("TON_NETWORK"),
-		Timeout:      durationFromEnvMS("TON_TX_MONITOR_TIMEOUT_MS", 120*time.Second),
-		PollInterval: durationFromEnvMS("TON_TX_MONITOR_POLL_INTERVAL_MS", 1500*time.Millisecond),
+		Timeout:      durationFromEnvMS("TON_TX_MONITOR_TIMEOUT_MS"),
 	})
 	if err != nil {
 		logger.Fatal("failed to create TON monitor", zap.Error(err))
@@ -65,15 +64,15 @@ func StartApp() {
 	gracefulShutdown(db, server, logger)
 }
 
-func durationFromEnvMS(key string, fallback time.Duration) time.Duration {
+func durationFromEnvMS(key string) time.Duration {
 	raw := os.Getenv(key)
 	if raw == "" {
-		return fallback
+		return 0
 	}
 
 	ms, err := strconv.Atoi(raw)
 	if err != nil || ms <= 0 {
-		return fallback
+		return 0
 	}
 
 	return time.Duration(ms) * time.Millisecond

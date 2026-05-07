@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+
 	"net/http"
 	"strings"
 	"time"
@@ -17,6 +18,12 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	startPollTime = 1 * time.Second
+	pollRation = 2
+	maxPollTime = 15 * time.Second
+) 
+
 func (m TonAPIMonitor) WaitForSuccess(ctx context.Context, boc string) error {
 	msgHash, err := normalizedExternalMessageHash(boc)
 	if err != nil {
@@ -25,6 +32,7 @@ func (m TonAPIMonitor) WaitForSuccess(ctx context.Context, boc string) error {
 
 	pollCtx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
+	backoff := startPollTime
 
 	m.logger.Info("start TON tx tracking", zap.String("msg_hash", msgHash))
 
@@ -32,19 +40,23 @@ func (m TonAPIMonitor) WaitForSuccess(ctx context.Context, boc string) error {
 		trace, err := m.client.GetTrace(pollCtx, tonapi.GetTraceParams{TraceID: msgHash})
 		if err != nil {
 			if isNotFound(err) {
-				if err = waitWithContext(pollCtx, m.pollInterval); err != nil {
+				if err = waitWithContext(pollCtx, backoff); err != nil {
 					return mapWaitError(err)
 				}
+				backoff = min(backoff * pollRation, maxPollTime)
 				continue
 			}
 			return mapWaitError(err)
 		}
 
+		m.logger.Info("find tx", zap.String("tx_hash", trace.Transaction.Hash))
+
 		// Finalized trace is considered immutable (included in masterchain finality path).
 		if !isFinalized(*trace) {
-			if err = waitWithContext(pollCtx, m.pollInterval); err != nil {
+			if err = waitWithContext(pollCtx, backoff); err != nil {
 				return mapWaitError(err)
 			}
+			backoff = min(backoff * pollRation, maxPollTime)
 			continue
 		}
 
@@ -52,7 +64,7 @@ func (m TonAPIMonitor) WaitForSuccess(ctx context.Context, boc string) error {
 			return fmt.Errorf("%w: %s", services.ErrTxFailed, reason)
 		}
 
-		m.logger.Info("TON tx confirmed", zap.String("msg_hash", msgHash))
+		m.logger.Info("TON tx confirmed", zap.String("msg_hash", msgHash), zap.String("tx_hash", trace.Transaction.Hash))
 		return nil
 	}
 }
