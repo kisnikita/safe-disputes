@@ -51,7 +51,7 @@ const DESCRIPTION_MIN_HEIGHT_PX = 80;
 const DESCRIPTION_MAX_LENGTH = 4096;
 const DESCRIPTION_WARNING_LENGTH = 3600;
 const CREATE_BET_DRAFT_KEY = 'create-bet-draft-v1';
-const USERNAME_REGEX = /^[a-z][a-z0-9_]{4,}$/;
+const USERNAME_REGEX = /^[A-Za-z][A-Za-z0-9_]{4,}$/;
 const TITLE_MAX_LENGTH = 64;
 const MIN_BET_TON = 0.05;
 const MIN_BET_NANO = parseTonToNano(MIN_BET_TON.toFixed(2), { allowZero: true });
@@ -253,7 +253,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const shouldBlockByOpponentValidation = showValidationErrors && isOpponentInvalid;
   const opponentValidationText = opponentServerError
     ?? (isOpponentInvalid
-      ? 'Username должен начинаться с a-z, содержать только a-z, 0-9 и _, минимум 5 символов'
+      ? 'Введите username от 5 символов: начните с буквы и используйте только латинские символы, цифры и _'
       : 'Введите username оппонента');
   const shouldShowAmountValidation = (showValidationErrors && isAmountEmpty) || isAmountInvalid;
   const amountValidationHint = isAmountEmpty
@@ -707,7 +707,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
                   onChange={e => {
                     hasUserInputRef.current = true;
                     setOpponentServerError(null);
-                    setOpponent(e.target.value.toLowerCase());
+                    setOpponent(e.target.value);
                   }}
                   placeholder="username"
                   required
