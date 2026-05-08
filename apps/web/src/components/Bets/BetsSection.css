@@ -274,6 +274,12 @@
   pointer-events: none;
 }
 
+.bet-card.has-claim {
+  box-shadow:
+    inset 1px -1px 4px rgba(255, 255, 255, 0.6),
+    inset -1px 1px 4px rgba(255, 255, 255, 0.6);
+}
+
 .claim-label-animation {
   width: 100%;
   height: 100%;

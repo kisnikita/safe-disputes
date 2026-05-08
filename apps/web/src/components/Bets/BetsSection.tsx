@@ -903,7 +903,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
                         <div
                           key={bet.id}
                           ref={isActive && isLast ? lastRef : null}
-                          className={`bet-card${pressedCardId === bet.id ? ' pressed' : ''}`}
+                          className={`bet-card${pressedCardId === bet.id ? ' pressed' : ''}${isUnreadBet(bet) ? ' has-mark' : ''}${tab === 'passed' && bet.claim ? ' has-claim' : ''}`}
                           onClick={() => {
                             const isTouchLike =
                               typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
