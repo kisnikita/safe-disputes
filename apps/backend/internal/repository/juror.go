@@ -160,16 +160,13 @@ func (repo *Repository) UpdateWinnersResult(ctx context.Context, invID uuid.UUID
 
 func (repo *Repository) GetDisputesUsers(ctx context.Context, invID uuid.UUID) ([]models.User, error) {
 	query := `
-  SELECT u.id, u.username, u.chat_id, u.notification_enabled, u.rating
-  FROM evidences e
-  JOIN users u ON e.user_id = u.id
-  WHERE e.dispute_id IN (
-    SELECT dispute_id
-    FROM investigations
-    WHERE id = $1
-  )
-  ORDER BY e.created_at
- `
+		SELECT u.id, u.username, u.chat_id, u.notification_enabled, u.rating
+		FROM investigations i
+		JOIN participants p ON p.dispute_id = i.dispute_id
+		JOIN users u ON u.id = p.user_id
+		WHERE i.id = $1
+		ORDER BY p.id
+	`
 
 	rows, err := repo.db.QueryContext(ctx, query, invID)
 	if err != nil {
