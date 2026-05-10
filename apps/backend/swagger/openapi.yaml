@@ -163,6 +163,101 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Domain conflict or transaction execution failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Transaction monitor unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Transaction not finalized in time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/changes:
+    get:
+      tags: [Changes]
+      summary: Get disputes and investigations changes since timestamp
+      parameters:
+        - in: query
+          name: since
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Changes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/disputes/mark-seen:
+    post:
+      tags: [Disputes]
+      summary: Mark disputes as seen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkDisputesSeenRequest'
+      responses:
+        '204':
+          description: Marked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/disputes/precheck:
+    post:
+      tags: [Disputes]
+      summary: Validate dispute creation params before on-chain tx
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputePrecheckRequest'
+      responses:
+        '204':
+          description: Precheck passed
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Opponent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Domain conflict (self opponent, minimal amount, opponent not ready, tx failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -201,6 +296,8 @@ paths:
                 $ref: '#/components/schemas/DisputeResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -397,6 +494,26 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/v1/investigations/mark-seen:
+    post:
+      tags: [Investigations]
+      summary: Mark investigations as seen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkInvestigationsSeenRequest'
+      responses:
+        '204':
+          description: Marked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes:
     tmaAuth:
@@ -502,7 +619,7 @@ components:
         rating:
           type: integer
 
-    Dispute:
+    DisputeCard:
       type: object
       properties:
         id:
@@ -510,10 +627,20 @@ components:
           format: uuid
         title:
           type: string
-        description:
+        amountNano:
+          type: integer
+          format: int64
+        endsAt:
           type: string
+          format: date-time
+        nextDeadline:
+          type: string
+          format: date-time
         opponent:
           type: string
+        photoUrl:
+          type: string
+          nullable: true
         result:
           $ref: '#/components/schemas/DisputeResult'
         claim:
@@ -523,21 +650,28 @@ components:
         createdAt:
           type: string
           format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        cryptocurrency:
-          type: string
-        amountNano:
-          type: integer
-          format: int64
-        imageData:
-          type: string
-          format: byte
-        imageType:
-          type: string
-        contractAddress:
-          type: string
+        isUnread:
+          type: boolean
+
+    Dispute:
+      allOf:
+        - $ref: '#/components/schemas/DisputeCard'
+        - type: object
+          properties:
+            description:
+              type: string
+            updatedAt:
+              type: string
+              format: date-time
+            cryptocurrency:
+              type: string
+            imageData:
+              type: string
+              format: byte
+            imageType:
+              type: string
+            contractAddress:
+              type: string
 
     CreateDisputeRequest:
       type: object
@@ -559,6 +693,16 @@ components:
         image:
           type: string
           format: binary
+
+    DisputePrecheckRequest:
+      type: object
+      required: [opponent, amountNano]
+      properties:
+        opponent:
+          type: string
+        amountNano:
+          type: string
+          description: Positive integer in nanoTON, encoded as string.
 
     DisputeVoteRequest:
       type: object
@@ -623,6 +767,12 @@ components:
           format: date-time
         title:
           type: string
+        result:
+          $ref: '#/components/schemas/InvestigationResult'
+        vote:
+          type: string
+        isUnread:
+          type: boolean
 
     UserResponse:
       type: object
@@ -650,10 +800,97 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Dispute'
+            $ref: '#/components/schemas/DisputeCard'
         nextCursor:
           type: string
           nullable: true
+
+    DisputeChange:
+      type: object
+      properties:
+        disputeID:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/DisputeStatus'
+
+    InvestigationChange:
+      type: object
+      properties:
+        investigationID:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/InvestigationStatus'
+
+    DisputeUnreadCounts:
+      type: object
+      properties:
+        new:
+          type: integer
+        current:
+          type: integer
+        passed:
+          type: integer
+
+    InvestigationUnreadCounts:
+      type: object
+      properties:
+        current:
+          type: integer
+        passed:
+          type: integer
+
+    ChangesData:
+      type: object
+      properties:
+        disputes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisputeChange'
+        investigations:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvestigationChange'
+
+    ChangesUnreadCounts:
+      type: object
+      properties:
+        disputes:
+          $ref: '#/components/schemas/DisputeUnreadCounts'
+        investigations:
+          $ref: '#/components/schemas/InvestigationUnreadCounts'
+
+    ChangesResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ChangesData'
+        unreadCounts:
+          $ref: '#/components/schemas/ChangesUnreadCounts'
+        nextSince:
+          type: string
+          format: date-time
+
+    MarkDisputesSeenRequest:
+      type: object
+      required: [disputeIDs]
+      properties:
+        disputeIDs:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    MarkInvestigationsSeenRequest:
+      type: object
+      required: [investigationIDs]
+      properties:
+        investigationIDs:
+          type: array
+          items:
+            type: string
+            format: uuid
 
     EvidencesResponse:
       type: object

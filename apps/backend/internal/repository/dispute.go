@@ -90,7 +90,8 @@ func (repo *Repository) ListDisputeCards(ctx context.Context, actorUsername stri
 			d.ends_at, d.next_deadline,
 			opp_user.username AS opponent,
 			opp_user.photo_url,
-			self.result, self.vote, self.claim
+			self.result, self.vote, self.claim,
+			(self.seen_at IS NULL OR self.updated_at > self.seen_at) AS is_unread
 		FROM disputes d
 		JOIN participants self ON self.dispute_id = d.id
 		JOIN users me ON me.id = self.user_id
@@ -122,6 +123,7 @@ func (repo *Repository) ListDisputeCards(ctx context.Context, actorUsername stri
 			&d.Result,
 			&d.Vote,
 			&d.Claim,
+			&d.IsUnread,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan dispute read row: %w", err)
 		}

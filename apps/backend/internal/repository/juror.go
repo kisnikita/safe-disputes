@@ -61,32 +61,36 @@ func (repo *Repository) BroadcastInvestigation(ctx context.Context, u2i models.J
 }
 
 func (repo *Repository) GetJuror(ctx context.Context, invID, userID uuid.UUID) (models.Juror, error) {
-	var u2i models.Juror
+	var juror models.Juror
 	if err := repo.db.QueryRowContext(ctx, `
-		SELECT id, investigation_id, user_id, vote, result
+		SELECT id, investigation_id, user_id, vote, result, updated_at, seen_at
 		FROM jurors
 		WHERE investigation_id = $1 AND user_id = $2`,
 		invID, userID,
 	).Scan(
-		&u2i.ID,
-		&u2i.InvestigationID,
-		&u2i.UserID,
-		&u2i.Vote,
-		&u2i.Result,
+		&juror.ID,
+		&juror.InvestigationID,
+		&juror.UserID,
+		&juror.Vote,
+		&juror.Result,
+		&juror.UpdatedAt,
+		&juror.SeenAt,
 	); err != nil {
-		return models.Juror{}, fmt.Errorf("failed to get jurors: %w", err)
+		return models.Juror{}, fmt.Errorf("failed to get juror: %w", err)
 	}
-	return u2i, nil
+	return juror, nil
 }
 
 func (repo *Repository) UpdateJuror(ctx context.Context, opts models.JurorUpdateOpts) error {
 	query := `
 		UPDATE jurors
 		SET vote = COALESCE($1, vote),
-			result = COALESCE($2, result)
-		WHERE id = $3
+			result = COALESCE($2, result),
+			seen_at = CASE WHEN $3 THEN now() ELSE seen_at END,
+			updated_at = now()
+		WHERE id = $4
 	`
-	_, err := repo.db.ExecContext(ctx, query, opts.Vote, opts.Result, opts.ID)
+	_, err := repo.db.ExecContext(ctx, query, opts.Vote, opts.Result, opts.SeenAt, opts.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update jurors: %w", err)
 	}
@@ -137,7 +141,7 @@ func (repo *Repository) GetWinnersIDs(ctx context.Context, invID uuid.UUID, winn
 func (repo *Repository) UpdateWinnersResult(ctx context.Context, invID uuid.UUID, ids []uuid.UUID) error {
 	queryCorrect := `
 		UPDATE jurors
-		SET result = $1
+		SET result = $1, updated_at = now()
 		WHERE investigation_id = $2 AND user_id = ANY($3)
 	`
 	_, err := repo.db.ExecContext(ctx, queryCorrect, models.InvestigationResultCorrect, invID, pq.Array(ids))
@@ -147,7 +151,7 @@ func (repo *Repository) UpdateWinnersResult(ctx context.Context, invID uuid.UUID
 
 	queryIncorrect := `
 		UPDATE jurors
-		SET result = $1
+		SET result = $1, updated_at = now()
 		WHERE investigation_id = $2 AND user_id != ALL($3)
 	`
 	_, err = repo.db.ExecContext(ctx, queryIncorrect, models.InvestigationResultInCorrect, invID, pq.Array(ids))
@@ -187,4 +191,23 @@ func (repo *Repository) GetDisputesUsers(ctx context.Context, invID uuid.UUID) (
 	}
 
 	return users, nil
+}
+
+func (repo *Repository) MarkJurorsSeen(ctx context.Context, actorUsername string, investigationIDs []uuid.UUID,
+) error {
+	if len(investigationIDs) == 0 {
+		return nil
+	}
+	_, err := repo.db.ExecContext(ctx, `
+		UPDATE jurors j
+		SET seen_at = now()
+		FROM users me
+		WHERE me.id = j.user_id
+		  AND me.username = $1
+		  AND j.investigation_id = ANY($2)
+	`, actorUsername, pq.Array(investigationIDs))
+	if err != nil {
+		return fmt.Errorf("failed to mark jurors seen: %w", err)
+	}
+	return nil
 }

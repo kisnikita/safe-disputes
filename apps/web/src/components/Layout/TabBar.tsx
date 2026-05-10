@@ -16,8 +16,10 @@ export const TabBar: React.FC<{
   active: string;
   userPhotoUrl?: string | null;
   username?: string;
+  hasBetsUnread?: boolean;
+  hasInvestigationsUnread?: boolean;
   onChange: (id: string) => void;
-}> = ({ active, userPhotoUrl, username, onChange }) => {
+}> = ({ active, userPhotoUrl, username, hasBetsUnread = false, hasInvestigationsUnread = false, onChange }) => {
   const indicatorExtraWidth = 8;
   const navRef = useRef<HTMLElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -109,6 +111,12 @@ export const TabBar: React.FC<{
                   alt=""
                   draggable={false}
                 />
+                {t.id === 'bets' && hasBetsUnread && (
+                  <span className="tabbar-bets-mark" aria-label="Есть непросмотренные пари" />
+                )}
+                {t.id === 'investigations' && hasInvestigationsUnread && (
+                  <span className="tabbar-bets-mark" aria-label="Есть непросмотренные расследования" />
+                )}
               </span>
             ) : t.id === 'settings' ? (
               <span className="tabbar-icon tabbar-avatar" aria-hidden="true">

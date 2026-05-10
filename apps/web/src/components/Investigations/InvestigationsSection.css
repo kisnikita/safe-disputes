@@ -127,7 +127,6 @@
   z-index: 1;
   font-size: 13px;
 }
-
 .subtabs button.active {
   font-weight: 600;
   opacity: 1;
@@ -273,74 +272,6 @@
 .investigation-card {
   position: relative;
 }
-
-/* Бейдж результата */
-.result-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  border-radius: 12px;
-  padding: 2px 8px;
-  font-size: 12px;
-  font-style: italic;
-  display: flex;
-  align-items: center;
-  background: linear-gradient(215deg, #5ea2eaa6, rgba(255, 255, 255, 0.534));
-  color: #0F172A ;
-  box-shadow: 
-    inset 1px -1px 4px rgba(255, 255, 255, 0.6),
-    inset -1px 1px 4px rgba(255, 255, 255, 0.6);
-}
-
-.investigation-deadline-chip-wrap {
-  position: absolute;
-  top: 34px;
-  right: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 12px;
-  padding: 2px 8px;
-  background: linear-gradient(215deg, rgba(225, 234, 94, 0.65), rgba(255, 255, 255, 0.5));
-  box-shadow:
-    inset 1px -1px 4px rgba(255, 255, 255, 0.6),
-    inset -1px 1px 4px rgba(255, 255, 255, 0.6);
-}
-
-.investigation-deadline-chip {
-  font-size: 12px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.investigation-deadline-chip.hourglass {
-  filter: saturate(1.05);
-}
-
-.investigation-deadline-chip.finish {
-  filter: saturate(1.1);
-}
-
-.investigation-deadline-chip-time {
-  font-size: 12px;
-  line-height: 1;
-  color: #0f172a;
-}
-
-/* Точка цвета внутри бейджа */
-.result-badge .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 4px;
-}
-
-.dot.green  { background: #2ecc71; }
-.dot.red    { background: #e74c3c; }
-.dot.yellow { background: #e9f10f; }
-.dot.gray   { background: #95a5a6; }
 
 .investigation-card::after {
   content: '';

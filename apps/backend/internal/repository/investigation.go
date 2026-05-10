@@ -29,7 +29,7 @@ func (repo *Repository) InsertInvestigation(ctx context.Context, investigation m
 	return nil
 }
 
-func (repo *Repository) ListInvestigationCards(ctx context.Context, actorUsername string, 
+func (repo *Repository) ListInvestigationCards(ctx context.Context, actorUsername string,
 	opts models.InvestigationListOpts,
 ) ([]models.InvestigationCard, error) {
 	const maxLimit = 100
@@ -74,7 +74,8 @@ func (repo *Repository) ListInvestigationCards(ctx context.Context, actorUsernam
 	query := fmt.Sprintf(`
 		SELECT
 			i.id, i.dispute_id, i.status, i.created_at, i.ends_at, i.title,
-			u.result, u.vote
+			u.result, u.vote,
+			(u.seen_at IS NULL OR u.updated_at > u.seen_at) AS is_unread
 		FROM investigations i
 		JOIN jurors u ON i.id = u.investigation_id
 		JOIN users me ON me.id = u.user_id
@@ -101,6 +102,7 @@ func (repo *Repository) ListInvestigationCards(ctx context.Context, actorUsernam
 			&i.Title,
 			&i.Result,
 			&i.Vote,
+			&i.IsUnread,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan investigation read row: %w", err)
 		}
@@ -118,7 +120,7 @@ func (repo *Repository) GetInvestigation(ctx context.Context, invID, userID uuid
 		SELECT
 		  i.id, i.dispute_id, i.title,
 		  i.total, i.p1, i.p2, i.draw,
-		  i.status, i.created_at, i.ends_at,
+		  i.status, i.created_at, i.ends_at
 		FROM investigations i
 		JOIN jurors u ON i.id = u.investigation_id
 		WHERE i.id = $1 AND u.user_id = $2

@@ -30,6 +30,7 @@ interface Bet {
   photoUrl?: string | null;
   endsAt: string;
   nextDeadline: string;
+  isUnread: boolean;
   status: string;
   result:
     | 'new'
@@ -54,6 +55,14 @@ export interface BetsSectionHandle {
 interface Props {
   onModalChange: (open: boolean) => void;
   onOpenEvidence: (disputeId: string) => void;
+  initialSubtab?: Subtab;
+  onOptimisticUnreadDelta?: (tab: Subtab, delta: number) => void;
+  unreadCountsByTabExternal?: Record<Subtab, number>;
+  changesSnapshot?: {
+    nextSince: string;
+    data: { disputes: Array<{ disputeID: string; status: Subtab }> };
+    unreadCounts: { disputes: { current: number; new: number; passed: number } };
+  } | null;
   initialOpenBetId?: string | null;
   onInitialOpenBetHandled?: () => void;
 }
@@ -133,11 +142,16 @@ const parseAmountNano = (value: string | number): bigint => {
 export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
   onModalChange,
   onOpenEvidence,
+  initialSubtab = 'current',
+  onOptimisticUnreadDelta,
+  unreadCountsByTabExternal,
+  changesSnapshot,
   initialOpenBetId = null,
   onInitialOpenBetHandled,
 }, ref) => {
   const { connected } = useTonConnect();
   const [subtab, setSubtab] = useState<Subtab>('current');
+  const subtabRef = useRef<Subtab>('current');
   const [betsByTab, setBetsByTab] = useState<Record<Subtab, Bet[]>>({
     current: [],
     new: [],
@@ -158,10 +172,29 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
     new: false,
     passed: false,
   });
+  const [dirtyByTab, setDirtyByTab] = useState<Record<Subtab, boolean>>({
+    current: false,
+    new: false,
+    passed: false,
+  });
+  const [unreadCountsByTab, setUnreadCountsByTab] = useState<Record<Subtab, number>>({
+    current: 0,
+    new: 0,
+    passed: 0,
+  });
+  const [unreadCountsLoaded, setUnreadCountsLoaded] = useState(false);
+  const [ackedSeenById, setAckedSeenById] = useState<Record<string, boolean>>({});
+  const [pendingSeenIds, setPendingSeenIds] = useState<string[]>([]);
+  const pendingSeenIdsRef = useRef<string[]>([]);
   const cursorRef = useRef<Record<Subtab, string | null>>({
     current: null,
     new: null,
     passed: null,
+  });
+  const betsByTabRef = useRef<Record<Subtab, Bet[]>>({
+    current: [],
+    new: [],
+    passed: [],
   });
   const observer = useRef<IntersectionObserver | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -220,8 +253,22 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
   const TAP_MOVE_THRESHOLD = 2;
   const TAP_CARD_DELAY_MS = 80;
   const normalizedQuery = searchTerm.trim().toLowerCase();
+  const isUnreadBet = useCallback((bet: Bet) => bet.isUnread && !ackedSeenById[bet.id], [ackedSeenById]);
+  const lastAppliedSnapshotRef = useRef<string | null>(null);
 
-  const fetchFirstPage = useCallback(async (tab: Subtab) => {
+  useEffect(() => {
+    betsByTabRef.current = betsByTab;
+  }, [betsByTab]);
+  useEffect(() => {
+    subtabRef.current = subtab;
+  }, [subtab]);
+
+  useEffect(() => {
+    if (initialSubtab === subtabRef.current) return;
+    setSubtab(initialSubtab);
+  }, [initialSubtab]);
+
+  const fetchTab = useCallback(async (tab: Subtab) => {
     setFetchedByTab(prev => ({ ...prev, [tab]: true }));
     cursorRef.current[tab] = null;
     setHasMoreByTab(prev => ({ ...prev, [tab]: true }));
@@ -229,12 +276,18 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
     const params = new URLSearchParams({ status: tab, limit: '10' });
     try {
       const res = await apiFetch(`/api/v1/disputes?${params}`);
-      if (!res.ok) throw new Error();
       const { data, nextCursor } = (await res.json()) as {
         data: Bet[];
         nextCursor: string | null;
       };
       setBetsByTab(prev => ({ ...prev, [tab]: data }));
+      setAckedSeenById(prev => {
+        const next = { ...prev };
+        data.forEach(bet => {
+          if (bet.isUnread) delete next[bet.id];
+        });
+        return next;
+      });
       cursorRef.current[tab] = nextCursor;
       setHasMoreByTab(prev => ({ ...prev, [tab]: !!nextCursor }));
     } catch {
@@ -253,12 +306,21 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
     if (cursor) params.set('cursor', cursor);
     try {
       const res = await apiFetch(`/api/v1/disputes?${params}`);
-      if (!res.ok) throw new Error();
       const { data, nextCursor } = (await res.json()) as {
         data: Bet[];
         nextCursor: string | null;
       };
-      setBetsByTab(prev => ({ ...prev, [tab]: [...prev[tab], ...data] }));
+      setBetsByTab(prev => {
+        const merged = [...prev[tab], ...data];
+        return { ...prev, [tab]: merged };
+      });
+      setAckedSeenById(prev => {
+        const next = { ...prev };
+        data.forEach(bet => {
+          if (bet.isUnread) delete next[bet.id];
+        });
+        return next;
+      });
       cursorRef.current[tab] = nextCursor;
       setHasMoreByTab(prev => ({ ...prev, [tab]: !!nextCursor }));
     } catch {
@@ -270,9 +332,119 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
 
   useEffect(() => {
     if (!fetchedByTab[subtab] && !loadingByTab[subtab]) {
-      fetchFirstPage(subtab);
+      fetchTab(subtab);
     }
-  }, [subtab, fetchedByTab, loadingByTab, fetchFirstPage]);
+  }, [subtab, fetchedByTab, loadingByTab, fetchTab]);
+
+  useEffect(() => {
+    if (!dirtyByTab[subtab] || loadingByTab[subtab]) return;
+    fetchTab(subtab);
+    setDirtyByTab(prev => ({ ...prev, [subtab]: false }));
+  }, [dirtyByTab, fetchTab, loadingByTab, subtab]);
+
+  useEffect(() => {
+    const onAppChanges = (event: Event) => {
+      const payload = (event as CustomEvent<{
+        data: { disputes: Array<{ disputeID: string; status: Subtab }> };
+        unreadCounts: { disputes: { current: number; new: number; passed: number } };
+      }>).detail;
+      if (!payload) return;
+      setUnreadCountsByTab({
+        current: payload.unreadCounts.disputes.current,
+        new: payload.unreadCounts.disputes.new,
+        passed: payload.unreadCounts.disputes.passed,
+      });
+      setUnreadCountsLoaded(true);
+      if (payload.data.disputes.length === 0) return;
+
+      const nextDirty: Partial<Record<Subtab, boolean>> = {};
+      const activeTab = subtabRef.current;
+      const activeList = betsByTabRef.current[activeTab];
+      for (const changed of payload.data.disputes) {
+        const targetTab = changed.status;
+        nextDirty[targetTab] = true;
+        if (targetTab === activeTab || activeList.some(bet => bet.id === changed.disputeID)) {
+          nextDirty[activeTab] = true;
+        }
+      }
+      setDirtyByTab(prev => ({
+        current: prev.current || Boolean(nextDirty.current),
+        new: prev.new || Boolean(nextDirty.new),
+        passed: prev.passed || Boolean(nextDirty.passed),
+      }));
+    };
+
+    window.addEventListener('app-changes', onAppChanges as EventListener);
+    return () => window.removeEventListener('app-changes', onAppChanges as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (!unreadCountsByTabExternal) return;
+    setUnreadCountsByTab(unreadCountsByTabExternal);
+    setUnreadCountsLoaded(true);
+  }, [unreadCountsByTabExternal]);
+
+  useEffect(() => {
+    if (!changesSnapshot) return;
+    if (lastAppliedSnapshotRef.current === changesSnapshot.nextSince) return;
+    lastAppliedSnapshotRef.current = changesSnapshot.nextSince;
+    setUnreadCountsByTab({
+      current: changesSnapshot.unreadCounts.disputes.current,
+      new: changesSnapshot.unreadCounts.disputes.new,
+      passed: changesSnapshot.unreadCounts.disputes.passed,
+    });
+    setUnreadCountsLoaded(true);
+    if (changesSnapshot.data.disputes.length === 0) return;
+    const nextDirty: Partial<Record<Subtab, boolean>> = {};
+    const activeTab = subtabRef.current;
+    const activeList = betsByTabRef.current[activeTab];
+    for (const changed of changesSnapshot.data.disputes) {
+      const targetTab = changed.status;
+      nextDirty[targetTab] = true;
+      if (targetTab === activeTab || activeList.some(bet => bet.id === changed.disputeID)) {
+        nextDirty[activeTab] = true;
+      }
+    }
+    setDirtyByTab(prev => ({
+      current: prev.current || Boolean(nextDirty.current),
+      new: prev.new || Boolean(nextDirty.new),
+      passed: prev.passed || Boolean(nextDirty.passed),
+    }));
+  }, [changesSnapshot]);
+
+  const markSeenNow = useCallback(async (id: string, tab: Subtab, shouldDecrement: boolean) => {
+    setAckedSeenById(prev => ({ ...prev, [id]: true }));
+    if (shouldDecrement) {
+      setUnreadCountsByTab(prev => ({ ...prev, [tab]: Math.max(0, prev[tab] - 1) }));
+      onOptimisticUnreadDelta?.(tab, -1);
+    }
+    try {
+      await apiFetch('/api/v1/disputes/mark-seen', {
+        method: 'POST',
+        body: JSON.stringify({ disputeIDs: [id] }),
+      });
+      setPendingSeenIds(prev => prev.filter(item => item !== id));
+    } catch {
+      // keep pending for unmount flush / next retry source
+    }
+  }, [onOptimisticUnreadDelta]);
+
+  useEffect(() => {
+    pendingSeenIdsRef.current = pendingSeenIds;
+  }, [pendingSeenIds]);
+
+  useEffect(() => {
+    return () => {
+      const ids = [...new Set(pendingSeenIdsRef.current)];
+      if (ids.length === 0) return;
+      void apiFetch('/api/v1/disputes/mark-seen', {
+        method: 'POST',
+        body: JSON.stringify({ disputeIDs: ids }),
+      }).catch(() => {
+        // keep local optimistic UX; user will see unread again after re-enter on failure
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (subtabsPrefetchedRef.current) return;
@@ -280,10 +452,10 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
     subtabsPrefetchedRef.current = true;
     tabs.forEach(tab => {
       if (tab !== 'current' && !fetchedByTab[tab] && !loadingByTab[tab]) {
-        fetchFirstPage(tab);
+        fetchTab(tab);
       }
     });
-  }, [fetchedByTab, loadingByTab, fetchFirstPage]);
+  }, [fetchedByTab, loadingByTab, fetchTab]);
 
   useEffect(() => {
     const node = subcontentRef.current;
@@ -431,6 +603,11 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
 
   const openDetails = (id: string) => {
     if (isDragging) return;
+    const bet = betsByTabRef.current[subtab].find(item => item.id === id);
+    if (bet?.isUnread && !ackedSeenById[id]) {
+      setPendingSeenIds(prev => (prev.includes(id) ? prev : [...prev, id]));
+      void markSeenNow(id, subtab, true);
+    }
     setSelectedId(id);
     onModalChange(true);
   };
@@ -601,10 +778,10 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
       syncPanelForTab(prev, subtab);
     }
     if (next && betsByTab[next].length === 0 && !loadingByTab[next]) {
-      fetchFirstPage(next);
+      fetchTab(next);
     }
     if (prev && betsByTab[prev].length === 0 && !loadingByTab[prev]) {
-      fetchFirstPage(prev);
+      fetchTab(prev);
     }
   };
 
@@ -734,9 +911,9 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
   });
 
   useImperativeHandle(ref, () => ({
-    refresh: () => fetchFirstPage(subtab),
+    refresh: () => fetchTab(subtab),
     scrollToTop: scrollActivePanelToTop,
-  }), [fetchFirstPage, scrollActivePanelToTop, subtab]);
+  }), [fetchTab, scrollActivePanelToTop, subtab]);
 
   const sortBets = (list: Bet[], sortOption: string) => {
     if (sortOption !== 'Крупные') return list;
@@ -751,6 +928,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
       })
       .map(({ bet }) => bet);
   };
+  const unreadCountByTab: Record<Subtab, number> = unreadCountsByTab;
 
     return (
       <>
@@ -763,11 +941,18 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
                 onClick={() => handleSubtabClick(buttonTab)}
                 className={visualActiveIndex === tabIndex ? 'active' : ''}
               >
-                {buttonTab === 'current'
-                  ? 'Текущие'
-                  : buttonTab === 'new'
-                  ? 'Новые'
-                  : 'Прошедшие'}
+                <span className="subtab-label">
+                  {buttonTab === 'current'
+                    ? 'Текущие'
+                    : buttonTab === 'new'
+                    ? 'Новые'
+                    : 'Прошедшие'}
+                </span>
+                {unreadCountByTab[buttonTab] > 0 && (
+                  <span className="subtab-mark" aria-label={`${unreadCountByTab[buttonTab]} непросмотренных`}>
+                    {unreadCountByTab[buttonTab]}
+                  </span>
+                )}
               </button>
             ))}
             <div
@@ -936,6 +1121,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
                             }
                           }}
                         >
+                          {isUnreadBet(bet) && <span className="bet-mark" aria-label="Непросмотренное пари" />}
                           <h4>{bet.title}</h4>
                           <div className="bet-card-amount">
                             <TonIcon className="bet-card-amount-icon" />
@@ -1015,7 +1201,8 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
             id={selectedId}
             onClose={closeDetails}
             onCompleted={() => {
-              fetchFirstPage(subtab);
+              setPendingSeenIds(prev => prev.filter(id => id !== selectedId));
+              window.dispatchEvent(new Event('pollNow'));
             }}
             onOpenEvidence={onOpenEvidence}
             showActions={subtab === 'new'}

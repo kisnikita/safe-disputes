@@ -1,6 +1,10 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Status string
 
@@ -32,6 +36,7 @@ type ParticipantUpdateOpts struct {
 	Result *Result   `json:"result"`
 	Vote   *bool     `json:"vote"`
 	Claim  *bool     `json:"claim"`
+	SeenAt *bool	 `json:"-"`
 }
 
 func NewParticipant(userID, disputeID uuid.UUID, result Result) Participant {
@@ -41,6 +46,10 @@ func NewParticipant(userID, disputeID uuid.UUID, result Result) Participant {
 		DisputeID: disputeID,
 		Status:    DisputesStatusNew,
 		Result:    result,
-		Vote:      false, // Vote will be set when the user votes on the dispute
+		UpdatedAt: time.Now(),
 	}
+}
+
+func (p *Participant) MarkSeen() {
+	p.SeenAt = &p.UpdatedAt
 }

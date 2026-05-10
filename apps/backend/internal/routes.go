@@ -13,6 +13,9 @@ func (s Server) RegisterRoutes(repo *repository.Repository) {
 	auth := apiRouter.Group("/auth")
 	auth.POST("/telegram", api.TelegramAuth(repo, s.logger))
 
+	changes := apiRouter.Group("/changes")
+	changes.GET("", api.ListChanges(repo, s.logger))
+
 	users := apiRouter.Group("/users")
 	users.GET("/me", api.GetMe(repo, s.logger))
 	users.PATCH("", api.UpdateUser(repo, s.logger))
@@ -20,6 +23,7 @@ func (s Server) RegisterRoutes(repo *repository.Repository) {
 
 	disputes := apiRouter.Group("/disputes")
 	disputes.GET("", api.ListDisputes(repo, s.logger, s.msgService))
+	disputes.POST("/mark-seen", api.MarkDisputesSeen(repo, s.logger, s.msgService))
 	disputes.POST("/precheck", api.PrecheckDispute(repo, s.logger, s.msgService))
 	disputes.POST("", api.CreateDispute(repo, s.logger, s.msgService, s.txMonitor))
 	disputes.GET("/:id", api.GetDispute(repo, s.logger, s.msgService))
@@ -35,6 +39,7 @@ func (s Server) RegisterRoutes(repo *repository.Repository) {
 
 	investigation := apiRouter.Group("/investigations")
 	investigation.GET("", api.ListInvestigations(repo, s.logger, s.msgService))
+	investigation.POST("/mark-seen", api.MarkInvestigationsSeen(repo, s.logger, s.msgService))
 	investigation.GET("/:id", api.GetInvestigation(repo, s.logger, s.msgService))
 	investigation.POST("/:id/vote", api.VoteInvestigation(repo, s.logger, s.msgService))
 }

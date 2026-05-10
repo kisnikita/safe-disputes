@@ -56,6 +56,31 @@
   flex: 1;
   z-index: 1;
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.subtab-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.subtab-mark {
+  min-width: 10px;
+  height: 10px;
+  padding: 2px 2px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  transform: translateY(-4px) translateX(-4px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
 }
 
 .subtabs button.active {
@@ -181,6 +206,21 @@
     inset -1px 1px 4px rgba(255, 255, 255, 0.6);
 }
 
+.bet-mark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff0000;
+  box-shadow: 
+    1px 3px 8px rgba(15, 23, 42, 0.1),
+    inset 1px -1px 4px rgba(255, 255, 255, 0.5),
+    inset -1px 1px 4px rgba(255, 255, 255, 0.5);
+  z-index: 2;
+}
+
 .bet-card * {
   -webkit-user-select: none;
   user-select: none;
@@ -228,6 +268,14 @@
   box-shadow:
     inset 1px -1px 4px rgba(255, 255, 255, 0.6),
     inset -1px 1px 4px rgba(255, 255, 255, 0.6);
+}
+
+.has-mark .result-badge {
+  right: 24px;
+}
+
+.has-mark .deadline-chip-wrap {
+  right: 24px;
 }
 
 .deadline-chip {

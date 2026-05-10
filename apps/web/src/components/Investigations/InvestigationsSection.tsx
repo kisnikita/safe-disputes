@@ -28,6 +28,7 @@ interface Investigation {
   total?: number;
   result: 'new' | 'sent' | 'correct' | 'incorrect';
   vote?: string;
+  isUnread?: boolean;
 }
 
 interface TopUser {
@@ -42,6 +43,13 @@ export interface InvestigationsSectionHandle {
 
 interface Props {
   onModalChange: (open: boolean) => void;
+  onOptimisticUnreadDelta?: (tab: Subtab, delta: number) => void;
+  unreadCountsByTabExternal?: Record<Subtab, number>;
+  changesSnapshot?: {
+    nextSince: string;
+    data: { investigations: Array<{ investigationID: string; status: Subtab }> };
+    unreadCounts: { investigations: { current: number; passed: number } };
+  } | null;
 }
 
 const tabs = ['current', 'passed'] as const;
@@ -84,7 +92,7 @@ const getShortDeadlineText = (endsAt: string): string => {
 };
 
 export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Props>(
-  ({ onModalChange }, ref) => {
+  ({ onModalChange, onOptimisticUnreadDelta, unreadCountsByTabExternal, changesSnapshot }, ref) => {
     const [subtab, setSubtab] = useState<Subtab>('current');
     const [itemsByTab, setItemsByTab] = useState<Record<Subtab, Investigation[]>>({
       current: [],
@@ -102,6 +110,17 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       current: false,
       passed: false,
     });
+    const [dirtyByTab, setDirtyByTab] = useState<Record<Subtab, boolean>>({
+      current: false,
+      passed: false,
+    });
+    const [unreadCountsByTab, setUnreadCountsByTab] = useState<Record<Subtab, number>>({
+      current: 0,
+      passed: 0,
+    });
+    const [ackedSeenById, setAckedSeenById] = useState<Record<string, boolean>>({});
+    const [pendingSeenIds, setPendingSeenIds] = useState<string[]>([]);
+    const pendingSeenIdsRef = useRef<string[]>([]);
     const [showRating, setShowRating] = useState(false);
     const [topUsers, setTopUsers] = useState<TopUser[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -110,6 +129,11 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
       current: null,
       passed: null,
     });
+    const itemsByTabRef = useRef<Record<Subtab, Investigation[]>>({
+      current: [],
+      passed: [],
+    });
+    const subtabRef = useRef<Subtab>('current');
     const observer = useRef<IntersectionObserver | null>(null);
     const [dragOffset, setDragOffset] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
@@ -161,6 +185,53 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const TAP_MOVE_THRESHOLD = 2;
     const TAP_CARD_DELAY_MS = 80;
     const normalizedQuery = searchTerm.trim().toLowerCase();
+    const lastAppliedSnapshotRef = useRef<string | null>(null);
+    const isUnreadInvestigation = useCallback((inv: Investigation) => Boolean(inv.isUnread) && !ackedSeenById[inv.id], [ackedSeenById]);
+
+    useEffect(() => {
+      itemsByTabRef.current = itemsByTab;
+    }, [itemsByTab]);
+
+    useEffect(() => {
+      subtabRef.current = subtab;
+    }, [subtab]);
+
+    useEffect(() => {
+      if (!unreadCountsByTabExternal) return;
+      setUnreadCountsByTab(unreadCountsByTabExternal);
+    }, [unreadCountsByTabExternal]);
+
+    useEffect(() => {
+      pendingSeenIdsRef.current = pendingSeenIds;
+    }, [pendingSeenIds]);
+
+    useEffect(() => {
+      return () => {
+        const ids = [...new Set(pendingSeenIdsRef.current)];
+        if (ids.length === 0) return;
+        void apiFetch('/api/v1/investigations/mark-seen', {
+          method: 'POST',
+          body: JSON.stringify({ investigationIDs: ids }),
+        }).catch(() => {
+          // keep optimistic UX
+        });
+      };
+    }, []);
+
+    const markSeenNow = useCallback(async (id: string, tab: Subtab) => {
+      setAckedSeenById(prev => ({ ...prev, [id]: true }));
+      setUnreadCountsByTab(prev => ({ ...prev, [tab]: Math.max(0, prev[tab] - 1) }));
+      onOptimisticUnreadDelta?.(tab, -1);
+      try {
+        await apiFetch('/api/v1/investigations/mark-seen', {
+          method: 'POST',
+          body: JSON.stringify({ investigationIDs: [id] }),
+        });
+        setPendingSeenIds(prev => prev.filter(item => item !== id));
+      } catch {
+        // keep pending for unmount flush
+      }
+    }, [onOptimisticUnreadDelta]);
 
     const fetchInvestigations = useCallback(async (tab: Subtab) => {
       setFetchedByTab(prev => ({ ...prev, [tab]: true }));
@@ -176,6 +247,13 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
           nextCursor: string | null;
         };
         setItemsByTab(prev => ({ ...prev, [tab]: data }));
+        setAckedSeenById(prev => {
+          const next = { ...prev };
+          data.forEach(inv => {
+            if (inv.isUnread) delete next[inv.id];
+          });
+          return next;
+        });
         cursorRef.current[tab] = nextCursor;
         setHasMoreByTab(prev => ({ ...prev, [tab]: !!nextCursor }));
       } catch {
@@ -200,6 +278,13 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
           nextCursor: string | null;
         };
         setItemsByTab(prev => ({ ...prev, [tab]: [...prev[tab], ...data] }));
+        setAckedSeenById(prev => {
+          const next = { ...prev };
+          data.forEach(inv => {
+            if (inv.isUnread) delete next[inv.id];
+          });
+          return next;
+        });
         cursorRef.current[tab] = nextCursor;
         setHasMoreByTab(prev => ({ ...prev, [tab]: !!nextCursor }));
       } catch {
@@ -225,6 +310,65 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
         fetchInvestigations(subtab);
       }
     }, [subtab, fetchedByTab, loadingByTab, fetchInvestigations]);
+
+    useEffect(() => {
+      if (!dirtyByTab[subtab] || loadingByTab[subtab]) return;
+      fetchInvestigations(subtab);
+      setDirtyByTab(prev => ({ ...prev, [subtab]: false }));
+    }, [dirtyByTab, fetchInvestigations, loadingByTab, subtab]);
+
+    useEffect(() => {
+      const onAppChanges = (event: Event) => {
+        const payload = (event as CustomEvent<{
+          data: { investigations: Array<{ investigationID: string; status: Subtab }> };
+        }>).detail;
+        if (!payload || payload.data.investigations.length === 0) return;
+
+        const nextDirty: Partial<Record<Subtab, boolean>> = {};
+        const activeTab = subtabRef.current;
+        const activeList = itemsByTabRef.current[activeTab];
+        for (const changed of payload.data.investigations) {
+          const targetTab = changed.status;
+          nextDirty[targetTab] = true;
+          if (targetTab === activeTab || activeList.some(item => item.id === changed.investigationID)) {
+            nextDirty[activeTab] = true;
+          }
+        }
+
+        setDirtyByTab(prev => ({
+          current: prev.current || Boolean(nextDirty.current),
+          passed: prev.passed || Boolean(nextDirty.passed),
+        }));
+      };
+
+      window.addEventListener('app-changes', onAppChanges as EventListener);
+      return () => window.removeEventListener('app-changes', onAppChanges as EventListener);
+    }, []);
+
+    useEffect(() => {
+      if (!changesSnapshot) return;
+      if (lastAppliedSnapshotRef.current === changesSnapshot.nextSince) return;
+      lastAppliedSnapshotRef.current = changesSnapshot.nextSince;
+      setUnreadCountsByTab({
+        current: changesSnapshot.unreadCounts.investigations.current,
+        passed: changesSnapshot.unreadCounts.investigations.passed,
+      });
+      if (changesSnapshot.data.investigations.length === 0) return;
+      const nextDirty: Partial<Record<Subtab, boolean>> = {};
+      const activeTab = subtabRef.current;
+      const activeList = itemsByTabRef.current[activeTab];
+      for (const changed of changesSnapshot.data.investigations) {
+        const targetTab = changed.status;
+        nextDirty[targetTab] = true;
+        if (targetTab === activeTab || activeList.some(item => item.id === changed.investigationID)) {
+          nextDirty[activeTab] = true;
+        }
+      }
+      setDirtyByTab(prev => ({
+        current: prev.current || Boolean(nextDirty.current),
+        passed: prev.passed || Boolean(nextDirty.passed),
+      }));
+    }, [changesSnapshot]);
 
     useEffect(() => {
       const node = subcontentRef.current;
@@ -347,6 +491,11 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
 
     const openDetails = (id: string) => {
       if (isDragging) return;
+      const inv = itemsByTabRef.current[subtab].find(item => item.id === id);
+      if (inv?.isUnread && !ackedSeenById[id]) {
+        setPendingSeenIds(prev => (prev.includes(id) ? prev : [...prev, id]));
+        void markSeenNow(id, subtab);
+      }
       setSelectedId(id);
       onModalChange(true);
     };
@@ -725,6 +874,11 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                     className={visualActiveIndex === tabIndex ? 'active' : ''}
                   >
                     {buttonTab === 'current' ? 'Текущие' : 'Прошедшие'}
+                    {unreadCountsByTab[buttonTab] > 0 && (
+                      <span className="subtab-mark" aria-label={`${unreadCountsByTab[buttonTab]} непросмотренных`}>
+                        {unreadCountsByTab[buttonTab]}
+                      </span>
+                    )}
                   </button>
                 ))}
                 <div
@@ -828,7 +982,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                             <div
                               key={inv.disputeID}
                               ref={isActive && isLast ? lastRef : null}
-                              className={`investigation-card${pressedCardId === inv.id ? ' pressed' : ''}`}
+                              className={`investigation-card${pressedCardId === inv.id ? ' pressed' : ''}${isUnreadInvestigation(inv) ? ' has-mark' : ''}`}
                               onClick={() => {
                                 const isTouchLike =
                                   typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
@@ -863,6 +1017,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                             >
                               <h4>{inv.title}</h4>
                               {inv.vote && <p>Ваш голос: {inv.vote == 'p1' ? 'Пользователь 1' : "Пользователь 2"}</p>}
+                              {isUnreadInvestigation(inv) && <span className="bet-mark" aria-label="Непросмотренное расследование" />}
 
                               {badge && (
                                 <div className="result-badge">
@@ -871,16 +1026,16 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
                                 </div>
                               )}
                               {tab === 'current' && (
-                                <div className="investigation-deadline-chip-wrap">
+                                <div className="deadline-chip-wrap">
                                   <span
-                                    className={`investigation-deadline-chip ${deadlineChip}`}
+                                    className={`deadline-chip ${deadlineChip}`}
                                     title="До окончания расследования"
                                     aria-label="До окончания расследования"
                                   >
                                     ⏳
                                   </span>
                                   {shortDeadline && (
-                                    <span className="investigation-deadline-chip-time">{shortDeadline}</span>
+                                    <span className="deadline-chip-time">{shortDeadline}</span>
                                   )}
                                 </div>
                               )}
@@ -916,6 +1071,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
               onCompleted={() => {
                 closeDetails();
                 fetchInvestigations(subtab);
+                window.dispatchEvent(new Event('pollNow'));
               }}
             />
           )}

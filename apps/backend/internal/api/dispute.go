@@ -5,9 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/kisnikita/safe-disputes/backend/internal/models"
 	"github.com/kisnikita/safe-disputes/backend/internal/repository"
 	"github.com/kisnikita/safe-disputes/backend/internal/services"
@@ -25,6 +27,10 @@ type DisputeCreator interface {
 
 type DisputeLister interface {
 	ListDisputes(ctx context.Context, opts models.DisputeListOpts, actorUsername string) ([]models.DisputeCard, error)
+}
+
+type DisputeSeener interface {
+	MarkDisputesSeen(ctx context.Context, actorUsername string, disputeIDs []string) error
 }
 
 type DisputeGetter interface {
@@ -108,7 +114,7 @@ func precheckDispute(log log.Logger, prechecker DisputePrechecker) gin.HandlerFu
 }
 
 func CreateDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender,
-txMonitor services.TransactionMonitor,
+	txMonitor services.TransactionMonitor,
 ) gin.HandlerFunc {
 	disputeSrv, err := services.NewDisputeService(repo, log, sender)
 	if err != nil {
@@ -135,11 +141,10 @@ func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFun
 		}
 		log.Info("CreateDispute params", zap.Any("params", req))
 
-
 		if req.ImageData, req.ImageType, err = getFile(c, "image"); err != nil {
 			log.Error("failed to get file", zap.Error(err))
 			c.JSON(500, gin.H{"error": "cannot open uploaded file"})
-			return 
+			return
 		}
 
 		err = disputeCreator.CreateDispute(c, req, actorUsername)
@@ -239,6 +244,49 @@ func listDisputes(log log.Logger, lister DisputeLister) gin.HandlerFunc {
 			"data":       disputes,
 			"nextCursor": nextCursor,
 		})
+	}
+}
+
+func MarkDisputesSeen(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
+	disputeSrv, err := services.NewDisputeService(repo, log, sender)
+	if err != nil {
+		log.Fatal("failed to create dispute service", zap.Error(err))
+	}
+	return markDisputesSeen(log, disputeSrv)
+}
+
+func markDisputesSeen(log log.Logger, seener DisputeSeener) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		actorUsername, ok := getActorUsername(c)
+		if !ok {
+			return
+		}
+
+		var body struct {
+			DisputeIDs []string `json:"disputeIDs"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+		if len(body.DisputeIDs) == 0 {
+			c.Status(http.StatusNoContent)
+			return
+		}
+		for _, rawID := range body.DisputeIDs {
+			if _, err := uuid.Parse(strings.TrimSpace(rawID)); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid dispute id"})
+				return
+			}
+		}
+
+		err := seener.MarkDisputesSeen(c, actorUsername, body.DisputeIDs)
+		if err != nil {
+			log.Error("MarkDisputesSeen failed", zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		c.Status(http.StatusNoContent)
 	}
 }
 

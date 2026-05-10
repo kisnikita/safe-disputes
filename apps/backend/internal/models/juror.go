@@ -13,9 +13,9 @@ const (
 
 type JurorUpdateOpts struct {
 	ID     uuid.UUID
-	UserID uuid.UUID
 	Vote   *string
 	Result *InvestigationResult
+	SeenAt *bool
 }
 
 func NewJuror(investigationID, userID uuid.UUID) Juror {
@@ -24,6 +24,5 @@ func NewJuror(investigationID, userID uuid.UUID) Juror {
 		InvestigationID: investigationID,
 		UserID:          userID,
 		Result:          InvestigationResultNew,
-		Vote:            "",
 	}
 }

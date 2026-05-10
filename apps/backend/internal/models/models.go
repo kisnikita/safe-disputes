@@ -53,16 +53,20 @@ type Juror struct {
 	InvestigationID uuid.UUID           `db:"investigation_id" json:"investigationID"`
 	Vote            string              `db:"vote" json:"vote"`
 	Result          InvestigationResult `db:"result" json:"result"`
+	UpdatedAt       time.Time           `db:"updated_at" json:"updatedAt"`
+	SeenAt          *time.Time          `db:"seen_at" json:"seenAt"`
 }
 
 type Participant struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	UserID    uuid.UUID `db:"user_id" json:"userID"`
-	DisputeID uuid.UUID `db:"dispute_id" json:"disputeID"`
-	Vote      bool      `db:"vote" json:"vote"`
-	Result    Result    `db:"result" json:"result"`
-	Status    Status    `db:"status" json:"status"`
-	Claim     bool      `db:"claim" json:"claim"`
+	ID        uuid.UUID  `db:"id" json:"id"`
+	UserID    uuid.UUID  `db:"user_id" json:"userID"`
+	DisputeID uuid.UUID  `db:"dispute_id" json:"disputeID"`
+	Vote      bool       `db:"vote" json:"vote"`
+	Result    Result     `db:"result" json:"result"`
+	Status    Status     `db:"status" json:"status"`
+	Claim     bool       `db:"claim" json:"claim"`
+	UpdatedAt time.Time  `db:"updated_at" json:"updatedAt"`
+	SeenAt    *time.Time `db:"seen_at" json:"seenAt"`
 }
 
 type User struct {

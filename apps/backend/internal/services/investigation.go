@@ -43,21 +43,26 @@ type JurorUpdater interface {
 	UpdateWinnersResult(ctx context.Context, invID uuid.UUID, ids []uuid.UUID) error
 }
 
+type JurorSeener interface {
+	MarkJurorsSeen(ctx context.Context, actorUsername string, investigationIDs []uuid.UUID) error
+}
+
 type InvestigationService struct {
-	logger                    log.Logger
-	investigationCreator      InvestigationCreator
-	investigationFinder       InvestigationFinder
-	investigationReadFinder   InvestigationReadFinder
-	investigationUpdater      InvestigationUpdater
-	investigationDeleter      InvestigationDeleter
-	userFinder                UserFinder
-	userUpdater               UserUpdater
-	participantUpdater ParticipantUpdater
-	participantGetter  ParticipantGetter
-	jurorFinder  JurorFinder
-	jurorUpdater JurorUpdater
-	disputeFinder             DisputeFinder
-	msgSender                 MessageSender
+	logger                  log.Logger
+	investigationCreator    InvestigationCreator
+	investigationFinder     InvestigationFinder
+	investigationReadFinder InvestigationReadFinder
+	investigationUpdater    InvestigationUpdater
+	investigationDeleter    InvestigationDeleter
+	userFinder              UserFinder
+	userUpdater             UserUpdater
+	participantUpdater      ParticipantUpdater
+	participantGetter       ParticipantGetter
+	jurorFinder             JurorFinder
+	jurorUpdater            JurorUpdater
+	jurorSeener             JurorSeener
+	disputeFinder           DisputeFinder
+	msgSender               MessageSender
 }
 
 func NewInvestigationService(repo *repository.Repository, log log.Logger, msgSender MessageSender,
@@ -70,24 +75,25 @@ func NewInvestigationService(repo *repository.Repository, log log.Logger, msgSen
 	}
 
 	return InvestigationService{
-		logger:                    log,
-		investigationCreator:      repo,
-		investigationFinder:       repo,
-		investigationReadFinder:   repo,
-		investigationUpdater:      repo,
-		investigationDeleter:      repo,
-		userFinder:                repo,
-		userUpdater:               repo,
-		participantUpdater: repo,
-		participantGetter:  repo,
-		jurorFinder:  repo,
-		jurorUpdater: repo,
-		disputeFinder:             repo,
-		msgSender:                 msgSender,
+		logger:                  log,
+		investigationCreator:    repo,
+		investigationFinder:     repo,
+		investigationReadFinder: repo,
+		investigationUpdater:    repo,
+		investigationDeleter:    repo,
+		userFinder:              repo,
+		userUpdater:             repo,
+		participantUpdater:      repo,
+		participantGetter:       repo,
+		jurorFinder:             repo,
+		jurorUpdater:            repo,
+		jurorSeener:             repo,
+		disputeFinder:           repo,
+		msgSender:               msgSender,
 	}, nil
 }
 
-func (s InvestigationService) ListInvestigation(ctx context.Context, opts models.InvestigationListOpts, 
+func (s InvestigationService) ListInvestigation(ctx context.Context, opts models.InvestigationListOpts,
 	actorUsername string,
 ) ([]models.InvestigationCard, error) {
 	investigations, err := s.investigationReadFinder.ListInvestigationCards(ctx, actorUsername, opts)
@@ -118,13 +124,13 @@ func (s InvestigationService) GetInvestigation(ctx context.Context, id, actorUse
 	return investigation, nil
 }
 
-func (s InvestigationService) VoteInvestigation(ctx context.Context, id, username, vote string) error {
+func (s InvestigationService) VoteInvestigation(ctx context.Context, investigationID, username, vote string) error {
 	user, err := s.userFinder.GetUserByUsername(ctx, username)
 	if err != nil {
 		return fmt.Errorf("failed to get user by username: %w", err)
 	}
 
-	invUUID, err := uuid.Parse(id)
+	invUUID, err := uuid.Parse(investigationID)
 	if err != nil {
 		return fmt.Errorf("invalid investigation ID format: %w", err)
 	}
@@ -134,9 +140,11 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, id, usernam
 		return fmt.Errorf("failed to get investigation: %w", err)
 	}
 
-	result := models.InvestigationResultSent
 	opts := models.JurorUpdateOpts{
-		ID: participant.ID, Vote: &vote, Result: &result,
+		ID: participant.ID, 
+		Vote: &vote,
+		Result: new(models.InvestigationResultSent),
+		SeenAt: new(true),
 	}
 	err = s.jurorUpdater.UpdateJuror(ctx, opts)
 	if err != nil {
@@ -156,11 +164,12 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, id, usernam
 		return fmt.Errorf("failed to get investigation: %w", err)
 	}
 
-	if vote == "p1" {
+	switch vote {
+	case "p1":
 		investigation.P1 += 1
-	} else if vote == "p2" {
+	case "p2":
 		investigation.P2 += 1
-	} else {
+	default:
 		investigation.Draw += 1
 	}
 
@@ -177,10 +186,9 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, id, usernam
 		return nil
 	}
 
-	s.logger.Info("investigation vote added", zap.String("investigation_id", id), zap.String("username", username))
+	s.logger.Info("investigation vote added", zap.String("investigation_id", investigationID), zap.String("username", username))
 
-	st := models.InvestigationStatusPassed
-	invUpdateOpts.Status = &st
+	invUpdateOpts.Status = new(models.InvestigationStatusPassed)
 	if err = s.investigationUpdater.UpdateInvestigation(ctx, invUpdateOpts); err != nil {
 		return fmt.Errorf("failed to update investigation: %w", err)
 	}
@@ -227,15 +235,11 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, id, usernam
 		return fmt.Errorf("failed to get dispute by ID: %w", err)
 	}
 	if res == "draw" {
-		result := models.DisputesResultDraw
-		status := models.DisputesStatusPassed
-		tr := true
-
 		participantUpdateOpts := models.ParticipantUpdateOpts{
 			ID:     participantP1.ID,
-			Status: &status,
-			Result: &result,
-			Claim:  &tr,
+			Status: new(models.DisputesStatusPassed),
+			Result: new(models.DisputesResultDraw),
+			Claim:  new(true),
 		}
 		if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 			return fmt.Errorf("failed to update participants: %w", err)
@@ -260,24 +264,19 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, id, usernam
 	}
 
 	if res == "p1" {
-		result := models.DisputesResultWin
-		status := models.DisputesStatusPassed
-		tr := true
-
 		participantUpdateOpts := models.ParticipantUpdateOpts{
 			ID:     participantP1.ID,
-			Status: &status,
-			Result: &result,
-			Claim:  &tr,
+			Status: new(models.DisputesStatusPassed),
+			Result: new(models.DisputesResultWin),
+			Claim: new(true),
 		}
 		if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 			return fmt.Errorf("failed to update participants: %w", err)
 		}
-		result = models.DisputesResultLose
-		fl := false
+
 		participantUpdateOpts.ID = participantP2.ID
-		participantUpdateOpts.Result = &result
-		participantUpdateOpts.Claim = &fl
+		participantUpdateOpts.Result = new(models.DisputesResultLose)
+		participantUpdateOpts.Claim = new(false)
 		if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 			return fmt.Errorf("failed to update participants: %w", err)
 		}
@@ -290,24 +289,20 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, id, usernam
 		return nil
 	}
 
-	r := models.DisputesResultWin
-	status := models.DisputesStatusPassed
-	tr := true
-
+	// res == p2
 	participantUpdateOpts := models.ParticipantUpdateOpts{
 		ID:     participantP2.ID,
-		Status: &status,
-		Result: &r,
-		Claim:  &tr,
+		Status: new(models.DisputesStatusPassed),
+		Result: new(models.DisputesResultWin),
+		Claim:  new(true),
 	}
 	if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 		return fmt.Errorf("failed to update participants: %w", err)
 	}
-	r = models.DisputesResultLose
-	fl := false
+
 	participantUpdateOpts.ID = participantP1.ID
-	participantUpdateOpts.Result = &r
-	participantUpdateOpts.Claim = &fl
+	participantUpdateOpts.Result = new(models.DisputesResultLose)
+	participantUpdateOpts.Claim = new(false)
 	if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 		return fmt.Errorf("failed to update participants: %w", err)
 	}
@@ -319,18 +314,34 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, id, usernam
 	}
 
 	for _, id := range winnerIDs {
-		user, err := s.userFinder.GetUserByID(ctx, id)
+		u, err := s.userFinder.GetUserByID(ctx, id)
 		if err != nil {
 			return fmt.Errorf("failed to get user by ID: %w", err)
 		}
-		if user.NotificationEnabled {
+		if u.NotificationEnabled {
 			msg := fmt.Sprintf("Вы верно рассмотрели расследование %s выиграли расследование", dispute.Title)
-			if err = s.msgSender.SendMessage(user.ChatID, msg); err != nil {
+			if err = s.msgSender.SendMessage(u.ChatID, msg); err != nil {
 				return fmt.Errorf("failed to send message to user: %w", err)
 			}
 		}
 	}
 
-	s.logger.Info("vote added to investigation", zap.String("investigation_id", id), zap.String("username", username))
+	s.logger.Info("vote added to investigation", zap.String("investigation_id", investigationID), zap.String("username", username))
+	return nil
+}
+
+func (s InvestigationService) MarkInvestigationsSeen(ctx context.Context, actorUsername string, investigationIDs []string,
+) error {
+	ids := make([]uuid.UUID, 0, len(investigationIDs))
+	for _, rawID := range investigationIDs {
+		id, err := uuid.Parse(rawID)
+		if err != nil {
+			return fmt.Errorf("invalid investigation ID format: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := s.jurorSeener.MarkJurorsSeen(ctx, actorUsername, ids); err != nil {
+		return fmt.Errorf("failed to mark investigations seen: %w", err)
+	}
 	return nil
 }

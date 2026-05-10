@@ -22,6 +22,7 @@ type DisputeCard struct {
 	Result       Result    `db:"result"        json:"result"`
 	Vote         bool      `db:"vote"          json:"vote"`  // true for "win", false for "lose"
 	Claim        bool      `db:"claim"         json:"claim"` // true if user has claimed the dispute
+	IsUnread     bool      `db:"is_unread"     json:"isUnread"`
 }
 
 type DisputeDetails struct {

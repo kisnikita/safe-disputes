@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/kisnikita/safe-disputes/backend/internal/models"
 	"github.com/kisnikita/safe-disputes/backend/internal/repository"
 	"github.com/kisnikita/safe-disputes/backend/internal/services"
@@ -10,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -23,6 +25,10 @@ type InvestigationGetter interface {
 
 type InvestigationVoter interface {
 	VoteInvestigation(ctx context.Context, id, username, vote string) error
+}
+
+type InvestigationSeener interface {
+	MarkInvestigationsSeen(ctx context.Context, actorUsername string, investigationIDs []string) error
 }
 
 func ListInvestigations(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
@@ -42,7 +48,7 @@ func listInvestigations(log log.Logger, lister InvestigationLister) gin.HandlerF
 		}
 
 		// --- parse query params ---
-		statusStr := c.DefaultQuery("status", "open")
+		statusStr := c.DefaultQuery("status", "current")
 		status := models.InvestigationStatus(statusStr)
 
 		limit := 10
@@ -128,6 +134,14 @@ func VoteInvestigation(repo *repository.Repository, log log.Logger, sender servi
 	return voteInvestigations(log, investigationSrv)
 }
 
+func MarkInvestigationsSeen(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
+	investigationSrv, err := services.NewInvestigationService(repo, log, sender)
+	if err != nil {
+		log.Fatal("failed to create investigation service", zap.Error(err))
+	}
+	return markInvestigationsSeen(log, investigationSrv)
+}
+
 func voteInvestigations(log log.Logger, voter InvestigationVoter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// --- auth ---
@@ -151,6 +165,40 @@ func voteInvestigations(log log.Logger, voter InvestigationVoter) gin.HandlerFun
 			return
 		}
 
+		c.Status(http.StatusNoContent)
+	}
+}
+
+func markInvestigationsSeen(log log.Logger, seener InvestigationSeener) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		actorUsername, ok := getActorUsername(c)
+		if !ok {
+			return
+		}
+
+		var body struct {
+			InvestigationIDs []string `json:"investigationIDs"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+		if len(body.InvestigationIDs) == 0 {
+			c.Status(http.StatusNoContent)
+			return
+		}
+		for _, rawID := range body.InvestigationIDs {
+			if _, err := uuid.Parse(strings.TrimSpace(rawID)); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid investigation id"})
+				return
+			}
+		}
+
+		if err := seener.MarkInvestigationsSeen(c, actorUsername, body.InvestigationIDs); err != nil {
+			log.Error("MarkInvestigationsSeen failed", zap.Error(err))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
 		c.Status(http.StatusNoContent)
 	}
 }

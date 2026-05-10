@@ -22,6 +22,7 @@ type InvestigationCard struct {
 	Title     string              `db:"title"      json:"title"`
 	Result    InvestigationResult `db:"result"     json:"result"`
 	Vote      string              `db:"vote"       json:"vote"`
+	IsUnread  bool                `db:"is_unread"  json:"isUnread"`
 }
 
 type InvestigationDetails struct {
@@ -55,11 +56,10 @@ type InvestigationUpdateOpts struct {
 	Total  *int
 }
 
-func NewInvestigation(disputeID uuid.UUID, total int, title string) Investigation {
+func NewInvestigation(disputeID uuid.UUID, title string) Investigation {
 	return Investigation{
 		ID:        uuid.New(),
 		DisputeID: disputeID,
-		Total:     total,
 		Status:    InvestigationStatusCurrent,
 		EndsAt:    time.Now().Add(3 * time.Hour),
 		Title:     title,
