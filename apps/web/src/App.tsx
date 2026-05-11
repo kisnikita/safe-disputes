@@ -289,6 +289,9 @@ export function App() {
                     }
                     return;
                   }
+                  if (activeTab === 'bets') {
+                    setBetsInitialSubtab('current');
+                  }
                   setActiveTab(nextTab);
                   if (nextTab === 'search' || nextTab === 'settings') {
                       window.dispatchEvent(new CustomEvent('subtab-scroll-sync', { detail: { scrollTop: 0 } }));
