@@ -105,8 +105,10 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
   };
 
   const handleBack = () => {
-    if (step === 'evidence' && currentIndex > 0) setCurrentIndex(i => i - 1);
-    else if (step === 'vote') {
+    if (step === 'evidence') {
+      if (currentIndex > 0) setCurrentIndex(i => i - 1);
+      else setStep('details');
+    } else if (step === 'vote') {
       setStep('evidence');
       setCurrentIndex(evidences.length - 1);
     }
@@ -145,7 +147,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
 
         {!loading && dispute && step === 'details' && (
           <>
-            <h3>{dispute.title}</h3>
+            <h4>{dispute.title}</h4>
             <p className="investigation-details-description">{dispute.description}</p>
             <button className="investigation-details-next-btn" onClick={handleNext}>К доказательствам</button>
           </>
@@ -154,7 +156,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
         {!loading && step === 'evidence' && evidences.length > 0 && (
           <>
             <div className="investigation-details-header-with-back">
-              {currentIndex > 0 && <button className="investigation-details-back-btn" onClick={handleBack}>←</button>}
+              <button className="investigation-details-back-btn" onClick={handleBack}>←</button>
               <h4>Доказательства участника {evidences[currentIndex].userNumber}</h4>
             </div>
             <p className="investigation-details-description">{evidences[currentIndex].description}</p>
