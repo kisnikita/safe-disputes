@@ -135,13 +135,13 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, investigati
 		return fmt.Errorf("invalid investigation ID format: %w", err)
 	}
 
-	participant, err := s.jurorFinder.GetJuror(ctx, invUUID, user.ID)
+	juror, err := s.jurorFinder.GetJuror(ctx, invUUID, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get investigation: %w", err)
 	}
 
 	opts := models.JurorUpdateOpts{
-		ID: participant.ID, 
+		ID: juror.ID, 
 		Vote: &vote,
 		Result: new(models.InvestigationResultSent),
 		SeenAt: new(true),
