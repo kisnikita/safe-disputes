@@ -109,7 +109,7 @@ func (f *fakeInvestigationDeps) GetParticipant(_ context.Context, _ uuid.UUID, u
 ) (models.Participant, error) {
 	return f.participantByUser[userID], nil
 }
-func (f *fakeInvestigationDeps) GetDisputeByID(context.Context, uuid.UUID, uuid.UUID) (models.Dispute, error) {
+func (f *fakeInvestigationDeps) GetDisputeByID(context.Context, uuid.UUID) (models.Dispute, error) {
 	return f.dispute, nil
 }
 func (f *fakeInvestigationDeps) ListDisputes(context.Context, models.DisputeListOpts) ([]models.Dispute, error) {
@@ -165,9 +165,10 @@ func TestInvestigationServiceVoteInvestigationNonFinal(t *testing.T) {
 		userUpdater:          deps,
 		investigationFinder:  deps,
 		investigationUpdater: deps,
+		txMonitor:            &fakeTxMonitor{},
 	}
 
-	err := svc.VoteInvestigation(context.Background(), invID.String(), "alice", "p2")
+	err := svc.VoteInvestigation(context.Background(), invID.String(), "alice", "p2", "boc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -213,9 +214,10 @@ func TestInvestigationServiceVoteInvestigationDrawFinal(t *testing.T) {
 		participantUpdater:           deps,
 		disputeFinder:        deps,
 		msgSender:            sender,
+		txMonitor:            &fakeTxMonitor{},
 	}
 
-	err := svc.VoteInvestigation(context.Background(), invID.String(), user1.Username, "draw")
+	err := svc.VoteInvestigation(context.Background(), invID.String(), user1.Username, "draw", "boc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

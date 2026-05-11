@@ -1,16 +1,16 @@
 import { BetMaster, CreateBet } from "../../../../blockchain/wrappers/BetMaster";
-import { Address, OpenedContract, Sender } from "@ton/core";
+import { Address, OpenedContract } from "@ton/core";
 import { useAsyncInitialize } from "./useAsyncInitialize";
 import { useTonClient } from "./useTonClient";
 import { useTonConnect } from "./useTonConnect";
 
 export function useBetMasterContract() {
     const { client } = useTonClient();
-    const { sender, sendSignedTransaction } = useTonConnect();
+    const { sendWithBoc } = useTonConnect();
 
     const masterContract = useAsyncInitialize(async () => {
         if (!client) return;
-        const masterAddress = "EQAYCTpvBNLWfQcdOxRkPgPXpie8ovKofoaG3yIWkFeXHPMC";
+        const masterAddress = "EQC9siZ7Ss9MZVqU1ywih597rSaekr7gKvWxYmuJNkj2q7Il";
         if (!masterAddress) return;
 
         const contract = BetMaster.fromAddress(Address.parse(masterAddress));
@@ -18,28 +18,23 @@ export function useBetMasterContract() {
     }, [client]);
 
     return {
-        createBetWithDeposit: async (betID: bigint, depositValueNano: string) => {
+        createBetWithDeposit: async (betID: bigint, totalValueNano: bigint, resultDeadlineUnix: number) => {
             if (!masterContract) throw new Error("master contract not ready");
             const msg: CreateBet = {
                 $$type: "CreateBet",
                 id: betID,
-            };
-            const totalValue = BigInt(depositValueNano);
-
-            let boc = "";
-            const senderWithBocCapture: Sender = {
-                address: sender.address,
-                send: async (args) => {
-                    boc = await sendSignedTransaction(args);
-                },
+                resultDeadline: BigInt(resultDeadlineUnix),
             };
 
-            await masterContract.send(senderWithBocCapture, { value: totalValue }, msg);
-            if (!boc) {
-                throw new Error("wallet did not return signed boc");
-            }
-
-            return boc;
+            return sendWithBoc(async (senderWithBoc) => {
+                await masterContract.send(senderWithBoc, { value: totalValueNano }, msg);
+            });
+        },
+        getMinDeposit: async (): Promise<bigint | undefined> => {
+            return await masterContract?.getMinDeposit();
+        },
+        getMinStake: async (): Promise<bigint | undefined> => {
+            return await masterContract?.getMinStake();
         },
     };
 }

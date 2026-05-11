@@ -31,19 +31,20 @@ const (
 )
 
 type ParticipantUpdateOpts struct {
-	ID     uuid.UUID `json:"id"`
-	Status *Status   `json:"status"`
-	Result *Result   `json:"result"`
-	Vote   *bool     `json:"vote"`
-	Claim  *bool     `json:"claim"`
-	SeenAt *bool	 `json:"-"`
+	ID          uuid.UUID `json:"id"`
+	Status      *Status   `json:"status"`
+	Result      *Result   `json:"result"`
+	IsWin       *bool     `json:"isWin"`
+	IsClaimable *bool     `json:"isClaimable"`
+	Seen        *bool     `json:"-"`
 }
 
-func NewParticipant(userID, disputeID uuid.UUID, result Result) Participant {
+func NewParticipant(userID, disputeID uuid.UUID, result Result, isCreator bool) Participant {
 	return Participant{
 		ID:        uuid.New(),
 		UserID:    userID,
 		DisputeID: disputeID,
+		IsCreator: isCreator,
 		Status:    DisputesStatusNew,
 		Result:    result,
 		UpdatedAt: time.Now(),
@@ -52,4 +53,12 @@ func NewParticipant(userID, disputeID uuid.UUID, result Result) Participant {
 
 func (p *Participant) MarkSeen() {
 	p.SeenAt = &p.UpdatedAt
+}
+
+func (p Participant) CanClaim() bool {
+	return p.IsClaimable &&
+		(p.Result == DisputesResultRejected ||
+			p.Result == DisputesResultLose ||
+			p.Result == DisputesResultDraw ||
+			p.Result == DisputesResultWin)
 }

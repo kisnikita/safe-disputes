@@ -7,6 +7,9 @@ import { AutoGrowTextarea } from '../ui/auto-grow-textarea/AutoGrowTextarea';
 import '../CreateBetForm/CreateBetForm.css';
 import './EvidenceForm.css';
 import { useBlockedActionFeedback } from '../../hooks/useBlockedActionFeedback';
+import { useBetContract } from '../../hooks/useBetContract';
+import { useInvestigationContract } from '../../hooks/useInvestigationContract';
+import { useTonConnect } from '../../hooks/useTonConnect';
 
 interface Props {
   disputeId: string;
@@ -68,6 +71,9 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
   const [error, setError] = useState<string | null>(null);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [showDraftRestoredAlert, setShowDraftRestoredAlert] = useState(false);
+  const { connected } = useTonConnect();
+  const { getInvestigationAddress } = useBetContract();
+  const { provideEvidence } = useInvestigationContract();
   const {
     isShaking: submitShake,
     handleShakeAnimationEnd: handleSubmitShakeAnimationEnd,
@@ -216,8 +222,22 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
     setSubmitting(true);
 
     try {
+      if (!connected) {
+        throw new Error('wallet is not connected');
+      }
+      const disputeRes = await apiFetch(`/api/v1/disputes/${disputeId}`);
+      const { data: dispute } = await disputeRes.json() as { data: { contractAddress: string } };
+      const investigationAddress = await getInvestigationAddress(dispute.contractAddress);
+      const payloadToHash = `${statement.trim()}::${Date.now()}`;
+      const bytes = new TextEncoder().encode(payloadToHash);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      const hashHex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const hash = BigInt(`0x${hashHex}`);
+      const signedBoc = await provideEvidence(investigationAddress.toString(), hash);
+
       const form = new FormData();
       form.append('description', statement);
+      form.append('boc', signedBoc);
       if (file) form.append('evidence', file);
 
       const res = await apiFetch(`/api/v1/disputes/${disputeId}/evidence`, {
@@ -231,8 +251,13 @@ export const EvidenceForm: React.FC<Props> = ({ disputeId, onClose, onSubmitted 
 
       clearDraftFromStorage();
       setSuccess(true);
-    } catch {
-      setError('Не удалось отправить доказательства');
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (/rejected|declined|cancel/i.test(msg)) {
+        setError('Транзакция отменена пользователем');
+      } else {
+        setError('Не удалось отправить доказательства');
+      }
     } finally {
       setSubmitting(false);
     }

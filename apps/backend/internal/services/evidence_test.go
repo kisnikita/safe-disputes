@@ -66,7 +66,7 @@ func (f *fakeEvidenceDeps) InsertInvestigation(context.Context, models.Investiga
 	f.insertInvestigationCalls++
 	return nil
 }
-func (f *fakeEvidenceDeps) GetDisputeByID(context.Context, uuid.UUID, uuid.UUID) (models.Dispute, error) {
+func (f *fakeEvidenceDeps) GetDisputeByID(context.Context, uuid.UUID) (models.Dispute, error) {
 	return f.dispute, nil
 }
 func (f *fakeEvidenceDeps) ListDisputes(context.Context, models.DisputeListOpts) ([]models.Dispute, error) {
@@ -92,9 +92,10 @@ func TestEvidenceServiceProvideEvidenceFirst(t *testing.T) {
 		userFinder:      deps,
 		participantUpdater:      deps,
 		participantGetter:       deps,
+		txMonitor:               &fakeTxMonitor{},
 	}
 
-	err := svc.ProvideEvidence(context.Background(), models.EvidenceOpts{DisputeID: uuid.NewString(), Username: "alice"})
+	err := svc.ProvideEvidence(context.Background(), models.EvidenceOpts{DisputeID: uuid.NewString(), Username: "alice", Boc: "boc"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -139,9 +140,10 @@ func TestEvidenceServiceProvideEvidenceSecond(t *testing.T) {
 		evidenceBroadcaster:  deps,
 		disputesFinder:       deps,
 		msgSender:            sender,
+		txMonitor:            &fakeTxMonitor{},
 	}
 
-	err := svc.ProvideEvidence(context.Background(), models.EvidenceOpts{DisputeID: uuid.NewString(), Username: "alice"})
+	err := svc.ProvideEvidence(context.Background(), models.EvidenceOpts{DisputeID: uuid.NewString(), Username: "alice", Boc: "boc"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

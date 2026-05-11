@@ -23,6 +23,7 @@ type Dispute struct {
 	EndsAt          time.Time `db:"ends_at" json:"endsAt"`
 	NextDeadline    time.Time `db:"next_deadline" json:"nextDeadline"`
 	AmountNano      int64     `db:"amount_nano" json:"amountNano"`
+	DepositNano     int64     `db:"deposit_nano" json:"depositNano"`
 }
 
 type Evidence struct {
@@ -58,15 +59,16 @@ type Juror struct {
 }
 
 type Participant struct {
-	ID        uuid.UUID  `db:"id" json:"id"`
-	UserID    uuid.UUID  `db:"user_id" json:"userID"`
-	DisputeID uuid.UUID  `db:"dispute_id" json:"disputeID"`
-	Vote      bool       `db:"vote" json:"vote"`
-	Result    Result     `db:"result" json:"result"`
-	Status    Status     `db:"status" json:"status"`
-	Claim     bool       `db:"claim" json:"claim"`
-	UpdatedAt time.Time  `db:"updated_at" json:"updatedAt"`
-	SeenAt    *time.Time `db:"seen_at" json:"seenAt"`
+	ID          uuid.UUID  `db:"id" json:"id"`
+	UserID      uuid.UUID  `db:"user_id" json:"userID"`
+	DisputeID   uuid.UUID  `db:"dispute_id" json:"disputeID"`
+	IsWin       bool       `db:"is_win" json:"isWin"`
+	Result      Result     `db:"result" json:"result"`
+	Status      Status     `db:"status" json:"status"`
+	IsClaimable bool       `db:"is_claimable" json:"isClaimable"`
+	UpdatedAt   time.Time  `db:"updated_at" json:"updatedAt"`
+	SeenAt      *time.Time `db:"seen_at" json:"seenAt"`
+	IsCreator   bool       `db:"is_creator" json:"isCreator"`
 }
 
 type User struct {

@@ -24,7 +24,7 @@ type InvestigationGetter interface {
 }
 
 type InvestigationVoter interface {
-	VoteInvestigation(ctx context.Context, id, username, vote string) error
+	VoteInvestigation(ctx context.Context, id, username, vote, boc string) error
 }
 
 type InvestigationSeener interface {
@@ -36,6 +36,7 @@ func ListInvestigations(repo *repository.Repository, log log.Logger, sender serv
 	if err != nil {
 		log.Fatal("failed to create investigation service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "ListInvestigations"))
 	return listInvestigations(log, investigationSrv)
 }
 
@@ -69,8 +70,7 @@ func listInvestigations(log log.Logger, lister InvestigationLister) gin.HandlerF
 		// --- fetch from repo ---
 		investigations, err := lister.ListInvestigation(c, opts, actorUsername)
 		if err != nil {
-			log.Error("ListInvestigations failed", zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -98,6 +98,7 @@ func GetInvestigation(repo *repository.Repository, log log.Logger, sender servic
 	if err != nil {
 		log.Fatal("failed to create investigation service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "GetInvestigation"))
 	return getInvestigations(log, investigationSrv)
 }
 
@@ -117,8 +118,7 @@ func getInvestigations(log log.Logger, getter InvestigationGetter) gin.HandlerFu
 
 		inv, err := getter.GetInvestigation(c, invID, actorUsername)
 		if err != nil {
-			log.Error("GetInvestigation failed", zap.String("id", invID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -126,11 +126,15 @@ func getInvestigations(log log.Logger, getter InvestigationGetter) gin.HandlerFu
 	}
 }
 
-func VoteInvestigation(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
+func VoteInvestigation(repo *repository.Repository, log log.Logger, sender services.MessageSender,
+	txMonitor services.TransactionMonitor,
+) gin.HandlerFunc {
 	investigationSrv, err := services.NewInvestigationService(repo, log, sender)
 	if err != nil {
 		log.Fatal("failed to create investigation service", zap.Error(err))
 	}
+	investigationSrv = investigationSrv.WithTransactionMonitor(txMonitor)
+	log = log.With(zap.String("handler", "VoteInvestigation"))
 	return voteInvestigations(log, investigationSrv)
 }
 
@@ -139,6 +143,7 @@ func MarkInvestigationsSeen(repo *repository.Repository, log log.Logger, sender 
 	if err != nil {
 		log.Fatal("failed to create investigation service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "MarkInvestigationsSeen"))
 	return markInvestigationsSeen(log, investigationSrv)
 }
 
@@ -155,13 +160,20 @@ func voteInvestigations(log log.Logger, voter InvestigationVoter) gin.HandlerFun
 			c.JSON(http.StatusBadRequest, gin.H{"error": "investigation ID is required"})
 			return
 		}
-
 		vote := c.Query("vote")
+		if vote == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "vote is required"})
+			return
+		}
+		boc := c.Query("boc")
+		if boc == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "boc is required"})
+			return
+		}
 
-		err := voter.VoteInvestigation(c, invID, actorUsername, vote)
+		err := voter.VoteInvestigation(c, invID, actorUsername, vote, boc)
 		if err != nil {
-			log.Error("GetInvestigation failed", zap.String("id", invID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -195,8 +207,7 @@ func markInvestigationsSeen(log log.Logger, seener InvestigationSeener) gin.Hand
 		}
 
 		if err := seener.MarkInvestigationsSeen(c, actorUsername, body.InvestigationIDs); err != nil {
-			log.Error("MarkInvestigationsSeen failed", zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 		c.Status(http.StatusNoContent)

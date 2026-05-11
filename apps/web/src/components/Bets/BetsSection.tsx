@@ -44,7 +44,7 @@ interface Bet {
     | 'win'
     | 'lose'
     | 'draw'
-  claim: boolean;
+  isClaimable: boolean;
 }
 
 export interface BetsSectionHandle {
@@ -1018,7 +1018,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
                       const hasClaimAvailableFilterMatch =
                         tab === 'passed' &&
                         activeFilters.includes(CLAIM_AVAILABLE_FILTER_LABEL) &&
-                        bet.claim;
+                        bet.isClaimable;
                       return hasStatusFilterMatch || hasClaimAvailableFilterMatch;
                     })
                   : searchFilteredList;
@@ -1088,7 +1088,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
                         <div
                           key={bet.id}
                           ref={isActive && isLast ? lastRef : null}
-                          className={`bet-card${pressedCardId === bet.id ? ' pressed' : ''}${isUnreadBet(bet) ? ' has-mark' : ''}${tab === 'passed' && bet.claim ? ' has-claim' : ''}`}
+                          className={`bet-card${pressedCardId === bet.id ? ' pressed' : ''}${isUnreadBet(bet) ? ' has-mark' : ''}${tab === 'passed' && bet.isClaimable ? ' has-claim' : ''}`}
                           onClick={() => {
                             const isTouchLike =
                               typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
@@ -1160,7 +1160,7 @@ export const BetsSection = forwardRef<BetsSectionHandle, Props>(({
                               )}
                             </div>
                           )}
-                          {tab === 'passed' && bet.claim && (
+                          {tab === 'passed' && bet.isClaimable && (
                             <div className="claim-label" aria-label="Доступно для клейма">
                               <Lottie
                                 className="claim-label-animation"

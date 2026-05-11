@@ -169,7 +169,7 @@ func (repo *Repository) GetDisputesUsers(ctx context.Context, invID uuid.UUID) (
 		JOIN participants p ON p.dispute_id = i.dispute_id
 		JOIN users u ON u.id = p.user_id
 		WHERE i.id = $1
-		ORDER BY p.id
+		ORDER BY p.is_creator DESC, p.id
 	`
 
 	rows, err := repo.db.QueryContext(ctx, query, invID)

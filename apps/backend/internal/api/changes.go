@@ -23,6 +23,7 @@ func ListChanges(repo *repository.Repository, logger log.Logger) gin.HandlerFunc
 	if err != nil {
 		logger.Fatal("failed to create changes service", zap.Error(err))
 	}
+	logger = logger.With(zap.String("handler", "ListChanges"))
 	return listChanges(logger, changesSrv)
 }
 
@@ -46,8 +47,7 @@ func listChanges(logger log.Logger, lister ChangesLister) gin.HandlerFunc {
 
 		changes, unreadCounts, err := lister.ListChanges(c, since, actorUsername)
 		if err != nil {
-			logger.Error("ListChanges failed", zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			handleApiError(c, logger, actorUsername, err)
 			return
 		}
 

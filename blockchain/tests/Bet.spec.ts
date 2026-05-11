@@ -1,173 +1,115 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { toNano } from '@ton/core';
-import { Bet, Deposit, Winner } from '../wrappers/Bet';
+import { Bet } from '../wrappers/Bet';
 import '@ton/test-utils';
 
 describe('Bet', () => {
     let blockchain: Blockchain;
-    let firstPlayer: SandboxContract<TreasuryContract>;
-    let secondPlayer: SandboxContract<TreasuryContract>;
-    let master: SandboxContract<TreasuryContract>;
+    let p1: SandboxContract<TreasuryContract>;
+    let p2: SandboxContract<TreasuryContract>;
     let bet: SandboxContract<Bet>;
+    let deadline: bigint;
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
-
-        bet = blockchain.openContract(await Bet.fromInit(1000n));
-
-        firstPlayer = await blockchain.treasury('firstPlayer');
-        secondPlayer = await blockchain.treasury('secondPlayer');
-        master = await blockchain.treasury('master');
+        p1 = await blockchain.treasury('p1');
+        p2 = await blockchain.treasury('p2');
+        deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+        bet = blockchain.openContract(await Bet.fromInit(
+            1n,
+            p1.address,
+            deadline,
+        ));
     });
 
-    const depositFromMaster = async (value: string) => {
-        const msg: Deposit = {
-            $$type: 'Deposit',
-            player: firstPlayer.address,
-        };
-        return bet.send(
-            master.getSender(),
+    const createStake = async () =>
+        bet.send(
+            p1.getSender(),
+            { value: toNano('2') },
             {
-                value: toNano(value),
-            },
-            msg
-        );
-    };
-
-    it('should deposit via message', async () => {
-        await depositFromMaster('1');
-
-        const statusAfter = await bet.getStatus();
-        const amountAfter = await bet.getAmount();
-        expect(statusAfter).toBe(1n);
-        expect(amountAfter).toBe(toNano('1'));
-    });
-
-    it('should accept', async () => {
-        await depositFromMaster('1');
-
-        await bet.send(
-            secondPlayer.getSender(),
-            {
-                value: toNano('1'),
-            },
-            'accept'
+                $$type: 'CreateStake',
+                stakePerSide: toNano('1.8'),
+                depositPerSide: toNano('0.2'),
+                potentialJurorsCount: 4n,
+            }
         );
 
-        const status = await bet.getStatus();
-        expect(status).toBe(2n);
-    });
-
-    it('should reject accept from the same player', async () => {
-        await depositFromMaster('1');
-
-        const acceptResult = await bet.send(
-            firstPlayer.getSender(),
-            {
-                value: toNano('1'),
-            },
-            'accept'
+    const accept = async () =>
+        bet.send(
+            p2.getSender(),
+            { value: toNano('2') },
+            { $$type: 'Accept' }
         );
 
-        expect(acceptResult.transactions).toHaveTransaction({
-            from: firstPlayer.address,
-            to: bet.address,
-            success: false,
-        });
-    });
-
-    it('should accept with any amount and increase total pot', async () => {
-        await depositFromMaster('1');
-
-        const acceptResult = await bet.send(
-            secondPlayer.getSender(),
-            {
-                value: toNano('2'),
-            },
-            'accept'
+    it('allows cancel before accept', async () => {
+        await createStake();
+        const cancelRes = await bet.send(
+            p1.getSender(),
+            { value: toNano('0.02') },
+            { $$type: 'Cancel' }
         );
-
-        expect(acceptResult.transactions).toHaveTransaction({
-            from: secondPlayer.address,
+        expect(cancelRes.transactions).toHaveTransaction({
+            from: p1.address,
             to: bet.address,
             success: true,
         });
-        expect(await bet.getStatus()).toBe(2n);
-        expect(await bet.getAmount()).toBe(toNano('3'));
+        expect(cancelRes.transactions).toHaveTransaction({
+            from: bet.address,
+            success: true,
+        });
+        expect(await bet.getP1Claimable()).toBe(0n);
     });
 
-    it('should refund after deposit', async () => {
-        await depositFromMaster('1');
+    it('accepts and resolves direct win', async () => {
+        await createStake();
+        await accept();
 
-        const balanceBefore = await firstPlayer.getBalance();
         await bet.send(
-            secondPlayer.getSender(),
-            {
-                value: toNano('0.02'),
-            },
-            'refund'
+            p1.getSender(),
+            { value: toNano('0.02') },
+            { $$type: 'VoteResult', result: 1n }
+        );
+        await bet.send(
+            p2.getSender(),
+            { value: toNano('0.02') },
+            { $$type: 'VoteResult', result: 0n }
         );
 
-        const balanceAfter = await firstPlayer.getBalance();
-        expect(balanceAfter).toBeGreaterThan(balanceBefore);
+        const status = await bet.getStatus();
+        expect(status).toBe(4n);
+        expect(await bet.getP1Claimable()).toBeGreaterThan(0n);
+        expect(await bet.getP2Claimable()).toBeGreaterThan(0n);
+
+        const claimP1 = await bet.send(p1.getSender(), { value: toNano('0.02') }, { $$type: 'Claim' });
+        expect(claimP1.transactions).toHaveTransaction({
+            from: bet.address,
+            to: p1.address,
+            success: true,
+        });
+        const claimP2 = await bet.send(p2.getSender(), { value: toNano('0.02') }, { $$type: 'Claim' });
+        expect(claimP2.transactions).toHaveTransaction({
+            from: bet.address,
+            to: p2.address,
+            success: true,
+        });
     });
 
-    it('should complete win payout', async () => {
-        await depositFromMaster('1');
+    it('accepts and resolves draw (lose + lose)', async () => {
+        await createStake();
+        await accept();
 
         await bet.send(
-            secondPlayer.getSender(),
-            {
-                value: toNano('1'),
-            },
-            'accept'
+            p1.getSender(),
+            { value: toNano('0.02') },
+            { $$type: 'VoteResult', result: 0n }
         );
-
-        const balanceBefore = await firstPlayer.getBalance();
-        const message: Winner = {
-            $$type: 'Winner',
-            address: firstPlayer.address,
-        };
         await bet.send(
-            secondPlayer.getSender(),
-            {
-                value: toNano('0.02'),
-            },
-            message
+            p2.getSender(),
+            { value: toNano('0.02') },
+            { $$type: 'VoteResult', result: 0n }
         );
 
-        const balanceAfter = await firstPlayer.getBalance();
-        expect(balanceAfter).toBeGreaterThan(balanceBefore);
-        await expect(bet.getStatus()).rejects.toThrow('non-active');
-    });
-
-    it('should split on draw', async () => {
-        await depositFromMaster('1');
-
-        await bet.send(
-            secondPlayer.getSender(),
-            {
-                value: toNano('1'),
-            },
-            'accept'
-        );
-
-        await bet.send(
-            firstPlayer.getSender(),
-            {
-                value: toNano('0.02'),
-            },
-            'draw'
-        );
-
-        await bet.send(
-            secondPlayer.getSender(),
-            {
-                value: toNano('0.02'),
-            },
-            'draw'
-        );
-
-        await expect(bet.getStatus()).rejects.toThrow('non-active');
+        const status = await bet.getStatus();
+        expect(status).toBe(4n);
     });
 });

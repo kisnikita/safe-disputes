@@ -16,7 +16,6 @@ import { HIDE_THRESHOLD } from '../../utils/constants';
 import { SubtabsSearch } from '../Layout/SubtabsSearch';
 import { ScrollTopHitArea, useDefaultScrollTopHit } from '../Layout/ScrollTopHitArea';
 import { EmptyState } from '../EmptyState/EmptyState';
-import { useTonConnect } from '../../hooks/useTonConnect';
 
 interface Investigation {
   id: string;
@@ -124,7 +123,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
     const [showRating, setShowRating] = useState(false);
     const [topUsers, setTopUsers] = useState<TopUser[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const { connected } = useTonConnect();
+    const [selectedCanVote, setSelectedCanVote] = useState(false);
     const cursorRef = useRef<Record<Subtab, string | null>>({
       current: null,
       passed: null,
@@ -497,10 +496,12 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
         void markSeenNow(id, subtab);
       }
       setSelectedId(id);
+      setSelectedCanVote(inv?.result === 'new');
       onModalChange(true);
     };
     const closeDetails = () => {
       setSelectedId(null);
+      setSelectedCanVote(false);
       onModalChange(false);
     };
 
@@ -1067,6 +1068,7 @@ export const InvestigationsSection = forwardRef<InvestigationsSectionHandle, Pro
           {!!selectedId && (
             <InvestigationDetailsModal
               id={selectedId}
+              canVote={selectedCanVote}
               onClose={closeDetails}
               onCompleted={() => {
                 closeDetails();

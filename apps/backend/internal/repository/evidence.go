@@ -43,7 +43,7 @@ func (repo *Repository) GetEvidences(ctx context.Context, disputeID uuid.UUID) (
 	FROM evidences e
 	JOIN participants p ON p.id = e.participant_id
 	WHERE p.dispute_id = $1
-	ORDER BY p.id`, disputeID)
+	ORDER BY p.is_creator DESC, p.id`, disputeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query evidences: %w", err)
 	}

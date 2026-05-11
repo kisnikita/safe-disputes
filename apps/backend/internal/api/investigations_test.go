@@ -53,7 +53,7 @@ type fakeInvestigationVoter struct {
 	vote     string
 }
 
-func (f *fakeInvestigationVoter) VoteInvestigation(_ context.Context, id, username, vote string) error {
+func (f *fakeInvestigationVoter) VoteInvestigation(_ context.Context, id, username, vote, _ string) error {
 	f.id = id
 	f.username = username
 	f.vote = vote
@@ -131,7 +131,7 @@ func TestVoteInvestigations(t *testing.T) {
 	})
 	r.POST("/investigations/:id/vote", voteInvestigations(noopLogger{}, voter))
 
-	req := httptest.NewRequest(http.MethodPost, "/investigations/123/vote?vote=p1", nil)
+	req := httptest.NewRequest(http.MethodPost, "/investigations/123/vote?vote=p1&boc=te6cckEBAQEAAgAAAA==", nil)
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
 

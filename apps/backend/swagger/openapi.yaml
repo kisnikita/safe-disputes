@@ -354,7 +354,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /api/v1/disputes/{id}/claim:
+  /api/v1/disputes/{id}/refund:
     post:
       tags: [Disputes]
       summary: Claim dispute
@@ -630,6 +630,9 @@ components:
         amountNano:
           type: integer
           format: int64
+        depositNano:
+          type: integer
+          format: int64
         endsAt:
           type: string
           format: date-time
@@ -643,9 +646,9 @@ components:
           nullable: true
         result:
           $ref: '#/components/schemas/DisputeResult'
-        claim:
+        isClaimable:
           type: boolean
-        vote:
+        isWin:
           type: boolean
         createdAt:
           type: string
@@ -675,7 +678,7 @@ components:
 
     CreateDisputeRequest:
       type: object
-      required: [title, description, opponent, amountNano, contractAddress, boc]
+      required: [title, description, opponent, amountNano, depositNano, contractAddress, boc]
       properties:
         title:
           type: string
@@ -684,6 +687,9 @@ components:
         opponent:
           type: string
         amountNano:
+          type: string
+          description: Positive integer in nanoTON, encoded as string.
+        depositNano:
           type: string
           description: Positive integer in nanoTON, encoded as string.
         contractAddress:
@@ -706,9 +712,9 @@ components:
 
     DisputeVoteRequest:
       type: object
-      required: [vote]
+      required: [isWin]
       properties:
-        vote:
+        isWin:
           type: boolean
 
     Evidence:

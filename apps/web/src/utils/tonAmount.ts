@@ -3,9 +3,7 @@ import { toNano } from '@ton/core';
 const NANO_PER_TON = 1_000_000_000n;
 const DEPOSIT_PERCENT = 10n;
 const DEPOSIT_PERCENT_BASE = 100n;
-const MIN_BET_DEPOSIT_NANO = toNano('3.81');
-
-const ceilDiv = (dividend: bigint, divisor: bigint): bigint => (dividend + divisor - 1n) / divisor;
+export const DEFAULT_MIN_BET_DEPOSIT_NANO = toNano('0.2');
 
 export const parseTonToNano = (value: string, options?: { allowZero?: boolean }): string | null => {
   const normalized = value.trim();
@@ -59,11 +57,15 @@ export const formatNanoToTon = (
   }
 };
 
-export const calculateBetDepositNano = (stakeNano: string | number | bigint): string => {
+export const calculateBetDepositNano = (
+  stakeNano: string | number | bigint,
+  minBetDepositNano: string | number | bigint = DEFAULT_MIN_BET_DEPOSIT_NANO,
+): string => {
   const stake = typeof stakeNano === 'bigint' ? stakeNano : BigInt(stakeNano);
-  const percentDepositNano = ceilDiv(stake * DEPOSIT_PERCENT, DEPOSIT_PERCENT_BASE);
-  const finalDepositNano = percentDepositNano > MIN_BET_DEPOSIT_NANO
+  const minDeposit = typeof minBetDepositNano === 'bigint' ? minBetDepositNano : BigInt(minBetDepositNano);
+  const percentDepositNano = (stake * DEPOSIT_PERCENT) / DEPOSIT_PERCENT_BASE;
+  const finalDepositNano = percentDepositNano > minDeposit
     ? percentDepositNano
-    : MIN_BET_DEPOSIT_NANO;
+    : minDeposit;
   return finalDepositNano.toString();
 };

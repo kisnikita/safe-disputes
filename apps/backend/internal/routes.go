@@ -28,11 +28,11 @@ func (s Server) RegisterRoutes(repo *repository.Repository) {
 	disputes.POST("", api.CreateDispute(repo, s.logger, s.msgService, s.txMonitor))
 	disputes.GET("/:id", api.GetDispute(repo, s.logger, s.msgService))
 	disputes.GET("/:id/evidence", api.GetDisputeForEvidence(repo, s.logger, s.msgService))
-	disputes.POST("/:id/accept", api.AcceptDispute(repo, s.logger, s.msgService))
+	disputes.POST("/:id/accept", api.AcceptDispute(repo, s.logger, s.msgService, s.txMonitor))
 	disputes.POST("/:id/reject", api.RejectDispute(repo, s.logger, s.msgService))
-	disputes.POST("/:id/claim", api.ClaimDispute(repo, s.logger, s.msgService))
-	disputes.POST("/:id/vote", api.VoteDispute(repo, s.logger, s.msgService))
-	disputes.POST("/:id/evidence", api.EvidenceDispute(repo, s.logger, s.msgService))
+	disputes.POST("/:id/claim", api.ClaimDispute(repo, s.logger, s.msgService, s.txMonitor))
+	disputes.POST("/:id/vote", api.VoteDispute(repo, s.logger, s.msgService, s.txMonitor))
+	disputes.POST("/:id/evidence", api.ProvideEvidence(repo, s.logger, s.msgService, s.txMonitor))
 
 	evidence := apiRouter.Group("/evidence")
 	evidence.GET("", api.GetEvidencesByDispute(repo, s.logger, s.msgService))
@@ -41,5 +41,5 @@ func (s Server) RegisterRoutes(repo *repository.Repository) {
 	investigation.GET("", api.ListInvestigations(repo, s.logger, s.msgService))
 	investigation.POST("/mark-seen", api.MarkInvestigationsSeen(repo, s.logger, s.msgService))
 	investigation.GET("/:id", api.GetInvestigation(repo, s.logger, s.msgService))
-	investigation.POST("/:id/vote", api.VoteInvestigation(repo, s.logger, s.msgService))
+	investigation.POST("/:id/vote", api.VoteInvestigation(repo, s.logger, s.msgService, s.txMonitor))
 }

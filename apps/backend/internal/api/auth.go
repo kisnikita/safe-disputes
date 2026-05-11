@@ -19,6 +19,7 @@ func TelegramAuth(repo *repository.Repository, log log.Logger) gin.HandlerFunc {
 	if err != nil {
 		log.Fatal("failed to create user service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "TelegramAuth"))
 	return telegramAuth(log, userSrv)
 }
 
@@ -43,8 +44,7 @@ func telegramAuth(log log.Logger, userSrv userCreator) gin.HandlerFunc {
 
 		err := userSrv.CreateIfNotExist(c, actorUsername, photoUrl)
 		if err != nil {
-			log.Error("failed to create user", zap.String("username", actorUsername), zap.Error(err))
-			c.JSON(500, gin.H{"error": "internal server error"})
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 

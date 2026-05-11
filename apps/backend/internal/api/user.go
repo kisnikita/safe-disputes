@@ -26,6 +26,7 @@ func GetMe(repo *repository.Repository, log log.Logger) gin.HandlerFunc {
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "GetMe"))
 	return getMe(log, userSrv)
 }
 
@@ -38,8 +39,7 @@ func getMe(log log.Logger, getter UserGetter) gin.HandlerFunc {
 
 		user, err := getter.GetByUsername(c.Request.Context(), actorUsername)
 		if err != nil {
-			log.Error("failed to get user", zap.String("username", actorUsername), zap.Error(err))
-			c.JSON(500, gin.H{"error": "internal server error"})
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -52,6 +52,7 @@ func UpdateUser(repo *repository.Repository, log log.Logger) gin.HandlerFunc {
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "UpdateUser"))
 	return updateUser(log, userSrv)
 }
 
@@ -93,7 +94,8 @@ func updateUser(log log.Logger, updater UserUpdater) gin.HandlerFunc {
 		}
 
 		if err := updater.UpdateByUsername(c, opts); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+			handleApiError(c, log, actorUsername, err)
+			return
 		}
 
 		c.Status(http.StatusNoContent)
@@ -105,6 +107,7 @@ func GetTop(repo *repository.Repository, log log.Logger) gin.HandlerFunc {
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "GetTop"))
 	return getTop(log, userSrv)
 }
 
@@ -112,7 +115,8 @@ func getTop(log log.Logger, getter UserGetter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		users, err := getter.GetTop(c, 100)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get top"})
+			handleApiError(c, log, "", err)
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": users})

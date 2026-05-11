@@ -43,7 +43,7 @@ func (f *fakeEvidenceGetter) GetEvidences(_ context.Context, disputeID string) (
 func TestEvidenceDispute(t *testing.T) {
 	t.Run("returns unauthorized when username missing", func(t *testing.T) {
 		r := gin.New()
-		r.POST("/disputes/:id/evidence", evidenceDispute(noopLogger{}, &fakeEvidencer{}))
+		r.POST("/disputes/:id/evidence", provideEvidence(noopLogger{}, &fakeEvidencer{}))
 
 		req := httptest.NewRequest(http.MethodPost, "/disputes/123/evidence", nil)
 		rr := httptest.NewRecorder()
@@ -61,11 +61,14 @@ func TestEvidenceDispute(t *testing.T) {
 			c.Set("username", "alice")
 			c.Next()
 		})
-		r.POST("/disputes/:id/evidence", evidenceDispute(noopLogger{}, evidencer))
+		r.POST("/disputes/:id/evidence", provideEvidence(noopLogger{}, evidencer))
 
 			var body bytes.Buffer
 			w := multipart.NewWriter(&body)
 			if err := w.WriteField("description", "test evidence"); err != nil {
+				t.Fatalf("write field: %v", err)
+			}
+			if err := w.WriteField("boc", "te6cckEBAQEAAgAAAA=="); err != nil {
 				t.Fatalf("write field: %v", err)
 			}
 			if err := w.Close(); err != nil {

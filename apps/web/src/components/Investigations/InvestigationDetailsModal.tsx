@@ -7,6 +7,8 @@ import { Spinner } from '@telegram-apps/telegram-ui';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import { ImageViewerModal } from '../ImageViewer/ImageViewerModal';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
+import { useInvestigationContract } from '../../hooks/useInvestigationContract';
+import { useBetContract } from '../../hooks/useBetContract';
 
 interface Evidence {
   id: string;
@@ -37,16 +39,18 @@ interface DisputeDetail {
   imageData?: string;
   imageType?: string;
   result: string;
-  vote?: boolean;
+  isWin?: boolean;
+  contractAddress?: string;
 }
 
 interface Props {
   id: string;
+  canVote: boolean;
   onClose: () => void;
   onCompleted: () => void;
 }
 
-export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onCompleted }) => {
+export const InvestigationDetailsModal: React.FC<Props> = ({ id, canVote, onClose, onCompleted }) => {
   const [step, setStep] = useState<'details' | 'evidence' | 'vote'>('details');
   const [investigation, setInvestigation] = useState<InvestigationRecord | null>(null);
   const [dispute, setDispute] = useState<DisputeDetail | null>(null);
@@ -56,7 +60,10 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
   const [voteLoading, setVoteLoading] = useState(false);
   const [voteShake, setVoteShake] = useState<'p1' | 'draw' | 'p2' | null>(null);
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { connected } = useTonConnect();
+  const { vote } = useInvestigationContract();
+  const { getInvestigationAddress } = useBetContract();
   const showWalletConnectPopup = useWalletConnectPopup();
 
   // Load investigation record and dispute details
@@ -100,6 +107,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
     if (step === 'details') setStep('evidence');
     else if (step === 'evidence') {
       if (currentIndex < evidences.length - 1) setCurrentIndex(i => i + 1);
+      else if (!canVote) onClose();
       else setStep('vote');
     }
   };
@@ -122,15 +130,33 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
       void showWalletConnectPopup();
       return;
     }
+    setError(null);
     setVoteLoading(true);
     try {
-      await apiFetch(`/api/v1/investigations/${investigation?.id}/vote?vote=${choice}`, {
+      if (!investigation?.disputeID) {
+        throw new Error('investigation dispute ID is missing');
+      }
+      const disputeRes = await apiFetch(`/api/v1/disputes/${investigation.disputeID}/evidence`);
+      if (!disputeRes.ok) throw new Error('failed to load dispute');
+      const { data: disputeData } = await disputeRes.json() as { data: { contractAddress?: string } };
+      if (!disputeData.contractAddress) throw new Error('dispute contract address is missing');
+      const investigationAddress = await getInvestigationAddress(disputeData.contractAddress);
+      const option = choice === 'p1' ? 1 : choice === 'p2' ? 2 : 3;
+      const signedBoc = await vote(investigationAddress.toString(), option);
+      const params = new URLSearchParams({ vote: choice, boc: signedBoc });
+      const res = await apiFetch(`/api/v1/investigations/${investigation?.id}/vote?${params.toString()}`, {
         method: 'POST',
       });
+      if (!res.ok) throw new Error('failed to submit investigation vote');
       onCompleted();
       onClose();
-    } catch {
-      // ignore
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (/rejected|declined|cancel/i.test(msg)) {
+        setError('Транзакция отменена пользователем');
+      } else {
+        setError('Не удалось отправить транзакцию');
+      }
     }
     setVoteLoading(false);
   };
@@ -147,6 +173,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
 
         {!loading && dispute && step === 'details' && (
           <>
+            {error && <div className="investigation-details-error-message">{error}</div>}
             <h4>{dispute.title}</h4>
             <p className="investigation-details-description">{dispute.description}</p>
             <button className="investigation-details-next-btn" onClick={handleNext}>К доказательствам</button>
@@ -155,6 +182,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
 
         {!loading && step === 'evidence' && evidences.length > 0 && (
           <>
+            {error && <div className="investigation-details-error-message">{error}</div>}
             <div className="investigation-details-header-with-back">
               <button className="investigation-details-back-btn" onClick={handleBack}>←</button>
               <h4>Доказательства участника {evidences[currentIndex].userNumber}</h4>
@@ -176,14 +204,17 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
                 />
               </button>
             )}
-            <div className="investigation-details-nav-buttons">
-              <button onClick={handleNext}>Далее</button>
-            </div>
+            {!(currentIndex === evidences.length - 1 && !canVote) && (
+              <div className="investigation-details-nav-buttons">
+                <button onClick={handleNext}>Далее</button>
+              </div>
+            )}
           </>
         )}
 
         {!loading && step === 'vote' && (
           <>
+            {error && <div className="investigation-details-error-message">{error}</div>}
             <div className="investigation-details-header-with-back">
               <button className="investigation-details-back-btn" onClick={handleBack}>←</button>
               <h4>Окончательное голосование</h4>

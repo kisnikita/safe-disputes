@@ -13,10 +13,10 @@ import (
 func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Dispute) error {
 	_, err := repo.db.ExecContext(ctx, `
 	INSERT INTO disputes (
-		id, title, description, created_at, updated_at, cryptocurrency, amount_nano, image_data, image_type,
+		id, title, description, created_at, updated_at, cryptocurrency, amount_nano, deposit_nano, image_data, image_type,
 		contract_address, ends_at, next_deadline
 	) 
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		dispute.ID,
 		dispute.Title,
 		dispute.Description,
@@ -24,6 +24,7 @@ func (repo *Repository) InsertDispute(ctx context.Context, dispute models.Disput
 		dispute.UpdatedAt,
 		dispute.Cryptocurrency,
 		dispute.AmountNano,
+		dispute.DepositNano,
 		dispute.ImageData,
 		dispute.ImageType,
 		dispute.ContractAddress,
@@ -57,7 +58,7 @@ func (repo *Repository) ListDisputeCards(ctx context.Context, actorUsername stri
 	}
 
 	if opts.Result != nil {
-		clauses = append(clauses, fmt.Sprintf("self.vote = $%d", idx))
+		clauses = append(clauses, fmt.Sprintf("self.is_win = $%d", idx))
 		args = append(args, *opts.Result)
 		idx++
 	}
@@ -90,7 +91,7 @@ func (repo *Repository) ListDisputeCards(ctx context.Context, actorUsername stri
 			d.ends_at, d.next_deadline,
 			opp_user.username AS opponent,
 			opp_user.photo_url,
-			self.result, self.vote, self.claim,
+			self.result, self.is_win, self.is_claimable,
 			(self.seen_at IS NULL OR self.updated_at > self.seen_at) AS is_unread
 		FROM disputes d
 		JOIN participants self ON self.dispute_id = d.id
@@ -121,8 +122,8 @@ func (repo *Repository) ListDisputeCards(ctx context.Context, actorUsername stri
 			&d.Opponent,
 			&d.PhotoUrl,
 			&d.Result,
-			&d.Vote,
-			&d.Claim,
+			&d.IsWin,
+			&d.IsClaimable,
 			&d.IsUnread,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan dispute read row: %w", err)
@@ -136,20 +137,18 @@ func (repo *Repository) ListDisputeCards(ctx context.Context, actorUsername stri
 	return disputes, nil
 }
 
-func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID, actorID uuid.UUID,
-) (models.Dispute, error) {
+func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID) (models.Dispute, error) {
 	var d models.Dispute
 	err := repo.db.QueryRowContext(ctx, `
 		SELECT 
 			d.id, d.title, d.description, 
 			d.created_at, d.updated_at, 
-			d.cryptocurrency, d.amount_nano, 
+			d.cryptocurrency, d.amount_nano, d.deposit_nano,
 			d.image_data, d.image_type, d.ends_at, d.next_deadline,
 			d.contract_address
 		FROM disputes d
-		JOIN participants u ON d.id = u.dispute_id
-		WHERE d.id = $1 AND u.user_id = $2`,
-		disputeID, actorID,
+		WHERE d.id = $1`,
+		disputeID,
 	).Scan(
 		&d.ID,
 		&d.Title,
@@ -158,6 +157,7 @@ func (repo *Repository) GetDisputeByID(ctx context.Context, disputeID uuid.UUID,
 		&d.UpdatedAt,
 		&d.Cryptocurrency,
 		&d.AmountNano,
+		&d.DepositNano,
 		&d.ImageData,
 		&d.ImageType,
 		&d.EndsAt,
@@ -177,13 +177,13 @@ func (repo *Repository) GetDisputeDetailsByID(ctx context.Context, disputeID uui
 		SELECT
 			d.id, d.title, d.description,
 			d.created_at, d.updated_at,
-			d.cryptocurrency, d.amount_nano,
+			d.cryptocurrency, d.amount_nano, d.deposit_nano,
 			d.image_data, d.image_type,
 			d.contract_address,
 			d.ends_at, d.next_deadline,
 			opp_user.username AS opponent,
 			opp_user.photo_url,
-			self.result, self.vote, self.claim
+			self.result, self.is_win, self.is_claimable
 		FROM disputes d
 		JOIN participants self ON self.dispute_id = d.id
 		JOIN users me ON me.id = self.user_id
@@ -198,6 +198,7 @@ func (repo *Repository) GetDisputeDetailsByID(ctx context.Context, disputeID uui
 		&d.UpdatedAt,
 		&d.Cryptocurrency,
 		&d.AmountNano,
+		&d.DepositNano,
 		&d.ImageData,
 		&d.ImageType,
 		&d.ContractAddress,
@@ -206,8 +207,8 @@ func (repo *Repository) GetDisputeDetailsByID(ctx context.Context, disputeID uui
 		&d.Opponent,
 		&d.PhotoUrl,
 		&d.Result,
-		&d.Vote,
-		&d.Claim,
+		&d.IsWin,
+		&d.IsClaimable,
 	)
 	if err != nil {
 		return models.DisputeDetails{}, fmt.Errorf("failed to get dispute details by ID: %w", err)
@@ -220,7 +221,7 @@ func (repo *Repository) GetDisputeForEvidence(ctx context.Context, disputeID uui
 	err := repo.db.QueryRowContext(ctx, `
 		SELECT 
 			d.id, d.title, d.description, 
-			d.image_data, d.image_type, d.ends_at, d.next_deadline
+			d.image_data, d.image_type, d.contract_address
 		FROM disputes d
 		WHERE d.id = $1`,
 		disputeID,
@@ -230,8 +231,7 @@ func (repo *Repository) GetDisputeForEvidence(ctx context.Context, disputeID uui
 		&d.Description,
 		&d.ImageData,
 		&d.ImageType,
-		&d.EndsAt,
-		&d.NextDeadline,
+		&d.ContractAddress,
 	)
 	if err != nil {
 		return models.Dispute{}, fmt.Errorf("failed to get dispute by ID: %w", err)

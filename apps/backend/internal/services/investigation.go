@@ -63,6 +63,7 @@ type InvestigationService struct {
 	jurorSeener             JurorSeener
 	disputeFinder           DisputeFinder
 	msgSender               MessageSender
+	txMonitor               TransactionMonitor
 }
 
 func NewInvestigationService(repo *repository.Repository, log log.Logger, msgSender MessageSender,
@@ -91,6 +92,11 @@ func NewInvestigationService(repo *repository.Repository, log log.Logger, msgSen
 		disputeFinder:           repo,
 		msgSender:               msgSender,
 	}, nil
+}
+
+func (s InvestigationService) WithTransactionMonitor(txMonitor TransactionMonitor) InvestigationService {
+	s.txMonitor = txMonitor
+	return s
 }
 
 func (s InvestigationService) ListInvestigation(ctx context.Context, opts models.InvestigationListOpts,
@@ -124,7 +130,14 @@ func (s InvestigationService) GetInvestigation(ctx context.Context, id, actorUse
 	return investigation, nil
 }
 
-func (s InvestigationService) VoteInvestigation(ctx context.Context, investigationID, username, vote string) error {
+func (s InvestigationService) VoteInvestigation(ctx context.Context, investigationID, username, vote, boc string) error {
+	if s.txMonitor == nil {
+		return fmt.Errorf("%w: tx monitor is not configured", ErrTxMonitorUnavailable)
+	}
+	if err := s.txMonitor.WaitForSuccess(ctx, boc); err != nil {
+		return err
+	}
+
 	user, err := s.userFinder.GetUserByUsername(ctx, username)
 	if err != nil {
 		return fmt.Errorf("failed to get user by username: %w", err)
@@ -141,8 +154,8 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, investigati
 	}
 
 	opts := models.JurorUpdateOpts{
-		ID: juror.ID, 
-		Vote: &vote,
+		ID:     juror.ID,
+		Vote:   &vote,
 		Result: new(models.InvestigationResultSent),
 		SeenAt: new(true),
 	}
@@ -230,16 +243,16 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, investigati
 		return fmt.Errorf("failed to get participants for user2: %w", err)
 	}
 
-	dispute, err := s.disputeFinder.GetDisputeByID(ctx, investigation.DisputeID, users[0].ID)
+	dispute, err := s.disputeFinder.GetDisputeByID(ctx, investigation.DisputeID)
 	if err != nil {
 		return fmt.Errorf("failed to get dispute by ID: %w", err)
 	}
 	if res == "draw" {
 		participantUpdateOpts := models.ParticipantUpdateOpts{
-			ID:     participantP1.ID,
-			Status: new(models.DisputesStatusPassed),
-			Result: new(models.DisputesResultDraw),
-			Claim:  new(true),
+			ID:          participantP1.ID,
+			Status:      new(models.DisputesStatusPassed),
+			Result:      new(models.DisputesResultDraw),
+			IsClaimable: new(true),
 		}
 		if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 			return fmt.Errorf("failed to update participants: %w", err)
@@ -265,10 +278,10 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, investigati
 
 	if res == "p1" {
 		participantUpdateOpts := models.ParticipantUpdateOpts{
-			ID:     participantP1.ID,
-			Status: new(models.DisputesStatusPassed),
-			Result: new(models.DisputesResultWin),
-			Claim: new(true),
+			ID:          participantP1.ID,
+			Status:      new(models.DisputesStatusPassed),
+			Result:      new(models.DisputesResultWin),
+			IsClaimable: new(true),
 		}
 		if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 			return fmt.Errorf("failed to update participants: %w", err)
@@ -276,7 +289,7 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, investigati
 
 		participantUpdateOpts.ID = participantP2.ID
 		participantUpdateOpts.Result = new(models.DisputesResultLose)
-		participantUpdateOpts.Claim = new(false)
+		participantUpdateOpts.IsClaimable = new(false)
 		if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 			return fmt.Errorf("failed to update participants: %w", err)
 		}
@@ -291,10 +304,10 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, investigati
 
 	// res == p2
 	participantUpdateOpts := models.ParticipantUpdateOpts{
-		ID:     participantP2.ID,
-		Status: new(models.DisputesStatusPassed),
-		Result: new(models.DisputesResultWin),
-		Claim:  new(true),
+		ID:          participantP2.ID,
+		Status:      new(models.DisputesStatusPassed),
+		Result:      new(models.DisputesResultWin),
+		IsClaimable: new(true),
 	}
 	if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 		return fmt.Errorf("failed to update participants: %w", err)
@@ -302,7 +315,7 @@ func (s InvestigationService) VoteInvestigation(ctx context.Context, investigati
 
 	participantUpdateOpts.ID = participantP1.ID
 	participantUpdateOpts.Result = new(models.DisputesResultLose)
-	participantUpdateOpts.Claim = new(false)
+	participantUpdateOpts.IsClaimable = new(false)
 	if err = s.participantUpdater.UpdateParticipant(ctx, participantUpdateOpts); err != nil {
 		return fmt.Errorf("failed to update participants: %w", err)
 	}

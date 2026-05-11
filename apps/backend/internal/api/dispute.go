@@ -39,19 +39,19 @@ type DisputeGetter interface {
 }
 
 type DisputeAcceptor interface {
-	AcceptDispute(ctx context.Context, disputeID string, acceptorUsername string) error
+	AcceptDispute(ctx context.Context, disputeID string, acceptorUsername string, boc string) error
 }
 
 type DisputeRejector interface {
-	RejectDispute(ctx context.Context, disputeID string, acceptorUsername string) error
+	RejectDispute(ctx context.Context, disputeID string, rejectorUsername string) error
 }
 
 type DisputeClaimer interface {
-	ClaimDispute(ctx context.Context, disputeID string, claimerUsername string) error
+	ClaimDispute(ctx context.Context, disputeID string, claimerUsername string, boc string) error
 }
 
 type DisputeVoter interface {
-	VoteDispute(ctx context.Context, disputeID string, claimerUsername string, win bool) error
+	VoteDispute(ctx context.Context, disputeID string, claimerUsername string, win bool, boc string) error
 }
 
 func PrecheckDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
@@ -59,6 +59,7 @@ func PrecheckDispute(repo *repository.Repository, log log.Logger, sender service
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "PrecheckDispute"))
 	return precheckDispute(log, disputeSrv)
 }
 
@@ -121,11 +122,11 @@ func CreateDispute(repo *repository.Repository, log log.Logger, sender services.
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
 	disputeSrv = disputeSrv.WithTransactionMonitor(txMonitor)
+	log = log.With(zap.String("handler", "CreateDispute"))
 	return createDispute(log, disputeSrv)
 }
 
 func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFunc {
-	log = log.With(zap.String("handler", "CreateDispute"))
 	return func(c *gin.Context) {
 		actorUsername, ok := getActorUsername(c)
 		if !ok {
@@ -147,32 +148,8 @@ func createDispute(log log.Logger, disputeCreator DisputeCreator) gin.HandlerFun
 			return
 		}
 
-		err = disputeCreator.CreateDispute(c, req, actorUsername)
-		switch {
-		case errors.Is(err, models.ErrValidation):
-			log.Error("failed to validate dispute", zap.Error(err))
-			c.JSON(http.StatusBadRequest, gin.H{"error": "validation failed"})
-			return
-		case errors.Is(err, services.ErrInvalidBOC):
-			log.Error("invalid transaction boc", zap.String("actor", actorUsername), zap.Error(err))
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid transaction boc"})
-			return
-		case errors.Is(err, services.ErrTxNotFinalized):
-			log.Error("transaction not finalized in time", zap.String("actor", actorUsername), zap.Error(err))
-			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "transaction not finalized in time"})
-			return
-		case errors.Is(err, services.ErrTxFailed):
-			log.Error("transaction failed", zap.String("actor", actorUsername), zap.Error(err))
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-			return
-		case errors.Is(err, services.ErrTxMonitorUnavailable):
-			log.Error("transaction monitor unavailable", zap.String("actor", actorUsername), zap.Error(err))
-			c.JSON(http.StatusBadGateway, gin.H{"error": "transaction monitor unavailable"})
-			return
-		case err != nil:
-			log.Error("failed to create dispute", zap.String("title", req.Title), zap.String("opponent", req.Opponent),
-				zap.Error(err))
-			c.JSON(500, gin.H{"error": "internal server error"})
+		if err = disputeCreator.CreateDispute(c, req, actorUsername); err != nil {
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -185,6 +162,7 @@ func ListDisputes(repo *repository.Repository, log log.Logger, sender services.M
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "ListDisputes"))
 	return listDisputes(log, disputeSrv)
 }
 
@@ -226,8 +204,7 @@ func listDisputes(log log.Logger, lister DisputeLister) gin.HandlerFunc {
 
 		disputes, err := lister.ListDisputes(c, opts, actorUsername)
 		if err != nil {
-			log.Error("ListDisputes failed", zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -252,6 +229,7 @@ func MarkDisputesSeen(repo *repository.Repository, log log.Logger, sender servic
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "MarkDisputesSeen"))
 	return markDisputesSeen(log, disputeSrv)
 }
 
@@ -280,10 +258,8 @@ func markDisputesSeen(log log.Logger, seener DisputeSeener) gin.HandlerFunc {
 			}
 		}
 
-		err := seener.MarkDisputesSeen(c, actorUsername, body.DisputeIDs)
-		if err != nil {
-			log.Error("MarkDisputesSeen failed", zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		if err := seener.MarkDisputesSeen(c, actorUsername, body.DisputeIDs); err != nil {
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 		c.Status(http.StatusNoContent)
@@ -295,6 +271,7 @@ func GetDispute(repo *repository.Repository, log log.Logger, sender services.Mes
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "GetDispute"))
 	return getDispute(log, disputeSrv)
 }
 
@@ -314,8 +291,7 @@ func getDispute(log log.Logger, getter DisputeGetter) gin.HandlerFunc {
 
 		dispute, err := getter.GetDispute(c, disputeID, actorUsername)
 		if err != nil {
-			log.Error("GetDispute failed", zap.String("id", disputeID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			handleApiError(c, log.With(zap.String("disputeID", disputeID)), actorUsername, err)
 			return
 		}
 
@@ -323,17 +299,21 @@ func getDispute(log log.Logger, getter DisputeGetter) gin.HandlerFunc {
 	}
 }
 
-func AcceptDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
+func AcceptDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender,
+	txMonitor services.TransactionMonitor,
+) gin.HandlerFunc {
 	disputeSrv, err := services.NewDisputeService(repo, log, sender)
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	disputeSrv = disputeSrv.WithTransactionMonitor(txMonitor)
+	log = log.With(zap.String("handler", "AcceptDispute"))
 	return acceptDispute(log, disputeSrv)
 }
 
 func acceptDispute(log log.Logger, acceptor DisputeAcceptor) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		acceptorUsername, ok := getActorUsername(c)
+		actorUsername, ok := getActorUsername(c)
 		if !ok {
 			return
 		}
@@ -343,11 +323,14 @@ func acceptDispute(log log.Logger, acceptor DisputeAcceptor) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "dispute ID is required"})
 			return
 		}
+		boc := c.Query("boc")
+		if boc == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "boc is required"})
+			return
+		}
 
-		err := acceptor.AcceptDispute(c, disputeID, acceptorUsername)
-		if err != nil {
-			log.Error("AcceptDispute failed", zap.String("id", disputeID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		if err := acceptor.AcceptDispute(c, disputeID, actorUsername, boc); err != nil {
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -360,42 +343,11 @@ func RejectDispute(repo *repository.Repository, log log.Logger, sender services.
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "RejectDispute"))
 	return rejectDispute(log, disputeSrv)
 }
 
 func rejectDispute(log log.Logger, rejector DisputeRejector) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		acceptorUsername, ok := getActorUsername(c)
-		if !ok {
-			return
-		}
-
-		disputeID := c.Param("id")
-		if disputeID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "dispute ID is required"})
-			return
-		}
-
-		err := rejector.RejectDispute(c, disputeID, acceptorUsername)
-		if err != nil {
-			log.Error("RejectDispute failed", zap.String("id", disputeID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-			return
-		}
-
-		c.Status(http.StatusNoContent)
-	}
-}
-
-func ClaimDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
-	disputeSrv, err := services.NewDisputeService(repo, log, sender)
-	if err != nil {
-		log.Fatal("failed to create dispute service", zap.Error(err))
-	}
-	return claimDispute(log, disputeSrv)
-}
-
-func claimDispute(log log.Logger, claimer DisputeClaimer) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		actorUsername, ok := getActorUsername(c)
 		if !ok {
@@ -408,10 +360,8 @@ func claimDispute(log log.Logger, claimer DisputeClaimer) gin.HandlerFunc {
 			return
 		}
 
-		err := claimer.ClaimDispute(c, disputeID, actorUsername)
-		if err != nil {
-			log.Error("ClaimDispute failed", zap.String("id", disputeID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		if err := rejector.RejectDispute(c, disputeID, actorUsername); err != nil {
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -419,11 +369,54 @@ func claimDispute(log log.Logger, claimer DisputeClaimer) gin.HandlerFunc {
 	}
 }
 
-func VoteDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender) gin.HandlerFunc {
+func ClaimDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender,
+	txMonitor services.TransactionMonitor,
+) gin.HandlerFunc {
 	disputeSrv, err := services.NewDisputeService(repo, log, sender)
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	disputeSrv = disputeSrv.WithTransactionMonitor(txMonitor)
+	log = log.With(zap.String("handler", "ClaimDispute"))
+	return refundDispute(log, disputeSrv)
+}
+
+func refundDispute(log log.Logger, claimer DisputeClaimer) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		actorUsername, ok := getActorUsername(c)
+		if !ok {
+			return
+		}
+
+		disputeID := c.Param("id")
+		if disputeID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "dispute ID is required"})
+			return
+		}
+		boc := c.Query("boc")
+		if boc == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "boc is required"})
+			return
+		}
+
+		if err := claimer.ClaimDispute(c, disputeID, actorUsername, boc); err != nil {
+			handleApiError(c, log, actorUsername, err)
+			return
+		}
+
+		c.Status(http.StatusNoContent)
+	}
+}
+
+func VoteDispute(repo *repository.Repository, log log.Logger, sender services.MessageSender,
+	txMonitor services.TransactionMonitor,
+) gin.HandlerFunc {
+	disputeSrv, err := services.NewDisputeService(repo, log, sender)
+	if err != nil {
+		log.Fatal("failed to create dispute service", zap.Error(err))
+	}
+	disputeSrv = disputeSrv.WithTransactionMonitor(txMonitor)
+	log = log.With(zap.String("handler", "VoteDispute"))
 	return voteDispute(log, disputeSrv)
 }
 
@@ -440,17 +433,15 @@ func voteDispute(log log.Logger, voter DisputeVoter) gin.HandlerFunc {
 			return
 		}
 		var body struct {
-			Vote bool `json:"vote"`
+			Vote bool   `json:"vote"`
+			Boc  string `json:"boc"`
 		}
-		if err := c.ShouldBindJSON(&body); err != nil {
+		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 			return
 		}
-
-		err := voter.VoteDispute(c, disputeID, actorUsername, body.Vote)
-		if err != nil {
-			log.Error("ClaimDispute failed", zap.String("id", disputeID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		if err := voter.VoteDispute(c, disputeID, actorUsername, body.Vote, body.Boc); err != nil {
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
 
@@ -463,11 +454,16 @@ func GetDisputeForEvidence(repo *repository.Repository, log log.Logger, sender s
 	if err != nil {
 		log.Fatal("failed to create dispute service", zap.Error(err))
 	}
+	log = log.With(zap.String("handler", "GetDisputeForEvidence"))
 	return getDisputeForEvidence(log, disputeSrv)
 }
 
 func getDisputeForEvidence(log log.Logger, getter DisputeGetter) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		actorUsername, ok := getActorUsername(c)
+		if !ok {
+			return
+		}
 
 		disputeID := c.Param("id")
 		if disputeID == "" {
@@ -477,11 +473,9 @@ func getDisputeForEvidence(log log.Logger, getter DisputeGetter) gin.HandlerFunc
 
 		dispute, err := getter.GetDisputeForEvidence(c, disputeID)
 		if err != nil {
-			log.Error("GetDisputeForEvidence failed", zap.String("id", disputeID), zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			handleApiError(c, log, actorUsername, err)
 			return
 		}
-
 		c.JSON(http.StatusOK, gin.H{"data": dispute})
 	}
 }

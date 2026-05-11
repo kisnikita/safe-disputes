@@ -1,128 +1,46 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { toNano } from '@ton/core';
-import { BetMaster, CreateBet } from '../wrappers/BetMaster';
-import { Bet } from '../wrappers/Bet';
+import { BetMaster } from '../wrappers/BetMaster';
 import '@ton/test-utils';
 
 describe('BetMaster', () => {
+    const minDeposit = toNano('2');
+    const minReward = toNano('1');
+    const minStake = toNano('2');
+
     let blockchain: Blockchain;
-    let deployer: SandboxContract<TreasuryContract>;
-    let master: SandboxContract<BetMaster>;
+    let owner: SandboxContract<TreasuryContract>;
+    let creator: SandboxContract<TreasuryContract>;
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
+        owner = await blockchain.treasury('owner');
+        creator = await blockchain.treasury('creator');
+    });
 
-        master = blockchain.openContract(await BetMaster.fromInit(1000n));
-        deployer = await blockchain.treasury('deployer');
-
-        const deployResult = await master.send(
-            deployer.getSender(),
-            {
-                value: toNano('0.05'),
-            },
-            null,
+    const openMaster = async () => blockchain.openContract(await BetMaster.fromInit(minDeposit, minReward, minStake));
+    it('updates params only by owner', async () => {
+        const master = await openMaster();
+        const ok = await master.send(
+            owner.getSender(),
+            { value: toNano('0.02') },
+            { $$type: 'UpdateParams', minDeposit: toNano('3'), minReward: toNano('1.2'), minStake: toNano('2.5') }
         );
-        expect(deployResult.transactions).toHaveTransaction({
-            from: deployer.address,
+        expect(ok.transactions).toHaveTransaction({
+            from: owner.address,
             to: master.address,
-            deploy: true,
             success: true,
         });
-    });
 
-    it('should deploy bet and store address', async () => {
-        const betId = 123n;
-        const msg: CreateBet = {
-            $$type: 'CreateBet',
-            id: betId,
-        };
-
-        const result = await master.send(
-            deployer.getSender(),
-            {
-                value: toNano('0.05'),
-            },
-            msg
+        const fail = await master.send(
+            creator.getSender(),
+            { value: toNano('0.02') },
+            { $$type: 'UpdateParams', minDeposit: toNano('4'), minReward: toNano('1.3'), minStake: toNano('2.7') }
         );
-
-        const bet = blockchain.openContract(await Bet.fromInit(betId));
-
-        expect(result.transactions).toHaveTransaction({
-            from: master.address,
-            to: bet.address,
-            deploy: true,
-            success: true,
-        });  
-
-        const status = await bet.getStatus();
-        const amount = await bet.getAmount();
-        expect(status).toBe(1n);
-        expect(amount).toBeGreaterThan(0n);
-    });
-
-    it('should reject duplicate bet id', async () => {
-        const betId = 555n;
-        const bet = blockchain.openContract(await Bet.fromInit(betId));
-
-        await master.send(
-            deployer.getSender(),
-            {
-                value: toNano('0.05'),
-            },
-            {
-                $$type: 'CreateBet',
-                id: betId,
-            }
-        );
-
-        const second = await master.send(
-            deployer.getSender(),
-            {
-                value: toNano('0.05'),
-            },
-            {
-                $$type: 'CreateBet',
-                id: betId,
-            }
-        );
-
-        expect(second.transactions).toHaveTransaction({
-            from: master.address,
-            to: bet.address,
-            success: false,
-        });
-    });
-
-    it('should not deploy bet with insufficient value', async () => {
-        const betId = 777n;
-        const bet = blockchain.openContract(await Bet.fromInit(betId));
-
-        const res = await master.send(
-            deployer.getSender(),
-            {
-                value: toNano('0.005'),
-            },
-            {
-                $$type: 'CreateBet',
-                id: betId,
-            }
-        );
-
-        expect(res.transactions).toHaveTransaction({
-            from: deployer.address,
+        expect(fail.transactions).toHaveTransaction({
+            from: creator.address,
             to: master.address,
             success: false,
         });
-        expect(res.transactions).not.toHaveTransaction({
-            to: bet.address,
-            deploy: true,
-            success: true,
-        });
-    });
-
-    it('should not deploy unknown betID by default', async () => {
-        const bet = blockchain.openContract(await Bet.fromInit(999n));
-        const contract = await blockchain.getContract(bet.address);
-        expect(contract.accountState?.type).not.toBe('active');
     });
 });

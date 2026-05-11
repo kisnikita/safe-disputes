@@ -2,17 +2,22 @@ import { useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 import { SenderArguments, Sender, Address } from "@ton/core";
 
 export function useTonConnect(): {
-    sender: Sender;
     address: string | null;
     connected: boolean;
-    sendSignedTransaction: (args: SenderArguments) => Promise<string>;
+    sendWithBoc: (fn: (senderWithBoc: Sender) => Promise<void>) => Promise<string>;
 } {
     const [tonConnectUI] = useTonConnectUI()
     const wallet = useTonWallet()
+    const senderAddress = wallet?.account?.address ? Address.parse(wallet.account.address) : undefined
 
     const sendSignedTransaction = async (args: SenderArguments): Promise<string> => {
+        if (!wallet?.account?.address) {
+            throw new Error("wallet address not found");
+        }
         const result = await tonConnectUI.sendTransaction(
             {
+                from: wallet.account.address,
+                network: wallet.account.chain,
                 messages: [
                     {
                         address: args.to.toString(),
@@ -33,16 +38,24 @@ export function useTonConnect(): {
 
         return result.boc;
     };
+    const sendWithBoc = async (fn: (senderWithBoc: Sender) => Promise<void>): Promise<string> => {
+        let boc = "";
+        const senderWithBoc: Sender = {
+            address: senderAddress,
+            send: async (args: SenderArguments) => {
+                boc = await sendSignedTransaction(args);
+            },
+        };
+        await fn(senderWithBoc);
+        if (!boc) {
+            throw new Error("wallet did not return signed boc");
+        }
+        return boc;
+    };
 
     return {
-        sender: {
-            send: async (args: SenderArguments) => {
-                await sendSignedTransaction(args);
-            },
-            address: wallet?.account?.address ? Address.parse(wallet?.account?.address) : undefined
-        },
         address: wallet?.account.address ?? null,
         connected: !!wallet,
-        sendSignedTransaction,
+        sendWithBoc,
     }
 }

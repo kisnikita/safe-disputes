@@ -5,6 +5,7 @@ import "github.com/google/uuid"
 type EvidenceOpts struct {
 	DisputeID   string
 	Username    string
+	Boc         string
 	Description string
 	ImageData   []byte
 	ImageType   string

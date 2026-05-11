@@ -39,11 +39,11 @@ func newMultipartRequest(t *testing.T, method, target string, values url.Values)
 }
 
 type fakeDisputeCreator struct {
-	err        error
-	called     bool
-	creator    string
-	boc        string
-	req        models.CreateDisputeReq
+	err     error
+	called  bool
+	creator string
+	boc     string
+	req     models.CreateDisputeReq
 }
 
 func (f *fakeDisputeCreator) CreateDispute(_ context.Context, req models.CreateDisputeReq, actorUsername string) error {
@@ -62,7 +62,7 @@ type fakeDisputePrechecker struct {
 	creator  string
 }
 
-func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponent string, amountNano int64, 
+func (f *fakeDisputePrechecker) PrecheckCreateDispute(_ context.Context, opponent string, amountNano int64,
 	creatorUsername string,
 ) error {
 	f.called = true
@@ -122,13 +122,16 @@ type fakeDisputeVoter struct {
 	id       string
 	username string
 	vote     bool
+	boc      string
 }
 
-func (f *fakeDisputeVoter) VoteDispute(_ context.Context, disputeID string, username string, win bool) error {
+func (f *fakeDisputeVoter) VoteDispute(_ context.Context, disputeID string, username string, win bool, boc string,
+) error {
 	f.called = true
 	f.id = disputeID
 	f.username = username
 	f.vote = win
+	f.boc = boc
 	return f.err
 }
 
@@ -147,6 +150,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("description", "desc")
 		form.Set("opponent", "bob")
 		form.Set("amountNano", "100000000000")
+		form.Set("depositNano", "20000000000")
 		form.Set("endsAt", time.Now().Add(48*time.Hour).UTC().Format(time.RFC3339))
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
@@ -167,13 +171,16 @@ func TestCreateDispute(t *testing.T) {
 		if creator.req.AmountNano != "100000000000" {
 			t.Fatalf("expected amountNano 100000000000, got %s", creator.req.AmountNano)
 		}
+		if creator.req.DepositNano != "20000000000" {
+			t.Fatalf("expected depositNano 20000000000, got %s", creator.req.DepositNano)
+		}
 		if creator.boc == "" {
 			t.Fatal("expected boc to be passed")
 		}
 	})
 
 	t.Run("invalid past endsAt returns bad request", func(t *testing.T) {
-		creator := &fakeDisputeCreator{err: models.ErrValidation}
+		creator := &fakeDisputeCreator{err: services.ErrValidation}
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
 			c.Set("username", "alice")
@@ -186,6 +193,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("description", "desc")
 		form.Set("opponent", "bob")
 		form.Set("amountNano", "100000000000")
+		form.Set("depositNano", "20000000000")
 		form.Set("endsAt", time.Now().Add(-2*time.Hour).UTC().Format(time.RFC3339))
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
@@ -216,6 +224,7 @@ func TestCreateDispute(t *testing.T) {
 		form.Set("description", "desc")
 		form.Set("opponent", "bob")
 		form.Set("amountNano", "100000000000")
+		form.Set("depositNano", "20000000000")
 		form.Set("endsAt", time.Now().Add(48*time.Hour).UTC().Format(time.RFC3339))
 		form.Set("contractAddress", "addr")
 		form.Set("boc", "te6cckEBAQEAAgAAAA==")
@@ -395,29 +404,7 @@ func TestGetDispute(t *testing.T) {
 }
 
 func TestVoteDispute(t *testing.T) {
-	t.Run("returns bad request for invalid json body", func(t *testing.T) {
-		voter := &fakeDisputeVoter{}
-		r := gin.New()
-		r.Use(func(c *gin.Context) {
-			c.Set("username", "alice")
-			c.Next()
-		})
-		r.POST("/disputes/:id/vote", voteDispute(noopLogger{}, voter))
-
-		req := httptest.NewRequest(http.MethodPost, "/disputes/123/vote", strings.NewReader("{"))
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
-		r.ServeHTTP(rr, req)
-
-		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
-		}
-		if voter.called {
-			t.Fatal("voter should not be called")
-		}
-	})
-
-	t.Run("passes parsed vote to service", func(t *testing.T) {
+	t.Run("passes default boc when missing in body", func(t *testing.T) {
 		voter := &fakeDisputeVoter{}
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
@@ -435,10 +422,36 @@ func TestVoteDispute(t *testing.T) {
 			t.Fatalf("expected %d, got %d", http.StatusNoContent, rr.Code)
 		}
 		if !voter.called {
-			t.Fatal("expected VoteDispute to be called")
+			t.Fatal("voter should be called")
 		}
-		if voter.id != "123" || voter.username != "alice" || !voter.vote {
-			t.Fatalf("unexpected call args: id=%q user=%q vote=%v", voter.id, voter.username, voter.vote)
+	})
+
+	t.Run("passes params to service", func(t *testing.T) {
+		voter := &fakeDisputeVoter{}
+		r := gin.New()
+		r.Use(func(c *gin.Context) {
+			c.Set("username", "alice")
+			c.Next()
+		})
+		r.POST("/disputes/:id/vote", voteDispute(noopLogger{}, voter))
+
+		req := httptest.NewRequest(http.MethodPost, "/disputes/123/vote",
+			strings.NewReader(`{"vote":true,"boc":"te6cckEBAQEAAgAAAA=="}`))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("expected %d, got %d", http.StatusNoContent, rr.Code)
+		}
+		if !voter.called {
+			t.Fatal("expected WinDispute to be called")
+		}
+		if voter.id != "123" || voter.username != "alice" {
+			t.Fatalf("unexpected call args: id=%q user=%q", voter.id, voter.username)
+		}
+		if !voter.vote || voter.boc != "te6cckEBAQEAAgAAAA==" {
+			t.Fatalf("unexpected vote payload: vote=%t boc=%q", voter.vote, voter.boc)
 		}
 	})
 }

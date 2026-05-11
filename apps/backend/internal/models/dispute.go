@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrValidation = errors.New("validation error")
+var ErrDisputeValidation = errors.New("dispute validation error")
 
 type DisputeCard struct {
 	ID           string    `db:"id"            json:"id"`
@@ -20,8 +20,8 @@ type DisputeCard struct {
 	Opponent     string    `db:"opponent"      json:"opponent"`
 	PhotoUrl     *string   `db:"photo_url"     json:"photoUrl"`
 	Result       Result    `db:"result"        json:"result"`
-	Vote         bool      `db:"vote"          json:"vote"`  // true for "win", false for "lose"
-	Claim        bool      `db:"claim"         json:"claim"` // true if user has claimed the dispute
+	IsWin        bool      `db:"is_win"        json:"isWin"`       
+	IsClaimable  bool      `db:"is_claimable"  json:"isClaimable"`
 	IsUnread     bool      `db:"is_unread"     json:"isUnread"`
 }
 
@@ -33,6 +33,7 @@ type DisputeDetails struct {
 	UpdatedAt       time.Time `db:"updated_at"       json:"updatedAt"`
 	Cryptocurrency  string    `db:"cryptocurrency"   json:"cryptocurrency"`
 	AmountNano      int64     `db:"amount_nano"      json:"amountNano"`
+	DepositNano     int64     `db:"deposit_nano"     json:"depositNano"`
 	ImageData       []byte    `db:"image_data"       json:"imageData"`
 	ImageType       *string   `db:"image_type"       json:"imageType"`
 	ContractAddress string    `db:"contract_address" json:"contractAddress"`
@@ -41,8 +42,8 @@ type DisputeDetails struct {
 	Opponent        string    `db:"opponent"         json:"opponent"`
 	PhotoUrl        *string   `db:"photo_url"        json:"photoUrl"`
 	Result          Result    `db:"result"           json:"result"`
-	Vote            bool      `db:"vote"             json:"vote"`  // true for "win", false for "lose"
-	Claim           bool      `db:"claim"            json:"claim"` // true if user has claimed the dispute
+	IsWin           bool      `db:"is_win"           json:"isWin"`       
+	IsClaimable     bool      `db:"is_claimable"     json:"isClaimable"`
 }
 
 type DisputeListOpts struct {
@@ -58,6 +59,7 @@ type CreateDisputeReq struct {
 	Description     string `form:"description"     binding:"required"`
 	Opponent        string `form:"opponent"        binding:"required"`
 	AmountNano      string `form:"amountNano"      binding:"required"`
+	DepositNano     string `form:"depositNano"     binding:"required"`
 	EndsAt          string `form:"endsAt"          binding:"required"`
 	ContractAddress string `form:"contractAddress" binding:"required"`
 	Boc             string `form:"boc"             binding:"required"`
@@ -68,22 +70,21 @@ type CreateDisputeReq struct {
 func NewDispute(opts CreateDisputeReq) (Dispute, error) {
 	amountNano, err := ParsePositiveNano(opts.AmountNano)
 	if err != nil {
-		return Dispute{}, fmt.Errorf("%w: %w", ErrValidation, err)
+		return Dispute{}, fmt.Errorf("%w: failed to parse AmountNano: %w", ErrDisputeValidation, err)
+	}
+	depositNano, err := ParsePositiveNano(opts.DepositNano)
+	if err != nil {
+		return Dispute{}, fmt.Errorf("%w: failed to parse DepositNano: %w", ErrDisputeValidation, err)
 	}
 	endsAt, err := time.Parse(time.RFC3339, opts.EndsAt)
 	if err != nil {
-		return Dispute{}, fmt.Errorf("%w: %w", ErrValidation, err)
+		return Dispute{}, fmt.Errorf("%w incorrect EndsAt format: %w", ErrDisputeValidation, err)
 	}
 	if !endsAt.After(time.Now()) {
-		return Dispute{}, fmt.Errorf("%w: endsAt must be in the future", ErrValidation)
+		return Dispute{}, fmt.Errorf("%w: EndsAt must be in the future", ErrDisputeValidation)
 	}
 
 	createdAt := time.Now()
-	acceptanceDeadline := createdAt.Add(24 * time.Hour)
-	nextDeadline := acceptanceDeadline
-	if endsAt.Before(acceptanceDeadline) {
-		nextDeadline = endsAt
-	}
 	d := Dispute{
 		ID:              uuid.New(),
 		Title:           opts.Title,
@@ -92,10 +93,11 @@ func NewDispute(opts CreateDisputeReq) (Dispute, error) {
 		UpdatedAt:       createdAt,
 		Cryptocurrency:  "TON",
 		AmountNano:      amountNano,
+		DepositNano:     depositNano,
 		ImageData:       opts.ImageData,
 		ContractAddress: opts.ContractAddress,
 		EndsAt:          endsAt,
-		NextDeadline:    nextDeadline,
+		NextDeadline:    endsAt,
 	}
 	if opts.ImageType != "" {
 		d.ImageType = &opts.ImageType

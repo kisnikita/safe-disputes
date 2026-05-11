@@ -7,7 +7,7 @@ import { useBetContract } from '../../hooks/useBetContract';
 import { useTonConnect } from '../../hooks/useTonConnect';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { ImageViewerModal } from '../ImageViewer/ImageViewerModal';
-import { calculateBetDepositNano, formatNanoToTon } from '../../utils/tonAmount';
+import { formatNanoToTon } from '../../utils/tonAmount';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
 
 interface Props {
@@ -25,6 +25,7 @@ interface BetDetail {
   title: string;
   description: string;
   amountNano: string | number;
+  depositNano: string | number;
   opponent: string;
   endsAt: string;
   cryptocurrency: string;
@@ -45,9 +46,16 @@ interface BetDetail {
   | 'win'
   | 'lose'
   | 'draw'
-  claim: boolean;
-  vote?: boolean; // true = win, false = lose
+  isClaimable: boolean;
+  isWin?: boolean;
 }
+
+const claimButtonTitle: Partial<Record<BetDetail['result'], string>> = {
+  rejected: 'Вернуть ставку и депозит',
+  win:      'Забрать награду',
+  lose:     'Вернуть депозит',
+  draw:     'Вернуть ставку и депозит',
+};
 
 export const BetDetailsModal: React.FC<Props> = ({
   id,
@@ -72,7 +80,7 @@ export const BetDetailsModal: React.FC<Props> = ({
   const [claimShake, setClaimShake] = useState(false);
   const [resultShake, setResultShake] = useState<'win' | 'lose' | null>(null);
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null);
-  const { accept, refund, win, draw } = useBetContract();
+  const { accept, vote, claim, cancel } = useBetContract();
   const { connected } = useTonConnect();
   const showWalletConnectPopup = useWalletConnectPopup();
 
@@ -103,7 +111,6 @@ export const BetDetailsModal: React.FC<Props> = ({
     })();
   }, [id]);
 
-  // Принять/Отклонить
   const handleAction = async (action: 'accept' | 'reject') => {
     if (!bet) return;
     if (action === 'accept' && !connected) {
@@ -117,8 +124,49 @@ export const BetDetailsModal: React.FC<Props> = ({
 
     try {
       if (action === 'accept') {
-        await accept(bet.contractAddress, String(bet.amountNano));
+        const signedBoc = await accept(bet.contractAddress);
+        const params = new URLSearchParams({ boc: signedBoc });
+        const res = await apiFetch(`/api/v1/disputes/${id}/${action}?${params.toString()}`, { method: 'POST' });
+        if (!res.ok) throw new Error();
+        setSuccess('Пари успешно принято!');
+      } else {
+        const res = await apiFetch(`/api/v1/disputes/${id}/${action}`, { method: 'POST' });
+        if (!res.ok) throw new Error();
+        setSuccess('Пари отменено');
       }
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (action === 'accept' && /rejected|declined|cancel/i.test(msg)) {
+        setError('Транзакция отменена пользователем');
+      } else {
+        setError(action === 'accept' ? 'Не удалось отправить транзакцию' : 'Не удалось отменить пари');
+      }
+      console.log('failed to handle bet action %s, msg = %s, betContract = %s', action, msg, bet.contractAddress);
+      setActionLoading(false);
+      return;
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResultVote = async (v: 'win' | 'lose') => {
+    if (!bet) return;
+    if (!connected) {
+      setResultShake(null);
+      requestAnimationFrame(() => setResultShake(v));
+      await showWalletConnectPopup();
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const signedBoc = await vote(bet.contractAddress, v === 'win');
+      const res = await apiFetch(`/api/v1/disputes/${id}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vote: v === 'win', boc: signedBoc }),
+      });
+      if (!res.ok) throw new Error();
+      setSuccess(v === 'win' ? 'Вы проголосовали за победу!' : 'Вы проголосовали за поражение!');
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel/i.test(msg)) {
@@ -126,47 +174,12 @@ export const BetDetailsModal: React.FC<Props> = ({
       } else {
         setError('Не удалось отправить транзакцию');
       }
-      console.log('failed to accept %s', msg);
-      setActionLoading(false);
-      return;
-    }
-    try {
-      const res = await apiFetch(`/api/v1/disputes/${id}/${action}`, { method: 'POST' });
-      if (!res.ok) throw new Error();
-      setSuccess(action === 'accept' ? 'Пари успешно принято!' : 'Пари отклонено');
-    } catch {
-      // ignore
+      console.log('failed to vote bet with vote: %s, msg: %s, betContract = %s', v, msg, bet.contractAddress);
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Голосование за результат
-  const handleResultVote = async (vote: 'win' | 'lose') => {
-    if (!bet) return;
-    if (vote === 'win' && !connected) {
-      setResultShake(null);
-      requestAnimationFrame(() => setResultShake(vote));
-      await showWalletConnectPopup();
-      return;
-    }
-    setActionLoading(true);
-    try {
-      const res = await apiFetch(`/api/v1/disputes/${id}/vote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vote: vote === 'win' }),
-      });
-      if (!res.ok) throw new Error();
-      setSuccess(vote === 'win' ? 'Вы проголосовали за победу!' : 'Вы проголосовали за поражение!');
-    } catch {
-      // ignore
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Забрать награду/Вернуть средства
   const handleClaim = async () => {
     if (!bet) return;
     if (!connected) {
@@ -178,15 +191,13 @@ export const BetDetailsModal: React.FC<Props> = ({
     setActionLoading(true);
     setError(null);
     try {
-      if (bet.result === 'draw') {
-        await draw(bet.contractAddress);
-      } else if (bet.result === 'win') {
-        await win(bet.contractAddress);
-      } else if (bet.result === 'rejected') {
-        await refund(bet.contractAddress);
-      } else {
-        throw new Error('Unsupported bet result for claim');
-      }
+      const signedBoc = bet.result === 'rejected'
+        ? await cancel(bet.contractAddress)
+        : await claim(bet.contractAddress);
+      const params = new URLSearchParams({ boc: signedBoc });
+      const res = await apiFetch(`/api/v1/disputes/${id}/claim?${params.toString()}`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      setSuccess('Средства успешно возвращены!');
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel/i.test(msg)) {
@@ -194,16 +205,9 @@ export const BetDetailsModal: React.FC<Props> = ({
       } else {
         setError('Не удалось отправить транзакцию');
       }
-      console.log('failed to claim bet with result %s %s', bet.result, msg);
+      console.log('failed to claim with result: %s, msg: %s, betContract = %s', bet.result, msg, bet.contractAddress);
       setActionLoading(false);
       return;
-    }
-    try {
-      const res = await apiFetch(`/api/v1/disputes/${id}/claim`, { method: 'POST' });
-      if (!res.ok) throw new Error();
-      setSuccess((bet.result === 'win' ? 'Награда успешно получена!' : 'Средства успешно возвращены!'));
-    } catch {
-      // ignore
     } finally {
       setActionLoading(false);
     }
@@ -232,11 +236,10 @@ export const BetDetailsModal: React.FC<Props> = ({
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-  });
+    });
 
-  const formatAmountWithDeposit = (amountNano: string | number, currency: string): string => {
+  const formatAmountWithDeposit = (amountNano: string | number, depositNano: string | number, currency: string): string => {
     const amountTon = formatNanoToTon(amountNano, 2, { keepTrailingZeros: true });
-    const depositNano = calculateBetDepositNano(String(amountNano));
     const depositTon = formatNanoToTon(depositNano, 2);
     return `${amountTon} ${currency} (+${depositTon} ${currency} депозит)`;
   };
@@ -310,7 +313,7 @@ export const BetDetailsModal: React.FC<Props> = ({
             <button className="bet-details-close-btn" onClick={requestClose}>×</button>
             <h3>{bet.title}</h3>
             <p><strong>Оппонент:</strong> {bet.opponent}</p>
-            <p><strong>Ставка:</strong> {formatAmountWithDeposit(bet.amountNano, bet.cryptocurrency)}</p>
+            <p><strong>Ставка:</strong> {formatAmountWithDeposit(bet.amountNano, bet.depositNano, bet.cryptocurrency)}</p>
             <p><strong>Создано:</strong> {formatDate(bet.createdAt)}</p>
             {(bet.result === 'new' || bet.result === 'sent') && (
               <p><strong>Окончание пари:</strong> {formatDate(bet.endsAt)}</p>
@@ -353,6 +356,17 @@ export const BetDetailsModal: React.FC<Props> = ({
                 </button>
               </div>
             )}
+            {showActions && bet.result === 'sent' && (
+              <div className="bet-details-action-buttons">
+                <button
+                  className="bet-details-reject-btn"
+                  disabled={actionLoading}
+                  onClick={() => handleAction('reject')}
+                >
+                  {actionLoading ? '…' : 'Отменить пари'}
+                </button>
+              </div>
+            )}
 
             {/* Голосование за результат (processed) */}
             {showResultActions && bet.result === 'processed' && (
@@ -378,10 +392,10 @@ export const BetDetailsModal: React.FC<Props> = ({
             )}
 
             {/* Индикация вашего выбора (answered) */}
-            {bet.result === 'answered' && bet.vote !== undefined && (
+            {bet.result === 'answered' && bet.isWin !== undefined && (
               <p className="bet-details-vote-info">
                 Вы выбрали результат{' '}
-                {bet.vote
+                {bet.isWin
                   ? <span style={{ color: 'green' }}>Победа</span>
                   : <span style={{ color: 'red' }}>Поражение</span>}
               </p>
@@ -399,8 +413,8 @@ export const BetDetailsModal: React.FC<Props> = ({
               </div>
             )}
 
-            {/* Кнопка «Забрать награду/Вернуть средства» (passed) */}
-            {showClaimActions && bet.claim && (
+            {/* Кнопка «Вернуть депозит (passed) */}
+            {showClaimActions && bet.isClaimable && (
               <div className="bet-details-action-buttons">
                 <button
                   className={`bet-details-accept-btn${!connected ? ' bet-details-wallet-disconnected' : ''}${claimShake ? ' bet-details-wallet-shake' : ''}`}
@@ -409,7 +423,7 @@ export const BetDetailsModal: React.FC<Props> = ({
                   onAnimationEnd={() => setClaimShake(false)}
                   title={connected ? undefined : 'Подключите TON-кошелёк'}
                 >
-                  {actionLoading ? '…' : (bet.result === 'win' ? 'Забрать награду' : 'Вернуть средства')}
+                  {actionLoading ? '…' : claimButtonTitle[bet.result]}
                 </button>
               </div>
             )}

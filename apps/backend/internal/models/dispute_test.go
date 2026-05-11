@@ -5,12 +5,13 @@ import (
 	"time"
 )
 
-func TestNewDisputeSetsNextDeadlineTo24HoursWhenEndsAtLater(t *testing.T) {
+func TestNewDisputeSetsNextDeadlineToEndsAt(t *testing.T) {
 	dispute, err := NewDispute(CreateDisputeReq{
 		Title:           "t",
 		Description:     "d",
 		Opponent:        "bob",
 		AmountNano:      "100000000000",
+		DepositNano:     "20000000000",
 		EndsAt:          time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339),
 		ContractAddress: "addr",
 		Boc:             "boc",
@@ -19,9 +20,8 @@ func TestNewDisputeSetsNextDeadlineTo24HoursWhenEndsAtLater(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	got := dispute.NextDeadline.Sub(dispute.CreatedAt)
-	if got < 23*time.Hour+59*time.Minute || got > 24*time.Hour+time.Minute {
-		t.Fatalf("expected next deadline around 24h, got %s", got)
+	if !dispute.NextDeadline.Equal(dispute.EndsAt) {
+		t.Fatalf("expected next deadline equal to endsAt, got next=%s endsAt=%s", dispute.NextDeadline, dispute.EndsAt)
 	}
 }
 
@@ -32,6 +32,7 @@ func TestNewDisputeSetsNextDeadlineToEndsAtWhenEndsAtSooner(t *testing.T) {
 		Description:     "d",
 		Opponent:        "bob",
 		AmountNano:      "100000000000",
+		DepositNano:     "20000000000",
 		EndsAt:          endsAt,
 		ContractAddress: "addr",
 		Boc:             "boc",
@@ -51,6 +52,7 @@ func TestNewDisputeRejectsPastEndsAt(t *testing.T) {
 		Description:     "d",
 		Opponent:        "bob",
 		AmountNano:      "100000000000",
+		DepositNano:     "20000000000",
 		EndsAt:          time.Now().Add(-time.Hour).UTC().Format(time.RFC3339),
 		ContractAddress: "addr",
 		Boc:             "boc",

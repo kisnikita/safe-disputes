@@ -7,15 +7,11 @@ import { useTonConnect } from '../../hooks/useTonConnect';
 import { FileInput } from '../FileInput/FileInput';
 import { TimePicker } from '../TimePicker/TimePicker';
 import { backButton, hideKeyboard } from '@tma.js/sdk-react';
-import {
-  AmountInput,
-  DEFAULT_AMOUNT_MAX_FRACTION_DIGITS,
-  validateAmountValue,
-} from '../AmountInput/AmountInput';
+import { AmountInput, DEFAULT_AMOUNT_MAX_FRACTION_DIGITS, validateAmountValue } from '../AmountInput/AmountInput';
 import { Alert } from '../ui/alert/Alert';
 import { TonIcon } from '../TonIcon/TonIcon';
 import { useWalletConnectPopup } from '../../utils/walletPopup';
-import { calculateBetDepositNano, formatNanoToTon, parseTonToNano } from '../../utils/tonAmount';
+import { calculateBetDepositNano, DEFAULT_MIN_BET_DEPOSIT_NANO, formatNanoToTon, parseTonToNano } from '../../utils/tonAmount';
 import { AutoGrowTextarea } from '../ui/auto-grow-textarea/AutoGrowTextarea';
 import { useBlockedActionFeedback } from '../../hooks/useBlockedActionFeedback';
 
@@ -53,8 +49,8 @@ const DESCRIPTION_WARNING_LENGTH = 3600;
 const CREATE_BET_DRAFT_KEY = 'create-bet-draft-v1';
 const USERNAME_REGEX = /^[A-Za-z][A-Za-z0-9_]{4,}$/;
 const TITLE_MAX_LENGTH = 64;
-const MIN_BET_TON = 0.05;
-const MIN_BET_NANO = parseTonToNano(MIN_BET_TON.toFixed(2), { allowZero: true });
+const DEFAULT_MIN_STAKE_TON = '0.05';
+const DEFAULT_MIN_STAKE_NANO = parseTonToNano(DEFAULT_MIN_STAKE_TON, { allowZero: true }) ?? '50000000';
 
 const roundToMinute = (value: Date): Date => {
   const next = new Date(value);
@@ -151,14 +147,14 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const hasUserInputRef = useRef(false);
   const createdRef = useRef(false);
   const createdNotifiedRef = useRef(false);
-  const attemptCloseRef = useRef<() => Promise<void>>(async () => {});
+  const attemptCloseRef = useRef<() => Promise<void>>(async () => { });
   const closeInFlightRef = useRef(false);
   const touchStartYRef = useRef<number | null>(null);
   const touchHideTriggeredRef = useRef(false);
   const initialEndsAtRef = useRef<Date>(getDefaultEndsAt());
 
   const { getAddress } = useBetContract();
-  const { createBetWithDeposit } = useBetMasterContract();
+  const { createBetWithDeposit, getMinDeposit, getMinStake } = useBetMasterContract();
   const { connected } = useTonConnect();
   const showWalletConnectPopup = useWalletConnectPopup();
   const {
@@ -172,20 +168,22 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
   const [description, setDescription] = useState('');
   const [opponent, setOpponent] = useState('');
   const [amountInput, setAmountInput] = useState<string>('');
+  const [minStakeNano, setMinStakeNano] = useState<bigint>(BigInt(DEFAULT_MIN_STAKE_NANO));
+  const [minDepositNano, setMinDepositNano] = useState<bigint>(DEFAULT_MIN_BET_DEPOSIT_NANO);
   const amountValidation = validateAmountValue(amountInput, {
     maxFractionDigits: DEFAULT_AMOUNT_MAX_FRACTION_DIGITS,
-    minNano: MIN_BET_NANO,
-    minDisplayTon: MIN_BET_TON.toFixed(2),
+    minNano: minStakeNano,
+    minDisplayTon: formatNanoToTon(minStakeNano, 2, { keepTrailingZeros: true }),
   });
   const amountNano = amountValidation.parsedNano;
   const isAmountEmpty = amountValidation.isEmpty;
   const amountValidationText = amountValidation.validationText;
   const isAmountInvalid = amountValidation.isInvalid;
   const amountDepositNano = amountNano !== null && !isAmountInvalid
-    ? calculateBetDepositNano(amountNano)
+    ? calculateBetDepositNano(amountNano, minDepositNano)
     : null;
   const amountDepositTon = amountDepositNano !== null
-    ? formatNanoToTon(amountDepositNano, 2)
+    ? formatNanoToTon(amountDepositNano, 3)
     : null;
   const [endsAt, setEndsAt] = useState<Date>(() => getDefaultEndsAt());
   const [file, setFile] = useState<File | null>(null);
@@ -297,6 +295,27 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       closeInFlightRef.current = false;
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const [depositValue, stakeValue] = await Promise.all([getMinDeposit(), getMinStake()]);
+        if (!isMounted) return;
+        if (depositValue !== undefined) {
+          setMinDepositNano(depositValue);
+        }
+        if (stakeValue !== undefined) {
+          setMinStakeNano(stakeValue);
+        }
+      } catch {
+        // Keep defaults when getters are unavailable.
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [getMinDeposit, getMinStake]);
 
   useEffect(() => {
     if (!backButton.isSupported()) return;
@@ -488,6 +507,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
 
     let betID: bigint;
     let betAddress: string;
+    let deadline = Math.floor(endsAt.getTime() / 1000);
     try {
       betID = generateBetId();
     } catch {
@@ -496,7 +516,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       return;
     }
     try {
-      betAddress = (await getAddress(betID)).toString();
+      betAddress = (await getAddress(betID, deadline)).toString();
     } catch (err) {
       setError('Не удалось вычислить адрес контракта пари');
       setSubmitting(false);
@@ -508,9 +528,9 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       if (!amountNano) {
         throw new Error('invalid amount nano');
       }
-      const depositNano = calculateBetDepositNano(amountNano);
-      const totalValueNano = (BigInt(amountNano) + BigInt(depositNano)).toString();
-      signedBoc = await createBetWithDeposit(betID, totalValueNano);
+      const depositNano = calculateBetDepositNano(amountNano, minDepositNano);
+      const totalValueNano = BigInt(amountNano) + BigInt(depositNano);
+      signedBoc = await createBetWithDeposit(betID, totalValueNano, deadline);
     } catch (err: any) {
       const msg = typeof err?.message === 'string' ? err.message : '';
       if (/rejected|declined|cancel|not sent/i.test(msg)) {
@@ -535,6 +555,7 @@ export const CreateBetForm: React.FC<Props> = ({ onClose, onCreated }) => {
       return;
     }
     form.append('amountNano', amountNano);
+    form.append('depositNano', calculateBetDepositNano(amountNano, minDepositNano));
     form.append('endsAt', endsAt.toISOString());
     form.append('contractAddress', betAddress);
     form.append('boc', signedBoc);

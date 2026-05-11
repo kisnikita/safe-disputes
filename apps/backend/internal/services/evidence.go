@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/kisnikita/safe-disputes/backend/internal/models"
 	"github.com/kisnikita/safe-disputes/backend/internal/repository"
@@ -39,6 +40,7 @@ type EvidenceService struct {
 	evidenceBroadcaster  EvidenceBroadcaster
 	disputesFinder       DisputeFinder
 	msgSender            MessageSender
+	txMonitor            TransactionMonitor
 }
 
 func NewEvidenceService(repo *repository.Repository, log log.Logger, msgSender MessageSender) (EvidenceService, error) {
@@ -65,9 +67,17 @@ func NewEvidenceService(repo *repository.Repository, log log.Logger, msgSender M
 	}, nil
 }
 
+func (s EvidenceService) WithTransactionMonitor(txMonitor TransactionMonitor) EvidenceService {
+	s.txMonitor = txMonitor
+	return s
+}
+
 func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.EvidenceOpts) error {
-	if opts.DisputeID == "" || opts.Username == "" {
-		return fmt.Errorf("invalid opts data: disputeID and username must be provided")
+	if s.txMonitor == nil {
+		return fmt.Errorf("%w: tx monitor is not configured", ErrTxMonitorUnavailable)
+	}
+	if err := s.txMonitor.WaitForSuccess(ctx, opts.Boc); err != nil {
+		return err
 	}
 
 	disputeUUID, err := uuid.Parse(opts.DisputeID)
@@ -100,7 +110,7 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 		optsDP := models.ParticipantUpdateOpts{
 			ID:     participantProvider.ID,
 			Result: new(models.DisputesResultEvidenceAnswered),
-			SeenAt: new(true),
+			Seen: new(true),
 		}
 		if err := s.participantUpdater.UpdateParticipant(ctx, optsDP); err != nil {
 			return fmt.Errorf("failed to update participants result: %w", err)
@@ -112,7 +122,7 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 	updOpts := models.ParticipantUpdateOpts{
 		ID:     participantProvider.ID,
 		Result: new(models.DisputesResultInspected),
-		SeenAt: new(true),
+		Seen: new(true),
 	}
 	if err := s.participantUpdater.UpdateParticipant(ctx, updOpts); err != nil {
 		return fmt.Errorf("failed to update participants result: %w", err)
@@ -127,13 +137,13 @@ func (s EvidenceService) ProvideEvidence(ctx context.Context, opts models.Eviden
 		return fmt.Errorf("failed to get opponent participants: %w", err)
 	}
 	updOpts.ID = participantOpponent.ID
-	updOpts.SeenAt = new(false)
+	updOpts.Seen = new(false)
 	if err := s.participantUpdater.UpdateParticipant(ctx, updOpts); err != nil {
 		return fmt.Errorf("failed to update participants result: %w", err)
 	}
 
 	// --- CREATE INVESTIGATION ---
-	dispute, err := s.disputesFinder.GetDisputeByID(ctx, disputeUUID, provider.ID)
+	dispute, err := s.disputesFinder.GetDisputeByID(ctx, disputeUUID)
 	if err != nil {
 		return fmt.Errorf("failed to get dispute by ID: %w", err)
 	}

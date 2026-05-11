@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/kisnikita/safe-disputes/backend/internal/models"
 	"github.com/lib/pq"
@@ -10,14 +11,15 @@ import (
 
 func (repo *Repository) InsertParticipant(ctx context.Context, participant models.Participant) error {
 	if _, err := repo.db.ExecContext(ctx, `
-		INSERT INTO participants (id, user_id, dispute_id, result, status, claim, updated_at, seen_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		INSERT INTO participants (id, user_id, dispute_id, is_creator, result, status, is_claimable, updated_at, seen_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		participant.ID,
 		participant.UserID,
 		participant.DisputeID,
+		participant.IsCreator,
 		participant.Result,
 		participant.Status,
-		participant.Claim,
+		participant.IsClaimable,
 		participant.UpdatedAt,
 		participant.SeenAt,
 	); err != nil {
@@ -43,7 +45,7 @@ func (repo *Repository) GetParticipant(ctx context.Context, disputeID uuid.UUID,
 ) (models.Participant, error) {
 	var participant models.Participant
 	if err := repo.db.QueryRowContext(ctx, `
-	SELECT id, user_id, dispute_id, status, result, vote, claim, updated_at, seen_at
+	SELECT id, user_id, dispute_id, is_creator, status, result, is_win, is_claimable, updated_at, seen_at
 	FROM participants
 	WHERE dispute_id = $1 AND user_id = $2`,
 		disputeID, userID,
@@ -51,10 +53,11 @@ func (repo *Repository) GetParticipant(ctx context.Context, disputeID uuid.UUID,
 		&participant.ID,
 		&participant.UserID,
 		&participant.DisputeID,
+		&participant.IsCreator,
 		&participant.Status,
 		&participant.Result,
-		&participant.Vote,
-		&participant.Claim,
+		&participant.IsWin,
+		&participant.IsClaimable,
 		&participant.UpdatedAt,
 		&participant.SeenAt,
 	); err != nil {
@@ -68,13 +71,13 @@ func (repo *Repository) UpdateParticipant(ctx context.Context, opts models.Parti
 		UPDATE participants
 		SET status = COALESCE($1, status),
 			result = COALESCE($2, result),
-			vote = COALESCE($3, vote),
-			claim = COALESCE($4, claim),
+			is_win = COALESCE($3, is_win),
+			is_claimable = COALESCE($4, is_claimable),
 			seen_at = CASE WHEN $5 THEN now() ELSE seen_at END,
 			updated_at = now()
 		WHERE id = $6
 	`
-	_, err := repo.db.ExecContext(ctx, query, opts.Status, opts.Result, opts.Vote, opts.Claim, opts.SeenAt, opts.ID)
+	_, err := repo.db.ExecContext(ctx, query, opts.Status, opts.Result, opts.IsWin, opts.IsClaimable, opts.Seen, opts.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update participants: %w", err)
 	}

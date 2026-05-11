@@ -12,20 +12,19 @@ import (
 
 func TestGetDisputeByID(t *testing.T) {
 	dID := uuid.New()
-	actorID := uuid.New()
 	now := time.Now()
 	repo := newTestRepo(t, &stubDB{
 		queryFn: func(string, []driver.NamedValue) (driver.Rows, error) {
 			return newRows(
-				[]string{"id", "title", "description", "created_at", "updated_at", "cryptocurrency", "amount_nano", 
+				[]string{"id", "title", "description", "created_at", "updated_at", "cryptocurrency", "amount_nano", "deposit_nano",
 				"image_data", "image_type", "ends_at", "next_deadline", "contract_address"},
-				[]driver.Value{dID.String(), "t", "d", now, now, "TON", int64(100_000_000_000), 
+				[]driver.Value{dID.String(), "t", "d", now, now, "TON", int64(100_000_000_000), int64(20_000_000_000),
 				[]byte{1}, "image/png", now.Add(2 * time.Hour), now.Add(1 * time.Hour), "addr"},
 			), nil
 		},
 	})
 
-	d, err := repo.GetDisputeByID(context.Background(), dID, actorID)
+	d, err := repo.GetDisputeByID(context.Background(), dID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -52,6 +51,7 @@ func TestInsertDispute(t *testing.T) {
 		UpdatedAt:       now,
 		Cryptocurrency:  "TON",
 		AmountNano:      1_000_000_000,
+		DepositNano:     200_000_000,
 		ContractAddress: "a",
 		EndsAt:          now.Add(24 * time.Hour),
 		NextDeadline:    now.Add(12 * time.Hour),
