@@ -153,7 +153,10 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
 
         {!loading && step === 'evidence' && evidences.length > 0 && (
           <>
-            <h4>Доказательства пользователя {evidences[currentIndex].userNumber}</h4>
+            <div className="investigation-details-header-with-back">
+              {currentIndex > 0 && <button className="investigation-details-back-btn" onClick={handleBack}>←</button>}
+              <h4>Доказательства участника {evidences[currentIndex].userNumber}</h4>
+            </div>
             <p className="investigation-details-description">{evidences[currentIndex].description}</p>
             {evidences[currentIndex].imageData && (
               <button
@@ -172,7 +175,6 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
               </button>
             )}
             <div className="investigation-details-nav-buttons">
-              <button disabled={currentIndex === 0} onClick={handleBack}>Назад</button>
               <button onClick={handleNext}>Далее</button>
             </div>
           </>
@@ -192,7 +194,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
                 disabled={voteLoading}
                 title={connected ? undefined : 'Подключите TON-кошелёк'}
               >
-                Пользователь 1
+                Участник 1
               </button>
               <button
                 className={`${!connected ? ' investigation-details-wallet-disconnected' : ''}${voteShake === 'draw' ? ' investigation-details-wallet-shake' : ''}`}
@@ -210,7 +212,7 @@ export const InvestigationDetailsModal: React.FC<Props> = ({ id, onClose, onComp
                 disabled={voteLoading}
                 title={connected ? undefined : 'Подключите TON-кошелёк'}
               >
-                Пользователь 2
+                Участник 2
               </button>
             </div>
           </>

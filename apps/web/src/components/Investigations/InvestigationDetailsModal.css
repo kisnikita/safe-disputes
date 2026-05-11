@@ -80,6 +80,11 @@
   right: 8px;
   width: 30px;
   height: 30px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.12);
@@ -87,6 +92,8 @@
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .investigation-details-next-btn,
@@ -131,7 +138,7 @@
 
 .investigation-details-nav-buttons {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   margin-top: 12px;
 }
@@ -186,7 +193,7 @@
 }
 
 .investigation-details-vote-buttons button:nth-child(1) {
-  background: linear-gradient(215deg, rgba(46, 204, 113, 0.62), rgba(255, 255, 255, 0));
+  background: linear-gradient(215deg, rgba(46, 204, 199, 0.611), rgba(255, 255, 255, 0));
 }
 
 .investigation-details-vote-buttons button:nth-child(2) {
@@ -194,7 +201,7 @@
 }
 
 .investigation-details-vote-buttons button:nth-child(3) {
-  background: linear-gradient(215deg, rgba(231, 76, 60, 0.62), rgba(255, 255, 255, 0));
+  background: linear-gradient(215deg, #0b5ce9b0, #3B4F73);
 }
 
 .investigation-details-vote-buttons button:disabled {
